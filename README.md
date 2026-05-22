@@ -118,7 +118,6 @@ The goal was to turn a user's phone into a **social barometer** — displaying r
 - **Vibe Rooms** — public, mood-tagged listening spaces (chill / hype / study / late-night)
 - **Apple Music + YouTube Music** integration to expand beyond Spotify
 - **iOS Live Activities** — Dynamic Island widget for session tracking outside the app
-- **Tether Premium** — subscription tier with expanded session history, capsule capacity, and priority matching
 
 ---
 
