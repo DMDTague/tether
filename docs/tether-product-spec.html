@@ -1,0 +1,1059 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tether — Product Specification</title>
+<style>
+  :root {
+    --bg: #fafaf8;
+    --bg2: #f2f1ed;
+    --bg3: #e8e7e2;
+    --text: #1a1a18;
+    --text2: #5a5a56;
+    --text3: #8a8a84;
+    --border: rgba(0,0,0,0.1);
+    --border2: rgba(0,0,0,0.18);
+    --blue: #185FA5;
+    --blue-bg: #E6F1FB;
+    --blue-text: #0C447C;
+    --green: #3B6D11;
+    --green-bg: #EAF3DE;
+    --green-text: #27500A;
+    --amber: #BA7517;
+    --amber-bg: #FAEEDA;
+    --amber-text: #633806;
+    --purple: #534AB7;
+    --purple-bg: #EEEDFE;
+    --purple-text: #3C3489;
+    --teal: #0F6E56;
+    --teal-bg: #E1F5EE;
+    --teal-text: #085041;
+    --warn-bg: #FAEEDA;
+    --warn-text: #633806;
+    --warn-border: #EF9F27;
+    --success-bg: #EAF3DE;
+    --success-text: #27500A;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #1c1c1a;
+      --bg2: #252523;
+      --bg3: #2e2e2b;
+      --text: #e8e6e0;
+      --text2: #a0a09a;
+      --text3: #686862;
+      --border: rgba(255,255,255,0.1);
+      --border2: rgba(255,255,255,0.18);
+      --blue: #85B7EB;
+      --blue-bg: #042C53;
+      --blue-text: #B5D4F4;
+      --green: #97C459;
+      --green-bg: #173404;
+      --green-text: #C0DD97;
+      --amber: #EF9F27;
+      --amber-bg: #412402;
+      --amber-text: #FAC775;
+      --purple: #AFA9EC;
+      --purple-bg: #26215C;
+      --purple-text: #CECBF6;
+      --teal: #5DCAA5;
+      --teal-bg: #04342C;
+      --teal-text: #9FE1CB;
+      --warn-bg: #412402;
+      --warn-text: #FAC775;
+      --warn-border: #BA7517;
+      --success-bg: #173404;
+      --success-text: #C0DD97;
+    }
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: Georgia, 'Times New Roman', serif;
+    background: var(--bg);
+    color: var(--text);
+    font-size: 16px;
+    line-height: 1.75;
+  }
+
+  .page {
+    max-width: 780px;
+    margin: 0 auto;
+    padding: 60px 40px 100px;
+  }
+
+  /* Header */
+  .doc-header {
+    border-bottom: 1px solid var(--border2);
+    padding-bottom: 32px;
+    margin-bottom: 48px;
+  }
+
+  .doc-title {
+    font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+    font-size: 38px;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    color: var(--text);
+    margin-bottom: 8px;
+  }
+
+  .doc-subtitle {
+    font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+    font-size: 15px;
+    color: var(--text2);
+    margin-bottom: 20px;
+  }
+
+  .meta-row {
+    display: flex;
+    gap: 20px;
+    flex-wrap: wrap;
+  }
+
+  .meta-pill {
+    font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    padding: 4px 10px;
+    border-radius: 20px;
+    background: var(--bg2);
+    color: var(--text2);
+    border: 0.5px solid var(--border);
+  }
+
+  /* Section structure */
+  .section {
+    margin-bottom: 56px;
+  }
+
+  h2 {
+    font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    color: var(--text3);
+    margin-bottom: 20px;
+    padding-bottom: 8px;
+    border-bottom: 0.5px solid var(--border);
+  }
+
+  h3 {
+    font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+    font-size: 17px;
+    font-weight: 600;
+    color: var(--text);
+    margin-bottom: 10px;
+    margin-top: 28px;
+  }
+
+  h3:first-child { margin-top: 0; }
+
+  p {
+    margin-bottom: 14px;
+    color: var(--text);
+  }
+
+  p:last-child { margin-bottom: 0; }
+
+  ul, ol {
+    padding-left: 20px;
+    margin-bottom: 14px;
+    color: var(--text);
+  }
+
+  li { margin-bottom: 5px; }
+
+  strong {
+    font-weight: 600;
+    color: var(--text);
+  }
+
+  code {
+    font-family: 'SF Mono', 'Fira Code', monospace;
+    font-size: 13px;
+    background: var(--bg2);
+    border: 0.5px solid var(--border);
+    border-radius: 4px;
+    padding: 1px 5px;
+    color: var(--text);
+  }
+
+  /* Tables */
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+    font-size: 14px;
+    margin: 16px 0 20px;
+  }
+
+  th {
+    font-weight: 600;
+    font-size: 11px;
+    letter-spacing: .05em;
+    text-transform: uppercase;
+    color: var(--text2);
+    padding: 8px 12px;
+    text-align: left;
+    border-bottom: 1px solid var(--border2);
+  }
+
+  td {
+    padding: 10px 12px;
+    border-bottom: 0.5px solid var(--border);
+    vertical-align: top;
+    color: var(--text);
+  }
+
+  tr:last-child td { border-bottom: none; }
+
+  /* Diagram section wrapper */
+  .diagram-wrap {
+    background: var(--bg2);
+    border: 0.5px solid var(--border);
+    border-radius: 12px;
+    padding: 24px 20px 20px;
+    margin: 24px 0;
+    overflow-x: auto;
+  }
+
+  .diagram-title {
+    font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    color: var(--text3);
+    margin-bottom: 16px;
+  }
+
+  /* Wireframe atoms */
+  .wf-flows { display: flex; flex-direction: column; gap: 32px; }
+
+  .wf-flow-label {
+    font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    color: var(--text3);
+    margin-bottom: 6px;
+  }
+
+  .wf-flow-title {
+    font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text);
+    margin-bottom: 14px;
+  }
+
+  .wf-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 0;
+    overflow-x: auto;
+  }
+
+  .wf-screen { width: 128px; flex-shrink: 0; }
+
+  .wf-phone {
+    width: 108px;
+    margin: 0 auto;
+    border: 1.5px solid var(--border2);
+    border-radius: 18px;
+    overflow: hidden;
+    background: var(--bg);
+  }
+
+  .wf-phone-top {
+    height: 8px;
+    background: var(--bg3);
+    border-bottom: 0.5px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .wf-notch {
+    width: 26px; height: 5px;
+    background: var(--border2);
+    border-radius: 3px;
+  }
+
+  .wf-inner {
+    padding: 9px 8px;
+    min-height: 158px;
+    position: relative;
+  }
+
+  .wf-screen-label {
+    font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+    font-size: 10px;
+    color: var(--text3);
+    text-align: center;
+    margin-top: 6px;
+    line-height: 1.4;
+  }
+
+  .wf-arrow {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 30px;
+    flex-shrink: 0;
+    align-self: stretch;
+    margin-top: -14px;
+  }
+
+  .wf-arrow-wrap { display: flex; flex-direction: column; align-items: center; gap: 2px; }
+  .wf-arrow-note {
+    font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+    font-size: 8px;
+    color: var(--text3);
+    text-align: center;
+    max-width: 28px;
+    line-height: 1.2;
+  }
+
+  /* UI micro-elements */
+  .ui-row { display: flex; align-items: center; gap: 5px; margin-bottom: 5px; }
+  .ui-av {
+    width: 20px; height: 20px; border-radius: 50%;
+    background: var(--blue-bg); flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+    font-family: 'Helvetica Neue', sans-serif;
+  }
+  .ui-av.green { background: var(--success-bg); }
+  .ui-av.amber { background: var(--warn-bg); }
+  .ui-av.purple { background: var(--purple-bg); }
+  .ui-av span { font-size: 6px; font-weight: 600; font-family: 'Helvetica Neue', sans-serif; color: var(--blue-text); }
+  .ui-av.green span { color: var(--success-text); }
+  .ui-av.amber span { color: var(--warn-text); }
+  .ui-av.purple span { color: var(--purple-text); }
+  .ui-label { font-family: 'Helvetica Neue', sans-serif; font-size: 9px; color: var(--text); line-height: 1.2; }
+  .ui-sub { font-family: 'Helvetica Neue', sans-serif; font-size: 7.5px; color: var(--text3); }
+  .ui-live { width: 5px; height: 5px; border-radius: 50%; background: var(--green); margin-left: auto; }
+  .ui-section { font-family: 'Helvetica Neue', sans-serif; font-size: 9px; font-weight: 600; color: var(--text); margin-bottom: 5px; }
+  .ui-divider { height: 0.5px; background: var(--border); margin: 5px 0; }
+  .ui-bar { height: 3px; border-radius: 2px; background: var(--bg3); margin: 2px 0; }
+  .ui-bar.fill { background: var(--blue); }
+  .ui-artwork {
+    width: 48px; height: 48px; border-radius: 6px; margin: 0 auto 5px;
+    background: linear-gradient(135deg, var(--warn-bg), var(--amber-bg));
+    border: 0.5px solid var(--border);
+  }
+  .ui-artwork.blue { background: linear-gradient(135deg, #B5D4F4, #378ADD); }
+  .ui-artwork.pink { background: linear-gradient(135deg, #F4C0D1, #D4537E); }
+  .ui-artwork.green { background: linear-gradient(135deg, #C0DD97, #3B6D11); }
+  .ui-artwork.purple { background: linear-gradient(135deg, #CECBF6, #534AB7); }
+  .ui-track { font-family: 'Helvetica Neue', sans-serif; font-size: 8.5px; font-weight: 600; text-align: center; color: var(--text); }
+  .ui-artist { font-family: 'Helvetica Neue', sans-serif; font-size: 7.5px; text-align: center; color: var(--text3); margin-bottom: 4px; }
+  .ui-btn {
+    height: 17px; border-radius: 9px;
+    display: flex; align-items: center; justify-content: center;
+    font-family: 'Helvetica Neue', sans-serif;
+    font-size: 7.5px; font-weight: 600; margin: 4px auto 0; width: 82px;
+  }
+  .ui-btn.primary { background: var(--blue); color: #fff; }
+  .ui-btn.ghost { border: 0.5px solid var(--border2); color: var(--text2); }
+  .ui-notif {
+    background: var(--warn-bg);
+    border: 0.5px solid var(--warn-border);
+    border-radius: 5px; padding: 4px 6px; margin-bottom: 4px;
+  }
+  .ui-notif p { font-family: 'Helvetica Neue', sans-serif; font-size: 7.5px; color: var(--warn-text); margin: 0 0 3px; }
+  .ui-accept-row { display: flex; gap: 3px; }
+  .ui-accept-btn {
+    flex: 1; height: 13px; border-radius: 3px; font-size: 7px; font-weight: 600;
+    display: flex; align-items: center; justify-content: center;
+    font-family: 'Helvetica Neue', sans-serif;
+  }
+  .ui-accept-btn.yes { background: var(--success-bg); color: var(--success-text); }
+  .ui-accept-btn.no { background: var(--bg3); color: var(--text3); }
+  .ui-overlay {
+    position: absolute; bottom: 7px; right: 5px;
+    background: var(--bg2);
+    border: 0.5px solid var(--border2);
+    border-radius: 9px; padding: 2px 5px;
+    display: flex; align-items: center; gap: 3px;
+  }
+  .ui-overlay span { font-family: 'Helvetica Neue', sans-serif; font-size: 6.5px; color: var(--text3); }
+  .ui-pulse-ring {
+    width: 36px; height: 36px; border-radius: 50%;
+    border: 1.5px solid var(--purple);
+    margin: 8px auto 3px;
+    display: flex; align-items: center; justify-content: center; opacity: .75;
+  }
+  .ui-pulse-inner { width: 24px; height: 24px; border-radius: 50%; background: var(--purple-bg); }
+  .ui-privacy {
+    display: inline-flex; align-items: center; gap: 3px;
+    background: var(--bg2); border: 0.5px solid var(--border2);
+    border-radius: 7px; padding: 2px 5px; margin-top: 4px;
+    font-family: 'Helvetica Neue', sans-serif; font-size: 7.5px; color: var(--text3);
+  }
+  .ui-dot { width: 5px; height: 5px; border-radius: 50%; display: inline-block; }
+
+  .wf-highlight { background: var(--bg2); border-radius: 6px; padding: 3px 4px; }
+
+  /* Legend */
+  .wf-legend {
+    display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
+    margin-bottom: 20px;
+  }
+  .wf-legend-item {
+    display: flex; align-items: center; gap: 5px;
+    font-family: 'Helvetica Neue', sans-serif;
+    font-size: 10px; color: var(--text3);
+  }
+
+  /* Open questions */
+  .open-q {
+    background: var(--bg2);
+    border-left: 2px solid var(--border2);
+    border-radius: 0 6px 6px 0;
+    padding: 10px 14px;
+    margin-bottom: 8px;
+    font-size: 14px;
+  }
+
+  .open-q strong {
+    font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+    font-size: 12px;
+    display: block;
+    margin-bottom: 3px;
+  }
+
+  .open-q p { font-size: 14px; color: var(--text2); margin: 0; }
+
+  /* Footer */
+  .doc-footer {
+    margin-top: 64px;
+    padding-top: 20px;
+    border-top: 0.5px solid var(--border);
+    font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+    font-size: 12px;
+    color: var(--text3);
+  }
+
+  hr {
+    border: none;
+    border-top: 0.5px solid var(--border);
+    margin: 40px 0;
+  }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <!-- Header -->
+  <div class="doc-header">
+    <div class="doc-title">Tether</div>
+    <div class="doc-subtitle">Product Specification — v0.2</div>
+    <div class="meta-row">
+      <span class="meta-pill">Ideation Phase</span>
+      <span class="meta-pill">Pre-development</span>
+      <span class="meta-pill">May 2026</span>
+    </div>
+  </div>
+
+  <!-- 1. Vision -->
+  <div class="section">
+    <h2>1 — Vision</h2>
+    <p>Music has always been an intimate act. The moment you hand someone one of your earbuds, you're inviting them into something personal. Modern streaming killed the physical cord — but nothing replaced the feeling.</p>
+    <p>Tether brings that moment back. When you open your profile, you're on stage — friends can see what you're listening to and drop in, synchronizing to your exact playback position. It's not a collaborative playlist. It's presence.</p>
+  </div>
+
+  <!-- 2. Core Concept -->
+  <div class="section">
+    <h2>2 — Core Concept</h2>
+    <h3>The Metaphor</h3>
+    <p>Sharing a wired earbud. When you "Match Their Vibes," you borrow one of a friend's earbuds — you hear exactly what they hear, at the exact moment they hear it. When they skip a track, you skip. When they pause, you pause. You're in it together.</p>
+
+    <h3>Two Modes of Connection</h3>
+    <p>The product supports two emotionally distinct use cases, and the design must honor both:</p>
+    <table>
+      <thead><tr><th>Mode</th><th>Description</th><th>Tone</th></tr></thead>
+      <tbody>
+        <tr><td><strong>Active</strong></td><td>Listening together while on FaceTime or a call — the friend is showing you something, a favorite part of a song, a new album drop.</td><td>Energetic, shared, communicative</td></tr>
+        <tr><td><strong>Silent / Ambient</strong></td><td>Quietly connecting to a friend — maybe an old one, maybe late at night. No chat, no pressure. Just presence.</td><td>Intimate, low-stakes, almost invisible</td></tr>
+      </tbody>
+    </table>
+    <p>The UI should never force the active experience on someone who wants the silent one.</p>
+  </div>
+
+  <!-- 3. Feature Set -->
+  <div class="section">
+    <h2>3 — Feature Set</h2>
+
+    <h3>3.1 Profile as a Live Stage</h3>
+    <ul>
+      <li>Every user has a profile that shows, in real time, what they're currently listening to — track, artist, album art.</li>
+      <li>Actively listening users display a subtle live indicator alongside a presence state (see 3.2).</li>
+      <li>Any friend can visit the profile and see the live playback state.</li>
+      <li>Listening activity is only visible to approved friends (see Privacy Model).</li>
+    </ul>
+
+    <h3>3.2 Presence States</h3>
+    <p>The friend list communicates three distinct listening contexts, inferred automatically or set by the user:</p>
+    <table>
+      <thead><tr><th>State</th><th>Meaning</th></tr></thead>
+      <tbody>
+        <tr><td><strong>Listening</strong></td><td>Default active state — playing music, skipping around.</td></tr>
+        <tr><td><strong>Showing you something</strong></td><td>Host has initiated a session and a listener is already joined. Signals intentional sharing, not passive background listening.</td></tr>
+        <tr><td><strong>In a session</strong></td><td>Currently tethered to another user as a listener.</td></tr>
+      </tbody>
+    </table>
+    <p>These states give the friend list emotional context without requiring status text or custom messages.</p>
+
+    <h3>3.3 Match Their Vibes (Core Sync Feature)</h3>
+    <ul>
+      <li>From a friend's profile or friend list, tap <strong>"Match Their Vibes"</strong> to sync to the host's playback.</li>
+      <li>The app grabs the host's current track + timestamp and commands the listener's connected streaming service to play from that exact position.</li>
+      <li>Sync pings run every few seconds to correct drift.</li>
+      <li>Listener's playback is slaved to the host — skips, pauses, and track changes propagate to all listeners.</li>
+      <li>The listener can exit at any time without disrupting the host.</li>
+      <li>The overlay displays a passive session timer: <em>"Listening with Maya · 27m"</em> — visible only inside the active session, never stored as a metric or streak.</li>
+    </ul>
+
+    <h3>3.4 "Listening With" Overlay</h3>
+    <ul>
+      <li>While in a session, both the host and listeners see a small, unobtrusive overlay in the corner of the now-playing screen.</li>
+      <li>The overlay shows avatars of everyone currently in the session plus the passive session timer.</li>
+      <li>On the host's end: a subtle visual + haptic notification when a new listener joins — never interruptive.</li>
+      <li>On the listener's end: a real-time view of who else is alongside them.</li>
+      <li>Next track preview: the overlay shows <em>"Coming up → [track name]"</em> — one song only. The full queue is never exposed.</li>
+    </ul>
+
+    <h3>3.5 The Pulse</h3>
+    <ul>
+      <li>At any point during a session, either party can trigger a <strong>Pulse</strong> — a synchronized moment shared across all connected screens.</li>
+      <li>The Pulse is the digital equivalent of making eye contact during a good moment in a song.</li>
+      <li>Intentional and manual only — never automatic.</li>
+      <li>Pulse expression layers (all optional, user-configurable):
+        <ul>
+          <li><em>Visual:</em> a ripple animation across the album art and screen edges</li>
+          <li><em>Haptic:</em> a synchronized subtle vibration on both devices simultaneously</li>
+          <li><em>Ambient:</em> a brief screen dim and album-art glow</li>
+        </ul>
+      </li>
+      <li>No text, no emoji, no reaction count. The Pulse is never a metric.</li>
+    </ul>
+
+    <h3>3.6 Ghost Pairing</h3>
+    <p>The app's most ambient feature — and potentially its most distinctive.</p>
+    <ul>
+      <li>Mutual opt-in only: both users must independently enable Ghost Pairing for each other in settings.</li>
+      <li>When both users are in Ghost Mode and listening simultaneously, the app silently registers mutual presence.</li>
+      <li>No notification. No name. Just a faint indicator: <em>"Someone is here."</em></li>
+      <li>Ghost Pairing only activates during active listening — it is not a persistent status and cannot be used to track someone's location or schedule.</li>
+      <li>This feature is the quietest expression of the core thesis: you don't need to announce connection for it to be real.</li>
+    </ul>
+
+    <h3>3.7 Asynchronous Tether</h3>
+    <p>Presence across time, not just across distance.</p>
+    <ul>
+      <li>While listening, a user can mark a timestamp and send it to a friend: <em>"Start when ready → 3:42"</em></li>
+      <li>The recipient opens it whenever they're ready. Playback begins at exactly the sender's marked position.</li>
+      <li>The send UI should feel like leaving something for someone — not firing a notification. A quiet drop, not a ping.</li>
+      <li>The message shown to the recipient: <em>"Dylan wanted you to hear this part"</em> with the track and timestamp.</li>
+      <li>No reply required. No read receipt. The gesture is complete when it's sent.</li>
+    </ul>
+
+    <h3>3.8 Friends &amp; Discovery</h3>
+    <ul>
+      <li>Users build a friends list via username search or shareable invite link.</li>
+      <li>Friend requests require mutual acceptance.</li>
+      <li>The friend list shows presence state (3.2) and who is offline.</li>
+      <li>Tapping a live friend immediately surfaces their profile/stage.</li>
+    </ul>
+
+    <h3>3.9 Memory Anchors (V2)</h3>
+    <p>Replaces the simpler Vibe History concept. Sessions become emotionally persistent artifacts rather than log entries.</p>
+    <ul>
+      <li>Each completed shared session generates a Memory Anchor — a minimal object stored privately.</li>
+      <li>Format: <em>Jamie + You · Holocene · 12:34 AM · 48 min · 3 pulses</em></li>
+      <li>The pulse count is the only metric worth preserving — it measures intentional moments, not passive time.</li>
+      <li>Anchors are searchable by friend, track, or mood tag (see 3.10). No feed, no timeline, no sharing by default.</li>
+    </ul>
+
+    <h3>3.10 Session Mood Tags (V2)</h3>
+    <ul>
+      <li>After a session ends, the app surfaces a quiet, skippable prompt the <em>next time</em> the user opens Tether — not immediately after the session.</li>
+      <li>Prompt: <em>"How was last night?"</em> followed by a single-word selection: Nostalgic · Heavy · Calm · Discovery · Night drive</li>
+      <li>Tags attach to the Memory Anchor and enable filtering — <em>show me all the Calm sessions with Jamie</em> — without creating a social feed or public signal.</li>
+      <li>Entirely optional. Skipping has no consequence.</li>
+    </ul>
+
+    <h3>3.11 Distance Layer (V2, opt-in)</h3>
+    <ul>
+      <li>Both users in a session must independently opt in for distance to be shown.</li>
+      <li>Displays city-level only — never street or neighborhood: <em>"Philadelphia ↔ Montevideo"</em> or <em>"Same city"</em></li>
+      <li>Lives in the Memory Anchor after the session, not in the active overlay — it's a reflection on connection, not a real-time surveillance element.</li>
+      <li>No exact coordinates, no distance in miles. The point is the poetry of it, not the precision.</li>
+    </ul>
+  </div>
+
+  <!-- 4. Privacy -->
+  <div class="section">
+    <h2>4 — Privacy Model</h2>
+    <p>Music listening is deeply personal. Consent is non-negotiable.</p>
+    <table>
+      <thead><tr><th>Setting</th><th>Description</th></tr></thead>
+      <tbody>
+        <tr><td><strong>Open Door</strong></td><td>Friends can drop into your session without a prompt. You'll see a notification they joined, but no approval needed.</td></tr>
+        <tr><td><strong>Knock First</strong></td><td>Friends send a join request; host must accept before sync begins. <em>Default.</em></td></tr>
+        <tr><td><strong>Ghost Mode</strong></td><td>You are listening privately. No one sees your live status. You can still drop into others' Open Door sessions or send knocks.</td></tr>
+      </tbody>
+    </table>
+    <ul>
+      <li>Users can toggle their mode at any time from the now-playing screen.</li>
+      <li>Specific friends can be blocked from seeing live status regardless of global setting.</li>
+    </ul>
+  </div>
+
+  <!-- 5. Technical Architecture -->
+  <div class="section">
+    <h2>5 — Technical Architecture</h2>
+
+    <h3>5.1 Playback Layer Strategy</h3>
+    <p>Tether operates as a <strong>coordination layer</strong> on top of existing streaming services — not a streaming service itself. It does not serve audio.</p>
+    <p><strong>Supported platforms (V1):</strong> Spotify (via Spotify Connect API), Apple Music (via MusicKit).</p>
+    <p><strong>How it works:</strong></p>
+    <ol>
+      <li>Host connects their streaming service account via OAuth.</li>
+      <li>Host begins playing music in Spotify or Apple Music on any device.</li>
+      <li>Tether polls the host's playback state every ~500ms — capturing <code>track_id</code>, <code>position_ms</code>, <code>is_playing</code>, <code>timestamp</code>.</li>
+      <li>When a listener joins, Tether fires a seek command to the listener's streaming service: play <code>track_id</code> from <code>position_ms</code>.</li>
+      <li>Tether re-syncs every 3–5 seconds to correct drift.</li>
+    </ol>
+    <p><strong>Cross-platform sync:</strong> Tracks are matched across services using the <strong>ISRC code</strong> (International Standard Recording Code) — a universal identifier embedded in both platforms' metadata. If a track doesn't exist on the listener's platform, the app surfaces an error and allows passive following.</p>
+
+    <h3>5.2 Frontend</h3>
+    <ul>
+      <li><strong>React</strong> (web) / <strong>React Native</strong> (mobile)</li>
+      <li>Real-time state via WebSockets — friend presence, playback state, session participants</li>
+      <li>Optimistic UI updates for instantaneous feel</li>
+    </ul>
+
+    <h3>5.3 Backend</h3>
+    <ul>
+      <li><strong>Python</strong> (FastAPI or Django)</li>
+      <li><strong>PostgreSQL</strong> — user profiles, friend relationships, session history, privacy settings</li>
+      <li><strong>Redis</strong> — real-time presence state, playback snapshots, session membership</li>
+      <li><strong>WebSocket server</strong> — live updates pushed to all connected clients</li>
+    </ul>
+
+    <h3>5.4 Key Technical Risk</h3>
+    <p>Tether is dependent on Spotify and Apple Music API access. Spotify in particular has a history of restricting third-party playback control. This is the primary platform risk. Long-term mitigation: build a native playback layer, at the cost of music licensing complexity.</p>
+  </div>
+
+  <!-- 6. User Flows with wireframes -->
+  <div class="section">
+    <h2>6 — User Flows</h2>
+
+    <div class="diagram-wrap">
+      <div class="diagram-title">Wireframe map — screen-by-screen</div>
+
+      <!-- Legend -->
+      <div class="wf-legend">
+        <div class="wf-legend-item">
+          <div style="width:8px;height:8px;border-radius:50%;background:var(--blue-bg);border:1px solid var(--blue)"></div>Host
+        </div>
+        <div class="wf-legend-item">
+          <div style="width:8px;height:8px;border-radius:50%;background:var(--purple-bg);border:1px solid var(--purple)"></div>Listener
+        </div>
+        <div class="wf-legend-item">
+          <div style="width:8px;height:8px;border-radius:50%;background:var(--success-bg);border:1px solid var(--green)"></div>Live / active
+        </div>
+        <div class="wf-legend-item">
+          <svg width="22" height="10"><line x1="0" y1="5" x2="15" y2="5" stroke="var(--text3)" stroke-width="1" stroke-dasharray="3 2"/><polygon points="15,2.5 21,5 15,7.5" fill="var(--text3)"/></svg>
+          Conditional
+        </div>
+        <div class="wf-legend-item">
+          <svg width="22" height="10"><line x1="0" y1="5" x2="15" y2="5" stroke="var(--text3)" stroke-width="1"/><polygon points="15,2.5 21,5 15,7.5" fill="var(--text3)"/></svg>
+          Direct tap
+        </div>
+      </div>
+
+      <div class="wf-flows">
+
+        <!-- FLOW 1 -->
+        <div>
+          <div class="wf-flow-label">Flow 1</div>
+          <div class="wf-flow-title">Joining a friend's session</div>
+          <div class="wf-row">
+
+            <!-- Screen 1 -->
+            <div class="wf-screen">
+              <div class="wf-phone">
+                <div class="wf-phone-top"><div class="wf-notch"></div></div>
+                <div class="wf-inner">
+                  <div class="ui-section">Friends</div>
+                  <div class="ui-row">
+                    <div class="ui-av"><span>JL</span></div>
+                    <div><div class="ui-label">Jamie L.</div><div class="ui-sub">offline</div></div>
+                  </div>
+                  <div class="ui-row wf-highlight">
+                    <div class="ui-av green"><span>SA</span></div>
+                    <div style="flex:1"><div class="ui-label">Sam A.</div><div class="ui-sub">listening now</div></div>
+                    <div class="ui-live"></div>
+                  </div>
+                  <div class="ui-row">
+                    <div class="ui-av amber"><span>MK</span></div>
+                    <div><div class="ui-label">Maya K.</div><div class="ui-sub">offline</div></div>
+                  </div>
+                </div>
+              </div>
+              <div class="wf-screen-label">Friends list<br>live indicator</div>
+            </div>
+
+            <div class="wf-arrow"><svg width="20" height="10" viewBox="0 0 20 10"><line x1="0" y1="5" x2="14" y2="5" stroke="var(--text3)" stroke-width="1"/><polygon points="14,2.5 20,5 14,7.5" fill="var(--text3)"/></svg></div>
+
+            <!-- Screen 2 -->
+            <div class="wf-screen">
+              <div class="wf-phone">
+                <div class="wf-phone-top"><div class="wf-notch"></div></div>
+                <div class="wf-inner">
+                  <div class="ui-row" style="margin-bottom:6px">
+                    <div class="ui-av green" style="width:15px;height:15px"><span>SA</span></div>
+                    <div class="ui-sub">Sam A. · live</div>
+                  </div>
+                  <div class="ui-artwork blue"></div>
+                  <div class="ui-track">Holocene</div>
+                  <div class="ui-artist">Bon Iver</div>
+                  <div class="ui-bar" style="width:100%"></div>
+                  <div class="ui-bar fill" style="width:60%"></div>
+                  <div class="ui-btn primary">Match Their Vibes</div>
+                </div>
+              </div>
+              <div class="wf-screen-label">Friend's stage<br>live playback</div>
+            </div>
+
+            <div class="wf-arrow">
+              <div class="wf-arrow-wrap">
+                <div class="wf-arrow-note">knock first</div>
+                <svg width="20" height="10" viewBox="0 0 20 10"><line x1="0" y1="5" x2="14" y2="5" stroke="var(--text3)" stroke-width="1" stroke-dasharray="3 2"/><polygon points="14,2.5 20,5 14,7.5" fill="var(--text3)"/></svg>
+              </div>
+            </div>
+
+            <!-- Screen 3 -->
+            <div class="wf-screen">
+              <div class="wf-phone">
+                <div class="wf-phone-top"><div class="wf-notch"></div></div>
+                <div class="wf-inner">
+                  <div class="ui-artwork blue" style="width:42px;height:42px;"></div>
+                  <div class="ui-track">Holocene</div>
+                  <div class="ui-artist">Bon Iver</div>
+                  <div class="ui-divider"></div>
+                  <div class="ui-notif">
+                    <p>Sam wants to listen with you</p>
+                    <div class="ui-accept-row">
+                      <div class="ui-accept-btn yes">Accept</div>
+                      <div class="ui-accept-btn no">Ignore</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div class="wf-screen-label">Host now-playing<br>join request</div>
+            </div>
+
+            <div class="wf-arrow">
+              <div class="wf-arrow-wrap">
+                <div class="wf-arrow-note">accept</div>
+                <svg width="20" height="10" viewBox="0 0 20 10"><line x1="0" y1="5" x2="14" y2="5" stroke="var(--text3)" stroke-width="1"/><polygon points="14,2.5 20,5 14,7.5" fill="var(--text3)"/></svg>
+              </div>
+            </div>
+
+            <!-- Screen 4 -->
+            <div class="wf-screen">
+              <div class="wf-phone">
+                <div class="wf-phone-top"><div class="wf-notch"></div></div>
+                <div class="wf-inner" style="position:relative">
+                  <div class="ui-artwork blue" style="width:52px;height:52px;"></div>
+                  <div class="ui-track">Holocene</div>
+                  <div class="ui-artist">Bon Iver · 1:32</div>
+                  <div class="ui-bar" style="width:100%"></div>
+                  <div class="ui-bar fill" style="width:45%"></div>
+                  <div class="ui-pulse-ring">
+                    <div class="ui-pulse-inner"></div>
+                  </div>
+                  <div class="ui-artist" style="font-size:7px">send a pulse</div>
+                  <div class="ui-overlay">
+                    <div class="ui-av green" style="width:13px;height:13px"><span>SA</span></div>
+                    <span>with Sam</span>
+                  </div>
+                </div>
+              </div>
+              <div class="wf-screen-label">Synced session<br>pulse + overlay</div>
+            </div>
+
+          </div>
+        </div>
+
+        <!-- FLOW 2 -->
+        <div>
+          <div class="wf-flow-label">Flow 2</div>
+          <div class="wf-flow-title">Hosting — someone drops into your session</div>
+          <div class="wf-row">
+
+            <div class="wf-screen">
+              <div class="wf-phone">
+                <div class="wf-phone-top"><div class="wf-notch"></div></div>
+                <div class="wf-inner">
+                  <div class="ui-artwork green"></div>
+                  <div class="ui-track">Pyramids</div>
+                  <div class="ui-artist">Frank Ocean</div>
+                  <div class="ui-bar" style="width:100%"></div>
+                  <div class="ui-bar fill" style="width:30%"></div>
+                  <div class="ui-divider"></div>
+                  <div class="ui-privacy"><div class="ui-dot" style="background:var(--green)"></div>Open Door</div>
+                </div>
+              </div>
+              <div class="wf-screen-label">Host listening<br>Open Door on</div>
+            </div>
+
+            <div class="wf-arrow">
+              <div class="wf-arrow-wrap">
+                <div class="wf-arrow-note">friend joins</div>
+                <svg width="20" height="10" viewBox="0 0 20 10"><line x1="0" y1="5" x2="14" y2="5" stroke="var(--text3)" stroke-width="1"/><polygon points="14,2.5 20,5 14,7.5" fill="var(--text3)"/></svg>
+              </div>
+            </div>
+
+            <div class="wf-screen">
+              <div class="wf-phone">
+                <div class="wf-phone-top"><div class="wf-notch"></div></div>
+                <div class="wf-inner" style="position:relative">
+                  <div class="ui-artwork green"></div>
+                  <div class="ui-track">Pyramids</div>
+                  <div class="ui-artist">Frank Ocean</div>
+                  <div class="ui-bar" style="width:100%"></div>
+                  <div class="ui-bar fill" style="width:30%"></div>
+                  <div class="ui-divider"></div>
+                  <div class="ui-sub" style="font-size:7px">Jamie just joined ↓</div>
+                  <div class="ui-overlay">
+                    <div class="ui-av purple" style="width:13px;height:13px"><span style="color:var(--purple-text)">JL</span></div>
+                    <span>with Jamie</span>
+                  </div>
+                </div>
+              </div>
+              <div class="wf-screen-label">Overlay appears<br>subtle join note</div>
+            </div>
+
+            <div class="wf-arrow">
+              <div class="wf-arrow-wrap">
+                <div class="wf-arrow-note">host skips</div>
+                <svg width="20" height="10" viewBox="0 0 20 10"><line x1="0" y1="5" x2="14" y2="5" stroke="var(--text3)" stroke-width="1"/><polygon points="14,2.5 20,5 14,7.5" fill="var(--text3)"/></svg>
+              </div>
+            </div>
+
+            <div class="wf-screen">
+              <div class="wf-phone">
+                <div class="wf-phone-top"><div class="wf-notch"></div></div>
+                <div class="wf-inner">
+                  <div class="ui-artwork purple"></div>
+                  <div class="ui-track">Nights</div>
+                  <div class="ui-artist">Frank Ocean</div>
+                  <div class="ui-bar" style="width:100%"></div>
+                  <div class="ui-bar fill" style="width:4%"></div>
+                  <div class="ui-divider"></div>
+                  <div class="ui-sub" style="font-size:7px;text-align:center">Sam skipped →</div>
+                </div>
+              </div>
+              <div class="wf-screen-label">Listener's screen<br>skip propagates</div>
+            </div>
+
+            <div class="wf-arrow">
+              <div class="wf-arrow-wrap">
+                <div class="wf-arrow-note">listener exits</div>
+                <svg width="20" height="10" viewBox="0 0 20 10"><line x1="0" y1="5" x2="14" y2="5" stroke="var(--text3)" stroke-width="1" stroke-dasharray="3 2"/><polygon points="14,2.5 20,5 14,7.5" fill="var(--text3)"/></svg>
+              </div>
+            </div>
+
+            <div class="wf-screen">
+              <div class="wf-phone">
+                <div class="wf-phone-top"><div class="wf-notch"></div></div>
+                <div class="wf-inner">
+                  <div class="ui-artwork purple"></div>
+                  <div class="ui-track">Nights</div>
+                  <div class="ui-artist">Frank Ocean · 2:14</div>
+                  <div class="ui-bar" style="width:100%"></div>
+                  <div class="ui-bar fill" style="width:55%"></div>
+                  <div class="ui-divider"></div>
+                  <div class="ui-privacy"><div class="ui-dot" style="background:var(--green)"></div>Open Door</div>
+                </div>
+              </div>
+              <div class="wf-screen-label">Host unaffected<br>continues playing</div>
+            </div>
+
+          </div>
+        </div>
+
+        <!-- FLOW 3 -->
+        <div>
+          <div class="wf-flow-label">Flow 3</div>
+          <div class="wf-flow-title">Silent / ambient connection</div>
+          <div class="wf-row">
+
+            <div class="wf-screen">
+              <div class="wf-phone">
+                <div class="wf-phone-top"><div class="wf-notch"></div></div>
+                <div class="wf-inner">
+                  <div class="ui-section">Friends</div>
+                  <div class="ui-row wf-highlight">
+                    <div class="ui-av green"><span>MK</span></div>
+                    <div style="flex:1"><div class="ui-label">Maya K.</div><div class="ui-sub">listening now</div></div>
+                    <div class="ui-live"></div>
+                  </div>
+                  <div class="ui-row">
+                    <div class="ui-av"><span>SA</span></div>
+                    <div><div class="ui-label">Sam A.</div><div class="ui-sub">offline</div></div>
+                  </div>
+                </div>
+              </div>
+              <div class="wf-screen-label">Friend is live</div>
+            </div>
+
+            <div class="wf-arrow"><svg width="20" height="10" viewBox="0 0 20 10"><line x1="0" y1="5" x2="14" y2="5" stroke="var(--text3)" stroke-width="1"/><polygon points="14,2.5 20,5 14,7.5" fill="var(--text3)"/></svg></div>
+
+            <div class="wf-screen">
+              <div class="wf-phone">
+                <div class="wf-phone-top"><div class="wf-notch"></div></div>
+                <div class="wf-inner">
+                  <div class="ui-artwork pink"></div>
+                  <div class="ui-track">Motion Sickness</div>
+                  <div class="ui-artist">Phoebe Bridgers</div>
+                  <div class="ui-bar" style="width:100%"></div>
+                  <div class="ui-bar fill" style="width:60%"></div>
+                  <div class="ui-btn primary" style="margin-top:6px">Match Their Vibes</div>
+                </div>
+              </div>
+              <div class="wf-screen-label">Open Door —<br>no prompt needed</div>
+            </div>
+
+            <div class="wf-arrow"><svg width="20" height="10" viewBox="0 0 20 10"><line x1="0" y1="5" x2="14" y2="5" stroke="var(--text3)" stroke-width="1"/><polygon points="14,2.5 20,5 14,7.5" fill="var(--text3)"/></svg></div>
+
+            <div class="wf-screen">
+              <div class="wf-phone">
+                <div class="wf-phone-top"><div class="wf-notch"></div></div>
+                <div class="wf-inner" style="position:relative">
+                  <div class="ui-artwork pink"></div>
+                  <div class="ui-track">Motion Sickness</div>
+                  <div class="ui-artist">Phoebe Bridgers</div>
+                  <div class="ui-bar" style="width:100%"></div>
+                  <div class="ui-bar fill" style="width:60%"></div>
+                  <div class="ui-overlay" style="opacity:.75">
+                    <div class="ui-av green" style="width:13px;height:13px"><span>MK</span></div>
+                    <span>with Maya</span>
+                  </div>
+                </div>
+              </div>
+              <div class="wf-screen-label">Silent sync begins<br>no fanfare</div>
+            </div>
+
+            <div class="wf-arrow">
+              <div class="wf-arrow-wrap">
+                <div class="wf-arrow-note">good moment</div>
+                <svg width="20" height="10" viewBox="0 0 20 10"><line x1="0" y1="5" x2="14" y2="5" stroke="var(--text3)" stroke-width="1"/><polygon points="14,2.5 20,5 14,7.5" fill="var(--text3)"/></svg>
+              </div>
+            </div>
+
+            <div class="wf-screen">
+              <div class="wf-phone">
+                <div class="wf-phone-top"><div class="wf-notch"></div></div>
+                <div class="wf-inner" style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:140px">
+                  <div class="ui-artwork pink" style="width:34px;height:34px;opacity:.55;margin-bottom:4px;"></div>
+                  <div class="ui-pulse-ring">
+                    <div class="ui-pulse-inner"></div>
+                  </div>
+                  <div class="ui-artist" style="font-size:7px;color:var(--purple);margin-top:2px">pulse sent</div>
+                </div>
+              </div>
+              <div class="wf-screen-label">Pulse — one gesture<br>no text needed</div>
+            </div>
+
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- 7. Design Principles -->
+  <div class="section">
+    <h2>7 — Design Principles</h2>
+    <ol>
+      <li><strong>Presence over performance.</strong> The app should feel like being in the same room, not like broadcasting.</li>
+      <li><strong>The silent experience is as important as the active one.</strong> No feature should force interaction on someone who just wants to be near someone.</li>
+      <li><strong>Consent is structural.</strong> Privacy controls are not buried in settings — they are a first-class part of the listening UI.</li>
+      <li><strong>The Pulse is sacred.</strong> It must never become a notification, a reaction carousel, or a metric. It is a single, meaningful gesture.</li>
+      <li><strong>Invisible sync.</strong> The technical complexity of cross-platform sync should be completely invisible to the user. If it requires a loading screen or an explanation, it has failed.</li>
+      <li><strong>Quiet by default.</strong> The app's baseline behavior is low-weight: minimal animations, muted notifications, ambient defaults. It does not need a Late Night Mode — it should already feel like one. Features that add energy must earn it.</li>
+      <li><strong>Depth over width.</strong> Every proposed addition should deepen the experience of shared presence, not widen Tether's scope. The question is never "what else could this app do?" — it's "does this make the cord feel more real?"</li>
+    </ol>
+
+    <h3 style="margin-top:28px">What Tether will never be</h3>
+    <p>The following features are permanently out of scope — not because they are technically difficult, but because they contradict the product's core thesis:</p>
+    <ul>
+      <li>Chat, comments, or any in-session text</li>
+      <li>Reactions, likes, or emoji responses</li>
+      <li>Public feeds or discovery of strangers</li>
+      <li>Follower counts or public profiles</li>
+      <li>Algorithmic recommendations</li>
+      <li>Streaks, achievements, or engagement metrics of any kind</li>
+      <li>Any feature that makes private listening into a performance</li>
+    </ul>
+  </div>
+
+  <!-- 8. Out of scope -->
+  <div class="section">
+    <h2>8 — Out of Scope (V1)</h2>
+    <ul>
+      <li>Group sessions with more than ~10 concurrent listeners</li>
+      <li>Voice or chat built into the app — use FaceTime or a call alongside</li>
+      <li>Algorithmic recommendations based on friend listening data</li>
+      <li>Public rooms or discovery of strangers' sessions</li>
+      <li>Native streaming (music licensing complexity)</li>
+    </ul>
+  </div>
+
+  <!-- 9. Open Questions -->
+  <div class="section">
+    <h2>9 — Open Questions</h2>
+
+    <div class="open-q">
+      <strong>What happens when the host pauses?</strong>
+      <p>Likely: pause together, with a UI indicator in the overlay that the host paused. Preserves the shared moment without requiring the listener to act.</p>
+    </div>
+    <div class="open-q">
+      <strong>Cross-platform error state</strong>
+      <p>If the listener uses Spotify and the host plays a track not on Spotify, what's the fallback? Current thinking: show track info and album art (passive following) with a quiet prompt to switch platforms. Never block the session silently.</p>
+    </div>
+    <div class="open-q">
+      <strong>Session size cap</strong>
+      <p>Is there a cap on concurrent listeners per host? A small cap (3–5) may actually serve the product's intimacy thesis better than allowing unlimited listeners.</p>
+    </div>
+    <div class="open-q">
+      <strong>Async Tether — send UI</strong>
+      <p>How does the send gesture feel? It should be initiated from the now-playing screen with minimal friction — maybe a long-press on the progress bar at the moment you want to mark. The challenge is making it feel like leaving something, not sending a message.</p>
+    </div>
+    <div class="open-q">
+      <strong>Ghost Pairing — the "someone is here" indicator</strong>
+      <p>How subtle is too subtle? If users don't notice it, the feature doesn't land. If it's too prominent, it breaks the Ghost Mode premise. Needs careful UX testing.</p>
+    </div>
+  </div>
+
+  <div class="doc-footer">
+    Document maintained by Dylan &nbsp;·&nbsp; Last updated May 2026 &nbsp;·&nbsp; v0.2 Ideation
+  </div>
+
+</div>
+</body>
+</html>
