@@ -34,13 +34,14 @@ class PresenceStore:
             logger.warning(f"Redis unavailable ({e}), using in-memory presence store")
             self._redis = None
 
-    async def set_presence(self, user_id: str, status: str, track: str = "", artist: str = "", album_art: str = ""):
+    async def set_presence(self, user_id: str, status: str, track: str = "", artist: str = "", album_art: str = "", provider: str = "spotify"):
         """Set a user's presence state."""
         data = {
             "status": status,
             "track": track,
             "artist": artist,
             "albumArt": album_art,
+            "provider": provider,
             "updatedAt": int(time.time() * 1000),
         }
 
@@ -84,13 +85,18 @@ class PresenceStore:
         else:
             self._store.pop(f"session:{user_id}", None)
 
-    async def get_online_friends(self, friend_ids: list[str]) -> list[dict]:
-        """Get presence state for a list of friend IDs."""
+    async def get_online_friends(self, user_id: str, friend_ids: list[str]) -> list[dict]:
+        """Get presence state for a list of friend IDs, enforcing privacy."""
+        from services.privacy import can_view_presence
+        from db.database import async_session_maker
+        
         online = []
-        for fid in friend_ids:
-            presence = await self.get_presence(fid)
-            if presence:
-                online.append({"userId": fid, **presence})
+        async with async_session_maker() as db:
+            for fid in friend_ids:
+                if await can_view_presence(db, user_id, fid):
+                    presence = await self.get_presence(fid)
+                    if presence:
+                        online.append({"userId": fid, **presence})
         return online
 
     async def set_vibe_vector(self, user_id: str, vector: list[float]):

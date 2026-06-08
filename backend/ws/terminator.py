@@ -28,7 +28,12 @@ async def handle_disconnect(user_id: str, session_id: str | None):
             duration_minutes = int(duration_delta.total_seconds() / 60)
 
             # Check if meaningful
-            listener_result = await db.execute(select(SessionListener).where(SessionListener.session_id == session_id))
+            listener_result = await db.execute(
+                select(SessionListener).where(
+                    SessionListener.session_id == session_id,
+                    SessionListener.has_tethered == True
+                )
+            )
             listeners = listener_result.scalars().all()
 
             if duration_minutes >= 2 and len(listeners) > 0:
@@ -81,6 +86,16 @@ async def handle_disconnect(user_id: str, session_id: str | None):
                 
                 await db.commit()
                 logger.info(f"Created {len(listeners) * 2} Memory Anchors for session {session_id}")
+                
+                # Notify Host
+                await manager.send_to_user(session.host_id, {"type": "memory_created", "session_id": session_id})
+                
+                # Notify Listeners
+                for listener in listeners:
+                    await manager.send_to_user(listener.user_id, {"type": "memory_created", "session_id": session_id})
+            else:
+                # Notify failed save if duration < 2 mins or no verified listeners
+                await manager.send_to_user(session.host_id, {"type": "memory_failed", "session_id": session_id})
             
             # Delete session
             await db.delete(session)

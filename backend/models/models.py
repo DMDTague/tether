@@ -61,6 +61,35 @@ class User(Base):
     created_at = Column(DateTime(timezone=True), default=utcnow)
 
 
+class CanonicalTrack(Base):
+    __tablename__ = "canonical_tracks"
+
+    id = Column(String(36), primary_key=True, default=gen_uuid)
+    isrc = Column(String(16), unique=True, index=True, nullable=True)
+    title = Column(String(256), nullable=False)
+    artist = Column(String(256), nullable=False)
+    album = Column(String(256), nullable=True)
+    duration_ms = Column(Integer)
+    explicit = Column(Boolean, default=False)
+    artwork_url = Column(String(512), nullable=True)
+    created_at = Column(DateTime(timezone=True), default=utcnow)
+
+
+class ProviderTrackMatch(Base):
+    __tablename__ = "provider_track_matches"
+    __table_args__ = (UniqueConstraint("provider", "provider_track_id"),)
+
+    id = Column(String(36), primary_key=True, default=gen_uuid)
+    canonical_track_id = Column(String(36), ForeignKey("canonical_tracks.id"), nullable=False)
+    provider = Column(String(32), nullable=False)  # e.g., 'spotify', 'apple_music'
+    provider_track_id = Column(String(256), nullable=False, index=True)
+    match_method = Column(String(32))  # 'isrc' | 'title_artist_duration' | 'manual'
+    confidence = Column(Float)
+    created_at = Column(DateTime(timezone=True), default=utcnow)
+
+    canonical_track = relationship("CanonicalTrack", foreign_keys=[canonical_track_id])
+
+
 class Friendship(Base):
     __tablename__ = "friendships"
     __table_args__ = (UniqueConstraint("user_a", "user_b"),)
@@ -94,11 +123,20 @@ class Session(Base):
 
     id = Column(String(36), primary_key=True, default=gen_uuid)
     host_id = Column(String(36), ForeignKey("users.id"), nullable=False)
+    
+    # --- Legacy / Spotify Fields (Do not remove yet to avoid breaking Phase 1) ---
     track_id = Column(String(64))
     track_name = Column(String(256))
     artist_name = Column(String(256))
     track_isrc = Column(String(16))
     track_duration_ms = Column(Integer)
+    
+    # --- New Canonical Identity Fields ---
+    canonical_track_id = Column(String(36), ForeignKey("canonical_tracks.id"), nullable=True)
+    provider = Column(String(32), nullable=True)
+    provider_track_id = Column(String(256), nullable=True)
+    
+    # --- State Fields ---
     track_start_epoch = Column(BigInteger)  # ms since epoch when track started
     is_paused = Column(Boolean, default=False)
     pause_position_ms = Column(Integer)
@@ -106,6 +144,7 @@ class Session(Base):
     created_at = Column(DateTime(timezone=True), default=utcnow)
 
     host = relationship("User", foreign_keys=[host_id])
+    canonical_track = relationship("CanonicalTrack", foreign_keys=[canonical_track_id])
     listeners = relationship("SessionListener", back_populates="session", cascade="all, delete-orphan")
 
 
@@ -115,9 +154,26 @@ class SessionListener(Base):
     session_id = Column(String(36), ForeignKey("sessions.id", ondelete="CASCADE"), primary_key=True)
     user_id = Column(String(36), ForeignKey("users.id"), primary_key=True)
     joined_at = Column(DateTime(timezone=True), default=utcnow)
+    has_tethered = Column(Boolean, default=False)
 
     session = relationship("Session", back_populates="listeners")
     user = relationship("User")
+
+
+class TetherJoinGrant(Base):
+    __tablename__ = "tether_join_grants"
+
+    id = Column(String(36), primary_key=True, default=gen_uuid)
+    session_id = Column(String(36), ForeignKey("sessions.id", ondelete="CASCADE"), nullable=False)
+    host_id = Column(String(36), ForeignKey("users.id"), nullable=False)
+    listener_id = Column(String(36), ForeignKey("users.id"), nullable=False)
+    status = Column(String(32), default="active")  # active, consumed, expired, revoked
+    expires_at = Column(DateTime(timezone=True), nullable=False)
+    created_at = Column(DateTime(timezone=True), default=utcnow)
+
+    session = relationship("Session", foreign_keys=[session_id])
+    host = relationship("User", foreign_keys=[host_id])
+    listener = relationship("User", foreign_keys=[listener_id])
 
 
 class MemoryAnchor(Base):
