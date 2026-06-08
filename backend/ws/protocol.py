@@ -55,11 +55,16 @@ def listener_left(user_id: str) -> dict:
 def pulse_received(name: str) -> dict:
     return {"type": "pulse_received", "fromUser": {"name": name}}
 
-def knock_request(user_id: str, name: str, initials: str, knock_id: str) -> dict:
-    return {"type": "knock_request", "fromUser": {"id": user_id, "name": name, "initials": initials}, "knockId": knock_id}
+def knock_request(knocker_id: str, knocker_name: str, knocker_initials: str, knock_id: str, session_id: str) -> dict:
+    return {
+        "type": "knock_request",
+        "fromUser": {"id": knocker_id, "name": knocker_name, "initials": knocker_initials},
+        "knockId": knock_id,
+        "sessionId": session_id,
+    }
 
-def friend_presence(user_id: str, status: str, track: str = "", artist: str = "") -> dict:
-    return {"type": "friend_presence", "userId": user_id, "status": status, "track": track, "artist": artist}
+def friend_presence(user_id: str, status: str, track: str = "", artist: str = "", provider: str = "spotify") -> dict:
+    return {"type": "friend_presence", "userId": user_id, "status": status, "track": track, "artist": artist, "provider": provider}
 
 def host_paused(session_id: str) -> dict:
     return {"type": "host_paused", "sessionId": session_id}

@@ -27,15 +27,35 @@ class CreateSessionRequest(BaseModel):
     track_duration_ms: int
     track_isrc: Optional[str] = None
     next_track_name: Optional[str] = None
+    album_name: Optional[str] = None
+    explicit: Optional[bool] = False
+    artwork_url: Optional[str] = None
 
 
 class JoinSessionRequest(BaseModel):
     session_id: str
+    target_provider: str = "spotify"
 
+
+from services.matching import matcher
 
 @router.post("/create")
 async def create_session(req: CreateSessionRequest, user_id: str = Depends(get_current_user_id), db: AsyncSession = Depends(get_db)):
     """Host creates a new listening session."""
+    
+    # Phase 3A: Canonicalize Spotify Track
+    canonical_id = await matcher.canonicalize_spotify_track(
+        db=db,
+        spotify_track_id=req.track_id,
+        title=req.track_name,
+        artist=req.artist_name,
+        duration_ms=req.track_duration_ms,
+        isrc=req.track_isrc,
+        album=req.album_name,
+        explicit=req.explicit or False,
+        artwork_url=req.artwork_url
+    )
+
     session = Session(
         host_id=user_id,
         track_id=req.track_id,
@@ -43,6 +63,9 @@ async def create_session(req: CreateSessionRequest, user_id: str = Depends(get_c
         artist_name=req.artist_name,
         track_isrc=req.track_isrc,
         track_duration_ms=req.track_duration_ms,
+        canonical_track_id=canonical_id,
+        provider="spotify",
+        provider_track_id=req.track_id,
         track_start_epoch=sync_engine.create_track_start_epoch(),
         next_track_name=req.next_track_name,
     )
@@ -68,6 +91,29 @@ async def join_session(req: JoinSessionRequest, user_id: str = Depends(get_curre
     session = result.scalar_one_or_none()
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")
+
+    from services.privacy import can_join_session, consume_grant, AuthDecision
+    
+    # Phase 4: Privacy Enforcement
+    decision = await can_join_session(db, user_id, session.id)
+    
+    if decision == AuthDecision.KNOCK_REQUIRED:
+        return {
+            "status": "knock_required",
+            "sessionId": session.id,
+            "hostId": session.host_id,
+            "message": "Knock required"
+        }
+        
+    if decision in [AuthDecision.HOST_UNAVAILABLE, AuthDecision.DENY, AuthDecision.NOT_FRIENDS]:
+        # Do not leak specific privacy mode or lack of friendship
+        return {
+            "status": "unavailable",
+            "message": "This user is unavailable to tether."
+        }
+        
+    # If ALLOW, consume the grant (if one existed)
+    await consume_grant(db, user_id, session.id)
 
     # Add listener to DB
     listener = SessionListener(session_id=session.id, user_id=user_id)
@@ -96,9 +142,29 @@ async def join_session(req: JoinSessionRequest, user_id: str = Depends(get_curre
         session.pause_position_ms or 0,
     )
 
+    # Phase 3B: Cross-provider track matching
+    provider_track_id = session.track_id # fallback to host's spotify ID
+    is_ambiguous = False
+    
+    if session.canonical_track_id and req.target_provider != session.provider:
+        match = await matcher.match_track_for_provider(
+            db=db,
+            canonical_track_id=session.canonical_track_id,
+            target_provider=req.target_provider
+        )
+        if match:
+            if match.match_method == "ambiguous":
+                is_ambiguous = True
+                provider_track_id = None
+            else:
+                provider_track_id = match.provider_track_id
+        else:
+            provider_track_id = None # unavailable
+
     return {
+        "status": "success",
         "sessionId": session.id,
-        "trackId": session.track_id,
+        "trackId": provider_track_id,
         "trackName": session.track_name,
         "artistName": session.artist_name,
         "positionMs": position,
@@ -106,6 +172,8 @@ async def join_session(req: JoinSessionRequest, user_id: str = Depends(get_curre
         "trackStartEpoch": session.track_start_epoch,
         "trackDurationMs": session.track_duration_ms,
         "nextTrackName": session.next_track_name,
+        "isAmbiguous": is_ambiguous,
+        "isUnavailable": provider_track_id is None and not is_ambiguous
     }
 
 

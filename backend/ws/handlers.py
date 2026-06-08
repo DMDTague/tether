@@ -27,6 +27,8 @@ async def handle_message(user_id: str, user_name: str, user_initials: str, data:
         await handle_presence_update(user_id, data)
     elif msg_type == "reconnect":
         await handle_reconnect(user_id, data)
+    elif msg_type == "tether_success":
+        await handle_tether_success(user_id, data)
 
 
 async def handle_playback_event(user_id: str, user_name: str, data: dict):
@@ -79,13 +81,22 @@ async def handle_pulse(user_id: str, user_name: str, data: dict):
 async def handle_knock(user_id: str, user_name: str, user_initials: str, data: dict):
     """Send a knock request to the target user."""
     target_id = data.get("target_user_id")
-    if not target_id:
+    session_id = data.get("session_id")
+    if not target_id or not session_id:
         return
 
+    from services.privacy import can_request_tether, AuthDecision
+    from db.database import async_session_maker
+
+    async with async_session_maker() as db:
+        decision = await can_request_tether(db, user_id, target_id, session_id)
+        if decision not in [AuthDecision.KNOCK_REQUIRED, AuthDecision.ALLOW]:
+            return # Drop unauthorized knocks silently
+            
     knock_id = str(uuid.uuid4())
     await manager.send_to_user(
         target_id,
-        protocol.knock_request(user_id, user_name, user_initials, knock_id),
+        protocol.knock_request(user_id, user_name, user_initials, knock_id, session_id),
     )
 
 
@@ -93,11 +104,36 @@ async def handle_knock_response(user_id: str, data: dict):
     """Handle acceptance/rejection of a knock."""
     knock_id = data.get("knock_id")
     accepted = data.get("accepted", False)
+    knocker_id = data.get("knocker_id")
+    session_id = data.get("session_id")
+
+    if not knocker_id or not session_id:
+        return
 
     if accepted:
-        # The knocking user will receive a session_sync message
-        # when they join via the REST endpoint
-        pass
+        from db.database import async_session_maker
+        from models.models import TetherJoinGrant
+        from datetime import datetime, timedelta, timezone
+        
+        async with async_session_maker() as db:
+            grant = TetherJoinGrant(
+                session_id=session_id,
+                host_id=user_id,
+                listener_id=knocker_id,
+                expires_at=datetime.now(timezone.utc) + timedelta(seconds=120)
+            )
+            db.add(grant)
+            await db.commit()
+            
+        await manager.send_to_user(
+            knocker_id,
+            {"type": "knock_accepted", "session_id": session_id, "knock_id": knock_id}
+        )
+    else:
+        await manager.send_to_user(
+            knocker_id,
+            {"type": "knock_rejected", "session_id": session_id, "knock_id": knock_id}
+        )
 
 
 async def handle_presence_update(user_id: str, data: dict):
@@ -109,26 +145,53 @@ async def handle_presence_update(user_id: str, data: dict):
 
 
 async def handle_reconnect(user_id: str, data: dict):
-    """Handle reconnection — send back current session state."""
+    """Handle reconnection — send back current session state, but enforce privacy."""
     last_session_id = data.get("last_session_id")
     last_position = data.get("last_known_position_ms", 0)
 
-    if last_session_id:
-        members = manager.get_session_members(last_session_id)
-        if members:
-            # Re-join the session
-            await manager.join_session(user_id, last_session_id)
+    if not last_session_id:
+        return
 
-            # Calculate current position from local clock
-            # In production, this uses track_start_epoch from the session record
-            current_position = last_position  # placeholder
+    from services.privacy import can_join_session, AuthDecision
+    from db.database import async_session_maker
 
-            await manager.send_to_user(
-                user_id,
-                protocol.reconnect_ack(
-                    session_id=last_session_id,
-                    position_ms=current_position,
-                    listeners=[],  # Would be populated from DB
-                    is_paused=False,
-                ),
-            )
+    async with async_session_maker() as db:
+        decision = await can_join_session(db, user_id, last_session_id)
+        if decision != AuthDecision.ALLOW:
+            # Drop reconnect attempt if they are no longer authorized (e.g. host went ghost/knock)
+            return
+
+    members = manager.get_session_members(last_session_id)
+    if members:
+        # Re-join the session safely
+        await manager.join_session(user_id, last_session_id)
+
+        current_position = last_position  # placeholder for now
+
+        await manager.send_to_user(
+            user_id,
+            protocol.reconnect_ack(
+                session_id=last_session_id,
+                position_ms=current_position,
+                listeners=[],  # Would be populated from DB
+                is_paused=False,
+            ),
+        )
+
+async def handle_tether_success(user_id: str, data: dict):
+    """Mark a listener as having successfully started playback, allowing MemoryAnchor creation."""
+    session_id = data.get("session_id")
+    if not session_id:
+        return
+        
+    from db.database import async_session_maker
+    from models.models import SessionListener
+    from sqlalchemy import update
+    
+    async with async_session_maker() as db:
+        await db.execute(
+            update(SessionListener)
+            .where(SessionListener.session_id == session_id, SessionListener.user_id == user_id)
+            .values(has_tethered=True)
+        )
+        await db.commit()
