@@ -93,9 +93,16 @@
     <section id="activity-view" class="view" aria-labelledby="activity-title">
       <div class="section-heading">
         <p class="eyebrow">Across Philadelphia</p>
-        <h2 id="activity-title">Live activity</h2>
+        <h2 id="activity-title">What remains</h2>
       </div>
-      <div id="activity-feed" class="activity-feed"></div>
+      <div class="memory-tabs" role="group" aria-label="Activity and memories">
+        <button class="memory-tab active" data-memory-tab="live">Live</button>
+        <button class="memory-tab" data-memory-tab="anchors">Anchors</button>
+        <button class="memory-tab" data-memory-tab="capsules">Capsules</button>
+      </div>
+      <div id="activity-feed" class="activity-feed memory-panel active" data-memory-panel="live"></div>
+      <div id="anchor-feed" class="anchor-feed memory-panel" data-memory-panel="anchors"></div>
+      <div id="capsule-feed" class="capsule-feed memory-panel" data-memory-panel="capsules"></div>
     </section>
 
     <section id="you-view" class="view" aria-labelledby="you-title">
@@ -108,7 +115,7 @@
         <div class="metric-grid">
           <div><strong>24</strong><span>friends</span></div>
           <div><strong>48</strong><span>anchors</span></div>
-          <div><strong>312</strong><span>pulses</span></div>
+          <div><strong>19</strong><span>capsules</span></div>
           <div><strong>86h</strong><span>tethered</span></div>
         </div>
       </div>
@@ -117,29 +124,45 @@
         <h3>John's listening identity</h3>
         <div class="recap-row"><span>Home base</span><strong>Pennsport</strong></div>
         <div class="recap-row"><span>Coordinates</span><strong>39.921162, −75.144890</strong></div>
-        <div class="recap-row"><span>Privacy</span><strong>Open Door</strong></div>
+        <div class="recap-row"><span>Privacy</span><strong id="current-privacy-value">Open Door</strong></div>
         <div class="recap-row"><span>Streaming</span><strong>Spotify</strong></div>
         <div class="recap-row"><span>Primary vibe</span><strong>Warm / energetic</strong></div>
       </div>
+      <div class="recap-card">
+        <p class="eyebrow">Presence settings</p>
+        <h3>How friends find you</h3>
+        <div class="privacy-selector" role="group" aria-label="John's privacy mode">
+          <button class="active" data-user-privacy="open-door">Open Door</button>
+          <button data-user-privacy="knock-first">Knock First</button>
+          <button data-user-privacy="ghost">Ghost</button>
+        </div>
+        <p id="privacy-description" class="setting-note">Friends can join without waiting. You’ll always see who arrived.</p>
+      </div>
+      <button class="spark-card" data-open-spark>
+        <span class="spark-icon">✦</span>
+        <span><strong>Tap to Tether</strong><small>Simulate the NFC friendship ritual</small></span>
+        <span>›</span>
+      </button>
       <div class="recap-card">
         <p class="eyebrow">Philadelphia network</p>
         <h3>Tonight on Tether</h3>
         <div class="recap-row"><span>Live listeners</span><strong>12</strong></div>
         <div class="recap-row"><span>Shared sessions</span><strong>5</strong></div>
-        <div class="recap-row"><span>Pulses today</span><strong>184</strong></div>
+        <div class="recap-row"><span>Minutes shared tonight</span><strong>184</strong></div>
         <div class="recap-row"><span>Neighborhoods</span><strong>12</strong></div>
       </div>
     </section>
 
     <section id="profile-view" class="overlay-view" aria-live="polite"></section>
     <section id="session-view" class="overlay-view" aria-live="polite"></section>
+    <section id="feature-modal" class="feature-modal" aria-live="polite"></section>
 
     <nav class="bottom-nav" aria-label="Main navigation">
       <button class="nav-item active" data-view="discover">
         <span>◎</span><small>People</small>
       </button>
       <button class="nav-item" data-view="activity">
-        <span>◌</span><small>Activity</small>
+        <span>◌</span><small>Memories</small>
       </button>
       <button class="nav-item" data-view="you">
         <span>◈</span><small>You</small>
