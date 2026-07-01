@@ -4,7 +4,10 @@ const state = {
   search: "",
   following: new Set(),
   selected: null,
+  selectedPing: null,
   session: null,
+  discoverMode: "radar",
+  radiusMiles: 15,
   toastTimer: null
 };
 
@@ -39,6 +42,118 @@ function compatibility(profile) {
   const a = Math.sqrt(vector.reduce((sum, value) => sum + value ** 2, 0));
   const b = Math.sqrt(CURRENT_USER.vibe.reduce((sum, value) => sum + value ** 2, 0));
   return Math.round((dot / (a * b)) * 100);
+}
+
+function distanceMiles(profile) {
+  const earthRadiusMiles = 3958.8;
+  const toRadians = (degrees) => degrees * Math.PI / 180;
+  const lat1 = toRadians(CURRENT_USER.latitude);
+  const lat2 = toRadians(profile.location.latitude);
+  const deltaLat = toRadians(profile.location.latitude - CURRENT_USER.latitude);
+  const deltaLon = toRadians(profile.location.longitude - CURRENT_USER.longitude);
+  const a = Math.sin(deltaLat / 2) ** 2 +
+    Math.cos(lat1) * Math.cos(lat2) * Math.sin(deltaLon / 2) ** 2;
+  return earthRadiusMiles * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+function radarPosition(profile) {
+  const latitudeMiles = (profile.location.latitude - CURRENT_USER.latitude) * 69;
+  const longitudeMiles = (profile.location.longitude - CURRENT_USER.longitude) *
+    69 * Math.cos(CURRENT_USER.latitude * Math.PI / 180);
+  return {
+    x: Math.max(5, Math.min(95, 50 + (longitudeMiles / state.radiusMiles) * 43)),
+    y: Math.max(5, Math.min(95, 50 - (latitudeMiles / state.radiusMiles) * 43))
+  };
+}
+
+function liveRadarProfiles() {
+  return state.profiles
+    .filter((profile) =>
+      profile.status !== "private" &&
+      ["listening", "in-session"].includes(profile.status) &&
+      profile.currentTrack &&
+      distanceMiles(profile) <= state.radiusMiles
+    )
+    .sort((a, b) => compatibility(b) - compatibility(a));
+}
+
+function spreadRadarPosition(profile, index, placedPositions) {
+  const position = radarPosition(profile);
+  let attempt = 0;
+  const overlaps = () => placedPositions.some((placed) =>
+    Math.hypot(position.x - placed.x, position.y - placed.y) < 7
+  );
+  while (overlaps() && attempt < 10) {
+    const angle = (index * 137.5 + attempt * 61) * Math.PI / 180;
+    const distance = 4.5 + attempt * .65;
+    position.x = Math.max(5, Math.min(95, position.x + Math.cos(angle) * distance));
+    position.y = Math.max(5, Math.min(95, position.y + Math.sin(angle) * distance));
+    attempt++;
+  }
+  placedPositions.push(position);
+  return position;
+}
+
+function renderRadar() {
+  const profiles = liveRadarProfiles();
+  const pingLayer = $("#radar-pings");
+  const placedPositions = [];
+  $("#radar-live-count").textContent = `${profiles.length} live signal${profiles.length === 1 ? "" : "s"}`;
+  $("#radar-radius-label").textContent = `within ${state.radiusMiles} miles`;
+  pingLayer.innerHTML = profiles.map((profile, index) => {
+    const position = spreadRadarPosition(profile, index, placedPositions);
+    const match = compatibility(profile);
+    const size = 17 + Math.round((match - 60) * .2) + (profile.status === "in-session" ? 4 : 0);
+    const selected = state.selectedPing === profile.username;
+    return `
+      <button
+        class="listener-ping ${profile.status} ${selected ? "selected" : ""}"
+        data-ping="${escapeHtml(profile.username)}"
+        aria-label="${escapeHtml(profile.name)}, ${distanceMiles(profile).toFixed(1)} miles away, listening to ${escapeHtml(profile.currentTrack.name)}, ${match}% match"
+        style="left:${position.x}%;top:${position.y}%;--accent:${profile.palette[0]};--ping-size:${size}px;--delay:-${(index % 6) * .35}s"
+      ></button>`;
+  }).join("");
+  $$(".listener-ping", pingLayer).forEach((ping) => {
+    ping.addEventListener("click", () => selectRadarPing(ping.dataset.ping));
+  });
+
+  if (state.selectedPing && !profiles.some((profile) => profile.username === state.selectedPing)) {
+    state.selectedPing = null;
+    renderRadarPreview(null);
+  }
+}
+
+function selectRadarPing(username) {
+  state.selectedPing = username;
+  renderRadar();
+  renderRadarPreview(state.profiles.find((profile) => profile.username === username));
+}
+
+function renderRadarPreview(profile) {
+  const preview = $("#radar-preview");
+  if (!profile) {
+    preview.innerHTML = `<p class="empty-preview">Tap a live signal to hear what Philadelphia is listening to.</p>`;
+    return;
+  }
+  const actionLabel = profile.privacyMode === "open-door" ? "Join now" : "Knock first";
+  preview.innerHTML = `
+    <article class="signal-card">
+      <div class="signal-head">
+        <span class="avatar small" style="${paletteStyle(profile)}">${escapeHtml(profile.initials)}</span>
+        <div>
+          <p class="signal-name">${escapeHtml(profile.name)}</p>
+          <p class="signal-meta">${distanceMiles(profile).toFixed(1)} mi · ${escapeHtml(profile.location.neighborhood)} · ${titleCase(profile.privacyMode)}</p>
+        </div>
+        <span class="signal-match">${compatibility(profile)}%</span>
+      </div>
+      <p class="signal-track">${escapeHtml(profile.currentTrack.name)} · ${escapeHtml(profile.currentTrack.artist)}</p>
+      <div class="signal-actions">
+        <button class="btn" data-radar-profile>View profile</button>
+        <button class="btn primary" data-radar-action>${actionLabel}</button>
+      </div>
+    </article>`;
+  $("[data-radar-profile]", preview).addEventListener("click", () => openProfile(profile.username));
+  $("[data-radar-action]", preview).addEventListener("click", () => handlePrimaryAction(profile));
 }
 
 function paletteStyle(profile) {
@@ -234,9 +349,11 @@ function handlePrimaryAction(profile) {
     return;
   }
   if (profile.privacyMode === "knock-first") {
-    const button = $("[data-session]", $("#profile-view"));
-    button.disabled = true;
-    button.textContent = "Knocking…";
+    const button = $("[data-session]", $("#profile-view")) || $("[data-radar-action]", $("#radar-preview"));
+    if (button) {
+      button.disabled = true;
+      button.textContent = "Knocking…";
+    }
     toast(`Knock sent to ${profile.name}`);
     setTimeout(() => startSession(profile), 900);
   } else {
@@ -301,6 +418,14 @@ function switchView(viewName) {
   $$(".nav-item").forEach((button) => button.classList.toggle("active", button.dataset.view === viewName));
 }
 
+function switchDiscoverMode(mode) {
+  state.discoverMode = mode;
+  $$(".mode-button").forEach((button) => button.classList.toggle("active", button.dataset.discoverMode === mode));
+  $("#radar-panel").classList.toggle("active", mode === "radar");
+  $("#list-panel").classList.toggle("active", mode === "list");
+  if (mode === "radar") renderRadar();
+}
+
 function toast(message) {
   const element = $("#toast");
   element.textContent = message;
@@ -319,6 +444,7 @@ async function init() {
     $("#network-count").textContent = state.profiles.length;
     $("#live-count").textContent = `${state.profiles.filter((profile) => ["listening", "in-session"].includes(profile.status)).length} live now`;
     renderProfiles();
+    renderRadar();
     renderActivity();
   } catch (error) {
     console.error(error);
@@ -334,6 +460,14 @@ $$(".filter").forEach((button) => button.addEventListener("click", () => {
   state.filter = button.dataset.filter;
   $$(".filter").forEach((item) => item.classList.toggle("active", item === button));
   renderProfiles();
+}));
+$$(".mode-button").forEach((button) => button.addEventListener("click", () => {
+  switchDiscoverMode(button.dataset.discoverMode);
+}));
+$$("[data-radius]").forEach((button) => button.addEventListener("click", () => {
+  state.radiusMiles = Number(button.dataset.radius);
+  $$("[data-radius]").forEach((item) => item.classList.toggle("active", item === button));
+  renderRadar();
 }));
 $$(".nav-item").forEach((button) => button.addEventListener("click", () => switchView(button.dataset.view)));
 $$(".self-avatar").forEach((button) => button.addEventListener("click", () => switchView("you")));
