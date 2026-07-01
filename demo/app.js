@@ -21,6 +21,9 @@ const state = {
   sessionStartedAt: 0,
   sessionTimerId: null,
   toastTimer: null
+  ,swipeQueue: []
+  ,swipeIndex: 0
+  ,conversations: []
 };
 
 const CURRENT_USER = {
@@ -65,6 +68,118 @@ function compatibility(profile) {
   const a = Math.sqrt(vector.reduce((sum, value) => sum + value ** 2, 0));
   const b = Math.sqrt(CURRENT_USER.vibe.reduce((sum, value) => sum + value ** 2, 0));
   return Math.round((dot / (a * b)) * 100);
+}
+
+function buildConversations() {
+  const lines = [
+    "That transition was ridiculous — tether later?",
+    "Sent you a Time Capsule ✦",
+    "I’m listening now if you want to drop in.",
+    "This track made me think of your night-drive playlist.",
+    "Pulse received. Perfect timing.",
+    "You: absolutely, give me five minutes."
+  ];
+  state.conversations = state.profiles.slice(2, 12).map((profile, index) => ({
+    profile,
+    preview: lines[index % lines.length],
+    time: index < 2 ? `${9 - index}:4${index}` : index < 5 ? "Yesterday" : "Mon",
+    unread: index < 3,
+    messages: [
+      { mine:false, text:index % 2 ? "I found something you need to hear." : "You around for a quick tether?" },
+      { mine:true, text:index % 2 ? "Send it. I’m walking along the river." : "Yeah — opening the app now." },
+      { mine:false, track:true, text:profile.currentTrack ? `${profile.currentTrack.name} · ${profile.currentTrack.artist}` : `${profile.topArtists[0]} radio · live mix` },
+      { mine:false, text:lines[index % lines.length] }
+    ]
+  }));
+}
+
+function renderSwipeDeck() {
+  const deck = $("#swipe-deck");
+  if (!deck) return;
+  const available = state.swipeQueue.slice(state.swipeIndex, state.swipeIndex + 3).reverse();
+  if (!available.length) {
+    deck.innerHTML = `<div class="empty-state"><strong>You reached the edge of Philly.</strong><p>Everyone you saw remains available in People.</p><button class="btn" data-reset-deck>Start again</button></div>`;
+    $("[data-reset-deck]", deck).addEventListener("click", () => { state.swipeIndex = 0; renderSwipeDeck(); });
+    return;
+  }
+  deck.innerHTML = available.map((profile, reversedIndex) => {
+    const isTop = reversedIndex === available.length - 1;
+    const track = profile.currentTrack || { name:`${profile.topArtists[0]} radio`, artist:"Recently played" };
+    return `<article class="swipe-card" ${isTop ? `data-swipe-card data-username="${escapeHtml(profile.username)}"` : ""} style="--card-a:${profile.palette[0]};--card-b:${profile.palette[2]}">
+      <div class="swipe-art">
+        <span class="swipe-match">${compatibility(profile)}% aligned</span>
+        <span class="avatar swipe-avatar" style="${paletteStyle(profile)}">${escapeHtml(profile.initials)}</span>
+      </div>
+      <div class="swipe-copy">
+        <div class="swipe-name-row"><h3>${escapeHtml(profile.name)}</h3><span>${distanceMiles(profile).toFixed(1)} mi · ${escapeHtml(profile.location.neighborhood)}</span></div>
+        <p class="swipe-handle">@${escapeHtml(profile.username)} · ${titleCase(profile.privacyMode)}</p>
+        <p class="swipe-bio">${escapeHtml(profile.bio)}</p>
+        <div class="swipe-track"><small>${profile.status === "listening" ? "listening now" : "on their wavelength"}</small><strong>${escapeHtml(track.name)} · ${escapeHtml(track.artist)}</strong></div>
+        <div class="swipe-tags">${profile.topArtists.slice(0,3).map(a => `<span>${escapeHtml(a)}</span>`).join("")}</div>
+      </div>
+    </article>`;
+  }).join("");
+  enableCardDrag();
+}
+
+function actOnSwipe(direction) {
+  const card = $("[data-swipe-card]");
+  const profile = state.swipeQueue[state.swipeIndex];
+  if (!card || !profile) return;
+  card.classList.add(direction === "connect" ? "fly-right" : "fly-left");
+  if (direction === "connect") {
+    state.following.add(profile.username);
+    toast(`You and ${profile.name} are now connected ✦`);
+  }
+  setTimeout(() => { state.swipeIndex++; renderSwipeDeck(); renderProfiles(); }, 330);
+}
+
+function enableCardDrag() {
+  const card = $("[data-swipe-card]");
+  if (!card) return;
+  let startX = 0, deltaX = 0;
+  card.addEventListener("pointerdown", event => { startX = event.clientX; deltaX = 0; card.setPointerCapture(event.pointerId); card.classList.add("dragging"); });
+  card.addEventListener("pointermove", event => {
+    if (!startX) return;
+    deltaX = event.clientX - startX;
+    card.style.transform = `translateX(${deltaX}px) rotate(${deltaX / 18}deg)`;
+  });
+  card.addEventListener("pointerup", () => {
+    card.classList.remove("dragging"); card.style.transform = ""; startX = 0;
+    if (Math.abs(deltaX) > 85) actOnSwipe(deltaX > 0 ? "connect" : "pass");
+  });
+}
+
+function renderConversations(query = "") {
+  const list = $("#conversation-list");
+  const items = state.conversations.filter(c => `${c.profile.name} ${c.profile.username}`.toLowerCase().includes(query.toLowerCase()));
+  list.innerHTML = items.map((conversation, index) => `<article class="conversation" data-conversation="${conversation.profile.username}">
+    <span class="avatar" style="${paletteStyle(conversation.profile)}">${escapeHtml(conversation.profile.initials)}</span>
+    <div class="conversation-copy"><div class="conversation-top"><strong>${escapeHtml(conversation.profile.name)}</strong><time>${conversation.time}</time></div><p>${escapeHtml(conversation.preview)}</p></div>
+    ${conversation.unread ? `<i class="unread-dot"></i>` : `<span></span>`}
+  </article>`).join("");
+  $$("[data-conversation]", list).forEach(item => item.addEventListener("click", () => openConversation(item.dataset.conversation)));
+}
+
+function openConversation(username) {
+  const conversation = state.conversations.find(c => c.profile.username === username);
+  if (!conversation) return;
+  conversation.unread = false;
+  const p = conversation.profile;
+  const sheet = document.createElement("section");
+  sheet.className = "chat-sheet";
+  sheet.innerHTML = `<header class="chat-head"><button data-close-chat>‹</button><span class="avatar small" style="${paletteStyle(p)}">${p.initials}</span><div class="chat-head-copy"><strong>${escapeHtml(p.name)}</strong><span>${p.status === "listening" ? "● listening now" : "last here recently"}</span></div><button data-chat-profile>•••</button></header>
+    <div class="chat-stage">${conversation.messages.map(m => `<div class="bubble ${m.mine ? "me" : ""} ${m.track ? "shared-track" : ""}">${m.track ? "♫ &nbsp;" : ""}${escapeHtml(m.text)}</div>`).join("")}</div>
+    <form class="chat-compose"><input aria-label="Message" placeholder="Message ${escapeHtml(p.name.split(" ")[0])}…"><button aria-label="Send">↑</button></form>`;
+  $(".phone").appendChild(sheet);
+  $("[data-close-chat]", sheet).addEventListener("click", () => { sheet.remove(); renderConversations($("#message-search").value); });
+  $("[data-chat-profile]", sheet).addEventListener("click", () => { sheet.remove(); openProfile(username); });
+  $(".chat-compose", sheet).addEventListener("submit", event => {
+    event.preventDefault(); const input = $("input", event.currentTarget); if (!input.value.trim()) return;
+    conversation.messages.push({mine:true,text:input.value.trim()});
+    $(".chat-stage", sheet).insertAdjacentHTML("beforeend", `<div class="bubble me">${escapeHtml(input.value.trim())}</div>`);
+    input.value = ""; $(".chat-stage", sheet).scrollTop = 99999;
+  });
 }
 
 function distanceMiles(profile) {
@@ -483,6 +598,7 @@ function openProfile(username) {
       <span class="location">⌖ ${escapeHtml(profile.location.neighborhood)} · Philadelphia</span>
       <div class="action-row">
         <button class="btn" data-follow>${isFollowing ? "Following" : "Follow"}</button>
+        <button class="btn" data-message>Message</button>
         <button class="btn primary" data-session ${actionDisabled ? "disabled" : ""}>${actionLabel}</button>
       </div>
     </div>
@@ -540,6 +656,13 @@ function openProfile(username) {
   $("[data-close-profile]", view).addEventListener("click", closeProfile);
   $("[data-more]", view).addEventListener("click", () => openFriendSettings(profile));
   $("[data-follow]", view).addEventListener("click", () => toggleFollow(profile));
+  $("[data-message]", view).addEventListener("click", () => {
+    closeProfile();
+    if (!state.conversations.some(c => c.profile.username === profile.username)) {
+      state.conversations.unshift({profile, preview:"Start a conversation", time:"Now", unread:false, messages:[]});
+    }
+    openConversation(profile.username);
+  });
   const sessionButton = $("[data-session]", view);
   if (!sessionButton.disabled) sessionButton.addEventListener("click", () => handlePrimaryAction(profile));
 }
@@ -823,8 +946,10 @@ function switchDiscoverMode(mode) {
   state.discoverMode = mode;
   $$(".mode-button").forEach((button) => button.classList.toggle("active", button.dataset.discoverMode === mode));
   $("#radar-panel").classList.toggle("active", mode === "radar");
+  $("#swipe-panel").classList.toggle("active", mode === "swipe");
   $("#list-panel").classList.toggle("active", mode === "list");
   if (mode === "radar") renderRadar();
+  if (mode === "swipe") renderSwipeDeck();
 }
 
 function toast(message) {
@@ -842,6 +967,10 @@ async function init() {
     const data = await response.json();
     state.profiles = data.profiles;
     state.following = new Set(state.profiles.slice(0, 18).map((profile) => profile.username));
+    state.swipeQueue = [...state.profiles]
+      .filter(profile => profile.privacyMode !== "ghost")
+      .sort((a, b) => compatibility(b) - compatibility(a));
+    buildConversations();
     $("#network-count").textContent = state.profiles.length;
     $("#live-count").textContent = `${state.profiles.filter((profile) => ["listening", "in-session"].includes(profile.status)).length} live now`;
     renderProfiles();
@@ -849,6 +978,8 @@ async function init() {
     renderActivity();
     renderAnchors();
     renderCapsules();
+    renderSwipeDeck();
+    renderConversations();
   } catch (error) {
     console.error(error);
     $("#profile-list").innerHTML = `<p class="empty">The Philadelphia profile data could not be loaded.</p>`;
@@ -872,6 +1003,14 @@ $$("[data-radius]").forEach((button) => button.addEventListener("click", () => {
   $$("[data-radius]").forEach((item) => item.classList.toggle("active", item === button));
   renderRadar();
 }));
+$$("[data-swipe-action]").forEach(button => button.addEventListener("click", () => {
+  if (button.dataset.swipeAction === "profile") {
+    const profile = state.swipeQueue[state.swipeIndex];
+    if (profile) openProfile(profile.username);
+  } else actOnSwipe(button.dataset.swipeAction);
+}));
+$("#message-search").addEventListener("input", event => renderConversations(event.target.value));
+$("[data-compose]").addEventListener("click", () => toast("Choose any person in Discover to start a private conversation."));
 $$(".memory-tab").forEach((button) => button.addEventListener("click", () => {
   $$(".memory-tab").forEach((item) => item.classList.toggle("active", item === button));
   $$("[data-memory-panel]").forEach((panel) =>
