@@ -4,7 +4,7 @@
 
 Tether bridges the gap between isolated listening and human connection by creating a living social graph of musical presence, perfectly synced playback, and an adaptive UI that responds to your social context in real time.
 
-🔗 **Live Demo:** [tether.app](https://tether.app) *(Pending / Private)*
+🔗 **Live Demo:** [dmdtague.github.io/tether](https://dmdtague.github.io/tether/)
 🔗 **Repository:** [github.com/DMDTague/tether](https://github.com/DMDTague/tether)
 
 ---
