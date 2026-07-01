@@ -1,0 +1,153 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#09090d">
+  <title>Tether — Philadelphia Live Demo</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <main class="phone" aria-label="Tether Philadelphia interactive demo">
+    <header class="topbar">
+      <div>
+        <p class="eyebrow">Philadelphia demo</p>
+        <h1>Tether</h1>
+      </div>
+      <button class="avatar self-avatar" aria-label="Open John Roastpork's profile">JR</button>
+    </header>
+
+    <section id="discover-view" class="view active" aria-labelledby="discover-title">
+      <div class="hero">
+        <div>
+          <p id="discover-title" class="eyebrow">Wavelength</p>
+          <p id="network-count" class="hero-number">50</p>
+          <p class="hero-label">listeners across Philadelphia</p>
+        </div>
+        <div class="hero-stat">
+          <span class="live-dot"></span>
+          <span id="live-count">12 live now</span>
+        </div>
+      </div>
+
+      <div class="discover-switch" role="group" aria-label="Discover view">
+        <button class="mode-button active" data-discover-mode="radar">Radar</button>
+        <button class="mode-button" data-discover-mode="list">People</button>
+      </div>
+
+      <div id="radar-panel" class="discover-panel active">
+        <div class="radar-summary">
+          <div>
+            <strong id="radar-live-count">0 live signals</strong>
+            <span id="radar-radius-label">within 15 miles</span>
+          </div>
+          <span class="radar-privacy">Ghost Mode hidden</span>
+        </div>
+        <div id="music-radar" class="music-radar" aria-label="Live listener radar centered on John Roastpork">
+          <div class="radar-grid"></div>
+          <div class="radar-ring ring-outer"></div>
+          <div class="radar-ring ring-middle"></div>
+          <div class="radar-ring ring-inner"></div>
+          <span class="map-label north">North Philly</span>
+          <span class="map-label west">West Philly</span>
+          <span class="map-label center">Center City</span>
+          <span class="map-label river">Delaware River</span>
+          <div id="radar-pings" class="radar-pings"></div>
+          <button class="you-ping" aria-label="John Roastpork, your location">
+            <span>JR</span>
+          </button>
+        </div>
+        <div class="radius-controls" role="group" aria-label="Discovery radius">
+          <span>Radius</span>
+          <button data-radius="5">5 mi</button>
+          <button data-radius="10">10 mi</button>
+          <button class="active" data-radius="15">15 mi</button>
+        </div>
+        <div class="radar-legend">
+          <span><i class="legend-dot close-match"></i> closer vibe</span>
+          <span><i class="legend-dot open-session"></i> open session</span>
+          <span><i class="legend-dot knock-session"></i> knock first</span>
+        </div>
+        <div id="radar-preview" class="radar-preview" aria-live="polite">
+          <p class="empty-preview">Tap a live signal to hear what Philadelphia is listening to.</p>
+        </div>
+      </div>
+
+      <div id="list-panel" class="discover-panel">
+        <label class="search">
+          <span aria-hidden="true">⌕</span>
+          <input id="profile-search" type="search" placeholder="Search people, artists, neighborhoods" autocomplete="off">
+        </label>
+
+        <div class="filters" role="group" aria-label="Profile filters">
+          <button class="filter active" data-filter="all">All</button>
+          <button class="filter" data-filter="live">Live</button>
+          <button class="filter" data-filter="sessions">In sessions</button>
+          <button class="filter" data-filter="following">Following</button>
+        </div>
+
+        <div id="profile-list" class="profile-list" aria-live="polite"></div>
+      </div>
+    </section>
+
+    <section id="activity-view" class="view" aria-labelledby="activity-title">
+      <div class="section-heading">
+        <p class="eyebrow">Across Philadelphia</p>
+        <h2 id="activity-title">Live activity</h2>
+      </div>
+      <div id="activity-feed" class="activity-feed"></div>
+    </section>
+
+    <section id="you-view" class="view" aria-labelledby="you-title">
+      <div class="you-card">
+        <div class="avatar xl self-avatar">JR</div>
+        <p class="eyebrow">Your demo identity</p>
+        <h2 id="you-title">John Roastpork</h2>
+        <p class="handle">@john.roastpork · Pennsport</p>
+        <p class="bio">Finding Philadelphia one shared song at a time.</p>
+        <div class="metric-grid">
+          <div><strong>24</strong><span>friends</span></div>
+          <div><strong>48</strong><span>anchors</span></div>
+          <div><strong>312</strong><span>pulses</span></div>
+          <div><strong>86h</strong><span>tethered</span></div>
+        </div>
+      </div>
+      <div class="recap-card identity-card">
+        <p class="eyebrow">Demo profile</p>
+        <h3>John's listening identity</h3>
+        <div class="recap-row"><span>Home base</span><strong>Pennsport</strong></div>
+        <div class="recap-row"><span>Coordinates</span><strong>39.921162, −75.144890</strong></div>
+        <div class="recap-row"><span>Privacy</span><strong>Open Door</strong></div>
+        <div class="recap-row"><span>Streaming</span><strong>Spotify</strong></div>
+        <div class="recap-row"><span>Primary vibe</span><strong>Warm / energetic</strong></div>
+      </div>
+      <div class="recap-card">
+        <p class="eyebrow">Philadelphia network</p>
+        <h3>Tonight on Tether</h3>
+        <div class="recap-row"><span>Live listeners</span><strong>12</strong></div>
+        <div class="recap-row"><span>Shared sessions</span><strong>5</strong></div>
+        <div class="recap-row"><span>Pulses today</span><strong>184</strong></div>
+        <div class="recap-row"><span>Neighborhoods</span><strong>12</strong></div>
+      </div>
+    </section>
+
+    <section id="profile-view" class="overlay-view" aria-live="polite"></section>
+    <section id="session-view" class="overlay-view" aria-live="polite"></section>
+
+    <nav class="bottom-nav" aria-label="Main navigation">
+      <button class="nav-item active" data-view="discover">
+        <span>◎</span><small>People</small>
+      </button>
+      <button class="nav-item" data-view="activity">
+        <span>◌</span><small>Activity</small>
+      </button>
+      <button class="nav-item" data-view="you">
+        <span>◈</span><small>You</small>
+      </button>
+    </nav>
+
+    <div id="toast" class="toast" role="status"></div>
+  </main>
+  <script src="app.js" defer></script>
+</body>
+</html>
