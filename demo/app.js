@@ -8,7 +8,15 @@ const state = {
   toastTimer: null
 };
 
-const DYLAN_VIBE = [0.64, 0.72, 0.68, 0.31];
+const CURRENT_USER = {
+  name: "John Roastpork",
+  username: "john.roastpork",
+  initials: "JR",
+  latitude: 39.921162,
+  longitude: -75.144890,
+  neighborhood: "Pennsport",
+  vibe: [0.64, 0.72, 0.68, 0.31]
+};
 const $ = (selector, root = document) => root.querySelector(selector);
 const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
 
@@ -27,9 +35,9 @@ function titleCase(value) {
 
 function compatibility(profile) {
   const vector = Object.values(profile.vibe);
-  const dot = vector.reduce((sum, value, index) => sum + value * DYLAN_VIBE[index], 0);
+  const dot = vector.reduce((sum, value, index) => sum + value * CURRENT_USER.vibe[index], 0);
   const a = Math.sqrt(vector.reduce((sum, value) => sum + value ** 2, 0));
-  const b = Math.sqrt(DYLAN_VIBE.reduce((sum, value) => sum + value ** 2, 0));
+  const b = Math.sqrt(CURRENT_USER.vibe.reduce((sum, value) => sum + value ** 2, 0));
   return Math.round((dot / (a * b)) * 100);
 }
 
