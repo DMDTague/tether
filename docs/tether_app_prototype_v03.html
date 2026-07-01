@@ -41,6 +41,11 @@ body { margin: 0; background: #111110; display: flex; justify-content: center; a
   position: relative;
 }
 
+@media (max-width: 500px) {
+  body { align-items: stretch; }
+  .phone { width: 100vw; height: 100dvh; border: 0; border-radius: 0; }
+}
+
 .art-b  { background: linear-gradient(135deg,#1A3A6A,#3A7ACC); }
 .art-pk { background: linear-gradient(135deg,#5A1A40,#C2407A); }
 .art-g  { background: linear-gradient(135deg,#1A3A10,#4A9A1A); }
@@ -216,7 +221,7 @@ body { margin: 0; background: #111110; display: flex; justify-content: center; a
     <div id="fs" class="screen on">
       <div style="padding:18px 22px 10px;display:flex;justify-content:space-between;align-items:baseline;flex-shrink:0">
         <div style="font-size:28px;font-weight:300;color:var(--txt);letter-spacing:-.03em;font-style:italic">Tether</div>
-        <div style="font-size:11px;color:var(--txt3)">3 live now</div>
+        <div id="live-friend-count" style="font-size:11px;color:var(--txt3)">loading Philadelphia…</div>
       </div>
       <div style="flex:1;overflow-y:auto;padding:0 14px 16px;scrollbar-width:none">
 
@@ -732,8 +737,8 @@ function openFriendMenu(fid) {
   S.currentFriend = fid;
   const names = { jamie:'Jamie L.', alex:'Alex R.', sam:'Sam A.', maya:'Maya K.' };
   const inis  = { jamie:'JL', alex:'AR', sam:'SA', maya:'MK' };
-  g('fmname').textContent = names[fid] || fid;
-  g('fmav').textContent = inis[fid] || '??';
+  g('fmname').textContent = FR[fid]?.name || names[fid] || fid;
+  g('fmav').textContent = FR[fid]?.ini || inis[fid] || '??';
   g('fm-feedback').style.display = 'none';
   showOv('fmov');
 }
@@ -1038,6 +1043,58 @@ function sendAsync() {
 }
 
 // ── Timers ────────────────────────────────────────────────────
+// Demo population adapter. The interface above is the original v0.3 prototype;
+// only its hard-coded people are replaced by fictional Philadelphia data.
+const esc = value => String(value ?? '')
+  .replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;')
+  .replaceAll('"','&quot;').replaceAll("'",'&#039;');
+
+function profileToFriend(profile, index) {
+  const track = profile.currentTrack || { name:`${profile.topArtists[0]} radio`, artist:'Recently played', durationSeconds:238 };
+  const privacy = ['open-door','knock-first'].includes(profile.privacyMode) ? profile.privacyMode : 'ghost';
+  const style = privacy === 'open-door'
+    ? { color:'var(--grn)', soft:'var(--grnd)', label:'Open Door' }
+    : privacy === 'knock-first'
+      ? { color:'var(--amb)', soft:'var(--ambd)', label:'Knock First' }
+      : { color:'var(--txt3)', soft:'var(--surf2)', label:'Ghost Mode' };
+  return {
+    ini:profile.initials, name:profile.name, first:profile.name.split(' ')[0],
+    trk:track.name, art:track.artist, ac:['art-b','art-pk','art-g','art-pu','art-am'][index % 5],
+    pv:privacy, pvc:style.color, pvl:style.label, sc:style.color, soft:style.soft,
+    dur:track.durationSeconds || 238, up:profile.topArtists[1] || profile.topArtists[0],
+    status:profile.status, neighborhood:profile.location.neighborhood,
+    username:profile.username, bio:profile.bio
+  };
+}
+
+function renderPhiladelphiaFriends(profiles) {
+  const list = g('fs').children[1];
+  const live = profiles.filter(p => ['listening','in-session'].includes(p.status));
+  const ordered = [...live, ...profiles.filter(p => !live.includes(p))];
+  ordered.forEach((profile,index) => { FR[profile.username] = profileToFriend(profile,index); });
+  if(live[0]) cf = live[0].username;
+  g('live-friend-count').textContent = `${live.length} live now · Philadelphia`;
+  list.innerHTML = ordered.map((profile,index) => {
+    const f = FR[profile.username];
+    const isLive = ['listening','in-session'].includes(profile.status);
+    const status = profile.status === 'in-session' ? 'in a session' : profile.status === 'listening' ? 'listening now' : profile.status === 'private' ? 'listening privately' : 'offline';
+    const action = isLive ? `openStage('${esc(profile.username)}')` : `openFriendMenu('${esc(profile.username)}')`;
+    const track = isLive ? `<div style="font-size:11px;color:var(--txt2);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(f.trk)} · ${esc(f.art)}</div>` : '';
+    const divider = index === live.length && live.length < ordered.length ? `<div style="height:.5px;background:var(--bd2);margin:12px 6px"></div><div style="font-size:10px;font-weight:600;color:var(--txt3);letter-spacing:.08em;text-transform:uppercase;padding:4px 6px;margin-bottom:6px">Offline & private</div>` : '';
+    return `${divider}<div class="tap fin" onclick="${action}" style="display:flex;align-items:center;gap:12px;padding:${isLive?'11':'10'}px 12px;border-radius:16px;margin-bottom:3px;background:${isLive?f.soft:'transparent'}">
+      <div style="width:46px;height:46px;border-radius:50%;background:${isLive?f.soft:'var(--surf2)'};border:${isLive?'1.5px':'1px'} solid ${isLive?f.pvc:'var(--bd)'};display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:600;color:${isLive?f.pvc:'var(--txt3)'};flex-shrink:0">${esc(f.ini)}</div>
+      <div style="flex:1;min-width:0"><div style="font-size:15px;font-weight:${isLive?'500':'400'};color:${isLive?'var(--txt)':'var(--txt2)'}">${esc(f.name)}</div>
+        <div style="font-size:12px;color:${isLive?f.pvc:'var(--txt3)'};display:flex;align-items:center;gap:4px;margin-top:1px">${isLive?`<span class="ld" style="width:5px;height:5px;border-radius:50%;background:${f.pvc};flex-shrink:0;display:inline-block"></span>`:''}<span>${status}</span></div>${track}</div>
+      <div style="text-align:right;flex-shrink:0"><div style="font-size:9px;color:var(--txt3)">${esc(f.neighborhood)}</div><div style="color:var(--txt3);font-size:18px">›</div></div>
+    </div>`;
+  }).join('');
+}
+
+fetch('data/profiles.json')
+  .then(response => response.ok ? response.json() : Promise.reject(new Error(response.status)))
+  .then(data => renderPhiladelphiaFriends(data.profiles))
+  .catch(() => { g('live-friend-count').textContent = 'demo data unavailable'; });
+
 setInterval(() => {
   if(S.paused) return; // hard stop — don't advance position
   S.mp = S.mp >= 100 ? 0 : S.mp + .05;
