@@ -17,10 +17,40 @@
       <button class="avatar self-avatar" aria-label="Open John Roastpork's profile">JR</button>
     </header>
 
-    <section id="discover-view" class="view active" aria-labelledby="discover-title">
+    <section id="home-view" class="view active" aria-labelledby="home-title">
+      <div class="home-welcome">
+        <div>
+          <p class="eyebrow">Tuesday evening</p>
+          <h2 id="home-title">Listen together.</h2>
+          <p>Distance disappears when the song starts.</p>
+        </div>
+        <button class="service-pill" data-service-picker><span class="service-dot spotify"></span><strong>Spotify</strong><span>⌄</span></button>
+      </div>
+      <button class="start-session-card" data-start-own-session>
+        <span class="session-orbit"><i></i><i></i><b>JR</b></span>
+        <span class="start-copy"><small>Your stage is quiet</small><strong>Play something to start a Tether</strong><em>Choose a track from your connected music account</em></span>
+        <span class="start-arrow">›</span>
+      </button>
+      <div class="home-section-head">
+        <div><p class="eyebrow">Live now</p><h3>Friends you can join</h3></div>
+        <button data-see-all-live>See all</button>
+      </div>
+      <div id="live-session-rail" class="live-session-rail"></div>
+      <div class="home-section-head">
+        <div><p class="eyebrow">Close to you</p><h3>On your wavelength</h3></div>
+        <button data-open-wavelength>Explore</button>
+      </div>
+      <div id="home-match-list" class="home-match-list"></div>
+      <div class="presence-explainer">
+        <span class="presence-rings"><i></i><i></i><b>✦</b></span>
+        <div><strong>Same song. Same second.</strong><p>Join a Tether and playback syncs to the host. No queue editing, no pressure—just presence.</p></div>
+      </div>
+    </section>
+
+    <section id="discover-view" class="view" aria-labelledby="discover-title">
       <div class="hero">
         <div>
-          <p id="discover-title" class="eyebrow">Wavelength</p>
+          <p id="discover-title" class="eyebrow">Wavelength discovery</p>
           <p id="network-count" class="hero-number">50</p>
           <p class="hero-label">listeners across Philadelphia</p>
         </div>
@@ -42,7 +72,7 @@
             <strong id="radar-live-count">0 live signals</strong>
             <span id="radar-radius-label">within 15 miles</span>
           </div>
-          <span class="radar-privacy">Ghost Mode hidden</span>
+          <span class="radar-privacy">Approximate · never exact</span>
         </div>
         <div id="music-radar" class="music-radar" aria-label="Live listener radar centered on John Roastpork">
           <div class="radar-grid"></div>
@@ -107,17 +137,18 @@
 
     <section id="activity-view" class="view" aria-labelledby="activity-title">
       <div class="section-heading">
-        <p class="eyebrow">Your inner circle</p>
-        <h2 id="activity-title">Social</h2>
+        <p class="eyebrow">Music community</p>
+        <h2 id="activity-title">The Exchange</h2>
       </div>
       <div class="memory-tabs" role="group" aria-label="Activity and memories">
-        <button class="memory-tab active" data-memory-tab="live">Live</button>
-        <button class="memory-tab" data-memory-tab="anchors">Anchors</button>
-        <button class="memory-tab" data-memory-tab="capsules">Capsules</button>
+        <button class="memory-tab active" data-memory-tab="reviews">For you</button>
+        <button class="memory-tab" data-memory-tab="live">Listening</button>
+        <button class="memory-tab" data-memory-tab="anchors">Your diary</button>
       </div>
-      <div id="activity-feed" class="activity-feed memory-panel active" data-memory-panel="live"></div>
+      <div id="review-feed" class="review-feed memory-panel active" data-memory-panel="reviews"></div>
+      <div id="activity-feed" class="activity-feed memory-panel" data-memory-panel="live"></div>
       <div id="anchor-feed" class="anchor-feed memory-panel" data-memory-panel="anchors"></div>
-      <div id="capsule-feed" class="capsule-feed memory-panel" data-memory-panel="capsules"></div>
+      <div id="capsule-feed" hidden></div>
     </section>
 
     <section id="messages-view" class="view" aria-labelledby="messages-title">
@@ -150,7 +181,7 @@
         <p class="eyebrow">Demo profile</p>
         <h3>John's listening identity</h3>
         <div class="recap-row"><span>Home base</span><strong>Pennsport</strong></div>
-        <div class="recap-row"><span>Coordinates</span><strong>39.921162, −75.144890</strong></div>
+        <div class="recap-row"><span>Location sharing</span><strong>Radius only · exact point hidden</strong></div>
         <div class="recap-row"><span>Privacy</span><strong id="current-privacy-value">Open Door</strong></div>
         <div class="recap-row"><span>Streaming</span><strong>Spotify</strong></div>
         <div class="recap-row"><span>Primary vibe</span><strong>Warm / energetic</strong></div>
@@ -185,11 +216,14 @@
     <section id="feature-modal" class="feature-modal" aria-live="polite"></section>
 
     <nav class="bottom-nav" aria-label="Main navigation">
-      <button class="nav-item active" data-view="discover">
-        <span>◎</span><small>Discover</small>
+      <button class="nav-item active" data-view="home">
+        <span>⌂</span><small>Home</small>
+      </button>
+      <button class="nav-item" data-view="discover">
+        <span>◎</span><small>Wavelength</small>
       </button>
       <button class="nav-item" data-view="activity">
-        <span>◌</span><small>Social</small>
+        <span>◌</span><small>Exchange</small>
       </button>
       <button class="nav-item" data-view="messages">
         <span>◇</span><small>Messages</small>
