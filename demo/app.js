@@ -24,6 +24,10 @@ const state = {
   ,swipeQueue: []
   ,swipeIndex: 0
   ,conversations: []
+  ,musicService: "Spotify"
+  ,wavelengthReady: false
+  ,wavelengthStep: 0
+  ,wavelengthProfile: { goal:"friends", gender:"", customGender:"", orientation:"", height:"", weight:"", avoidArtist:"", priorityArtist:"" }
 };
 
 const CURRENT_USER = {
@@ -45,6 +49,12 @@ const capsules = [
   { id: "c1", username: "linda_331", track: "After the El", artist: "Japanese Breakfast", lock: "After midnight", opened: false, direction: "received" },
   { id: "c2", username: "realwilliam", track: "Second Coffee", artist: "Remi Wolf", lock: "When it rains", opened: false, direction: "sent" },
   { id: "c3", username: "joshua.nelson", track: "Cherry Street", artist: "Bon Iver", lock: "No lock", opened: true, direction: "received" }
+];
+const reviews = [
+  { username:"realhiroshi", type:"album", title:"Imaginal Disk", artist:"Magdalena Bay", score:4.5, body:"Maximal without becoming shapeless. Every synth choice feels like another doorway, but the melodies keep pulling the whole thing back into focus.", subjectRatings:184, reviewRating:4.7, time:"18m" },
+  { username:"zuri1188", type:"track", title:"Eusexua", artist:"FKA twigs", score:5, body:"A song that understands the dance floor as somewhere spiritual. The restraint is what makes the release hit.", subjectRatings:96, reviewRating:4.9, time:"42m" },
+  { username:"james_341", type:"album", title:"The New Sound", artist:"Geordie Greep", score:4, body:"Chaotic, theatrical, occasionally exhausting—and completely committed to its own strange internal logic.", subjectRatings:211, reviewRating:4.2, time:"1h" },
+  { username:"linda_331", type:"artist", title:"Japanese Breakfast", artist:"Artist retrospective", score:4.5, body:"Grief and joy treated as neighbors instead of opposites. The songwriting keeps getting more expansive without losing intimacy.", subjectRatings:73, reviewRating:4.8, time:"3h" }
 ];
 const $ = (selector, root = document) => root.querySelector(selector);
 const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
@@ -91,6 +101,41 @@ function buildConversations() {
       { mine:false, text:lines[index % lines.length] }
     ]
   }));
+}
+
+function isDatingCompatible(profile) {
+  const mine = state.wavelengthProfile;
+  if (mine.goal !== "dating" || !mine.orientation || !mine.gender) return true;
+  const myGender = mine.gender;
+  const theirGender = profile.demoGender;
+  const theirs = profile.demoOrientation;
+  if (["Bisexual","Queer / open"].includes(mine.orientation)) {
+    return ["Bisexual","Queer / open"].includes(theirs) ||
+      (theirs === "Straight" && ["Man","Woman"].includes(myGender) && myGender !== theirGender) ||
+      (theirs === "Gay" && myGender === theirGender);
+  }
+  if (mine.orientation === "Straight") {
+    return ["Man","Woman"].includes(myGender) && myGender !== theirGender && ["Straight","Bisexual","Queer / open"].includes(theirs);
+  }
+  return myGender === theirGender && ["Gay","Bisexual","Queer / open"].includes(theirs);
+}
+
+function rebuildWavelengthQueue() {
+  const settings = state.wavelengthProfile;
+  const avoid = settings.avoidArtist.trim().toLowerCase();
+  const priority = settings.priorityArtist.trim().toLowerCase();
+  state.swipeQueue = [...state.profiles]
+    .filter(profile => profile.privacyMode !== "ghost" && isDatingCompatible(profile))
+    // TopArtists represents sustained affinity. Incidental track history is
+    // intentionally ignored so a casual play never excludes a person.
+    .filter(profile => !avoid || !profile.topArtists.some(artist => artist.toLowerCase() === avoid))
+    .sort((a,b) => {
+      const aPriority = priority && a.topArtists.slice(0,3).some(artist => artist.toLowerCase() === priority) ? 1 : 0;
+      const bPriority = priority && b.topArtists.slice(0,3).some(artist => artist.toLowerCase() === priority) ? 1 : 0;
+      return bPriority - aPriority || compatibility(b) - compatibility(a) || distanceMiles(a) - distanceMiles(b);
+    });
+  state.swipeIndex = 0;
+  renderSwipeDeck();
 }
 
 function renderSwipeDeck() {
@@ -195,12 +240,18 @@ function distanceMiles(profile) {
 }
 
 function radarPosition(profile) {
-  const latitudeMiles = (profile.location.latitude - CURRENT_USER.latitude) * 69;
-  const longitudeMiles = (profile.location.longitude - CURRENT_USER.longitude) *
-    69 * Math.cos(CURRENT_USER.latitude * Math.PI / 180);
+  // Location coordinates remain backend-only. The UI receives a distance band
+  // and a stable decorative angle, never a person's actual direction or point.
+  const miles = distanceMiles(profile);
+  const bandFloor = miles <= 5 ? 0.16 : miles <= 10 ? 0.36 : 0.61;
+  const bandCeiling = miles <= 5 ? 0.31 : miles <= 10 ? 0.53 : 0.84;
+  const hash = [...profile.username].reduce((sum,char,index) => sum + char.charCodeAt(0) * (index + 7), 0);
+  const angle = (hash % 360) * Math.PI / 180;
+  const normalizedRadius = bandFloor + ((hash % 97) / 97) * (bandCeiling - bandFloor);
+  const radius = normalizedRadius * 50;
   return {
-    x: Math.max(5, Math.min(95, 50 + (longitudeMiles / state.radiusMiles) * 43)),
-    y: Math.max(5, Math.min(95, 50 - (latitudeMiles / state.radiusMiles) * 43))
+    x: Math.max(5, Math.min(95, 50 + Math.cos(angle) * radius)),
+    y: Math.max(5, Math.min(95, 50 + Math.sin(angle) * radius))
   };
 }
 
@@ -374,6 +425,155 @@ function renderActivity() {
       <div><p>${text}</p><time>${time}</time></div>
     </article>
   `).join("");
+}
+
+function renderHome() {
+  const live = state.profiles
+    .filter(profile => ["listening","in-session"].includes(profile.status) && profile.currentTrack)
+    .sort((a,b) => compatibility(b) - compatibility(a));
+  $("#live-session-rail").innerHTML = live.slice(0,6).map(profile => `
+    <article class="live-session-card" data-home-session="${escapeHtml(profile.username)}">
+      <div class="live-session-top">
+        <span class="avatar small" style="${paletteStyle(profile)}">${escapeHtml(profile.initials)}</span>
+        <div><strong>${escapeHtml(profile.name)}</strong><p>${escapeHtml(profile.location.neighborhood)} · ${titleCase(profile.privacyMode)}</p></div>
+        <span class="join-chip">${profile.privacyMode === "open-door" ? "Join" : "Knock"}</span>
+      </div>
+      <div class="mini-track"><span class="mini-art" style="--a:${profile.palette[0]};--b:${profile.palette[2]}"></span><div><strong>${escapeHtml(profile.currentTrack.name)}</strong><p>${escapeHtml(profile.currentTrack.artist)} · synced live</p></div></div>
+    </article>`).join("");
+  $("#home-match-list").innerHTML = [...state.profiles]
+    .filter(profile => profile.privacyMode !== "ghost")
+    .sort((a,b) => compatibility(b) - compatibility(a)).slice(0,3)
+    .map(profile => `<article class="home-match" data-home-profile="${escapeHtml(profile.username)}">
+      <span class="avatar small" style="${paletteStyle(profile)}">${escapeHtml(profile.initials)}</span>
+      <div><strong>${escapeHtml(profile.name)}</strong><p>${escapeHtml(profile.topArtists.slice(0,2).join(" · "))} · ${distanceMiles(profile).toFixed(0)} mi band</p></div>
+      <span class="match-score">${compatibility(profile)}%</span>
+    </article>`).join("");
+  $$("[data-home-session]").forEach(card => card.addEventListener("click", () => {
+    const profile = profileByUsername(card.dataset.homeSession);
+    if (profile) handlePrimaryAction(profile);
+  }));
+  $$("[data-home-profile]").forEach(card => card.addEventListener("click", () => openProfile(card.dataset.homeProfile)));
+}
+
+function renderReviews() {
+  $("#review-feed").innerHTML = reviews.map((review,index) => {
+    const profile = profileByUsername(review.username) || state.profiles[index];
+    const whole = Math.floor(review.score);
+    const stars = "★".repeat(whole) + (review.score % 1 ? "½" : "");
+    return `<article class="review-card">
+      <header class="review-head"><span class="avatar small" style="${paletteStyle(profile)}">${escapeHtml(profile.initials)}</span>
+        <div><strong>${escapeHtml(profile.name)}</strong><p>reviewed a${review.type === "artist" ? "n" : ""} ${review.type}</p></div><time>${review.time}</time></header>
+      <div class="review-subject"><span class="review-cover" style="--a:${profile.palette[0]};--b:${profile.palette[2]}">♫</span>
+        <div><h3>${escapeHtml(review.title)}</h3><p class="track-artist">${escapeHtml(review.artist)}</p><span class="stars">${stars}</span><small> ${review.score}/5</small></div></div>
+      <p class="review-body">${escapeHtml(review.body)}</p>
+      <footer class="review-actions"><button data-rate-review="${index}">☆ Rate this review · ${review.reviewRating}</button><button data-review-reply="${index}">Reply</button><button data-review-session="${review.username}">Listen</button></footer>
+    </article>`;
+  }).join("");
+  $$("[data-rate-review]").forEach(button => button.addEventListener("click", () => {
+    const index = Number(button.dataset.rateReview);
+    const review = reviews[index];
+    openFeatureModal(`<div class="modal-head"><div><p class="eyebrow">Rate the criticism</p><h3>Was this review useful?</h3></div><button class="icon-button" data-close-modal>×</button></div>
+      <p class="modal-copy">Rate the quality of the review—not whether you agree with its opinion of ${escapeHtml(review.title)}.</p>
+      <div class="review-rating-picker">${[1,2,3,4,5].map(score=>`<button data-review-score="${score}"><span>${"★".repeat(score)}</span><small>${score}.0</small></button>`).join("")}</div>`);
+    $$("[data-review-score]",$("#feature-modal")).forEach(scoreButton => scoreButton.addEventListener("click", () => {
+      const score = Number(scoreButton.dataset.reviewScore);
+      closeFeatureModal();
+      button.classList.add("rated"); button.textContent = `★ You rated this review ${score}.0`;
+      toast("Review rating saved.");
+    }));
+  }));
+  $$("[data-review-reply]").forEach(button => button.addEventListener("click", () => {
+    const review = reviews[Number(button.dataset.reviewReply)];
+    const profile = profileByUsername(review.username);
+    if (profile) openConversation(profile.username);
+  }));
+  $$("[data-review-session]").forEach(button => button.addEventListener("click", () => {
+    const profile = profileByUsername(button.dataset.reviewSession);
+    if (profile?.currentTrack) handlePrimaryAction(profile); else toast("This listening session has ended.");
+  }));
+}
+
+function chooseMusicService() {
+  openFeatureModal(`<div class="modal-head"><div><p class="eyebrow">Music account</p><h3>Choose your player</h3></div><button class="icon-button" data-close-modal>×</button></div>
+    <p class="modal-copy">Tether coordinates playback through your existing subscription. It never hosts or redistributes the audio.</p>
+    <div class="option-list">
+      ${["Spotify","Apple Music","YouTube Music"].map(name => `<button class="option-button ${state.musicService===name?"active":""}" data-music-service="${name}"><span class="service-dot ${name==="Spotify"?"spotify":name==="Apple Music"?"apple":"youtube"}"></span><span>${name}</span><span>${state.musicService===name?"Connected":"Connect"}</span></button>`).join("")}
+    </div>`);
+  $$("[data-music-service]",$("#feature-modal")).forEach(button => button.addEventListener("click", () => {
+    state.musicService = button.dataset.musicService;
+    const pill = $("[data-service-picker]"); $("strong",pill).textContent = state.musicService;
+    $(".service-dot",pill).className = `service-dot ${state.musicService==="Spotify"?"spotify":state.musicService==="Apple Music"?"apple":"youtube"}`;
+    closeFeatureModal(); toast(`${state.musicService} connected.`);
+  }));
+}
+
+function chooseOwnTrack() {
+  const tracks = [
+    {name:"A Walk Along the Delaware",artist:"The Pennsport Assembly",album:"River Light",durationSeconds:247,progressPercent:18},
+    {name:"Second Coffee",artist:"Remi Wolf",album:"Big Ideas",durationSeconds:214,progressPercent:9},
+    {name:"Holocene",artist:"Bon Iver",album:"Bon Iver",durationSeconds:337,progressPercent:31}
+  ];
+  openFeatureModal(`<div class="modal-head"><div><p class="eyebrow">${state.musicService}</p><h3>Start your stage</h3></div><button class="icon-button" data-close-modal>×</button></div>
+    <p class="modal-copy">Pick a demo track. In the live app, starting playback in ${state.musicService} automatically opens this stage.</p>
+    <div class="option-list">${tracks.map((track,index)=>`<button class="option-button" data-own-track="${index}"><span>♫</span><span><strong>${track.name}</strong><small>${track.artist}</small></span><span>Play</span></button>`).join("")}</div>`);
+  $$("[data-own-track]",$("#feature-modal")).forEach(button => button.addEventListener("click", () => {
+    const track = tracks[Number(button.dataset.ownTrack)];
+    closeFeatureModal();
+    startSession({name:"John Roastpork",first:"John",username:"john.roastpork",initials:"JR",palette:["#9490e8","#302e46","#5b9fde"],privacyMode:state.userPrivacy,status:"listening",location:{neighborhood:"Pennsport"},currentTrack:track});
+  }));
+}
+
+function openWavelengthOnboarding(step = 0) {
+  state.wavelengthStep = step;
+  const p = state.wavelengthProfile;
+  const steps = p.goal === "dating" ? 4 : 3;
+  let body = "";
+  if (step === 0) body = `
+    <div class="onboard-step"><p class="eyebrow">Wavelength setup</p><h2>First, the basics.</h2>
+    <p class="sub">Only information you choose to display appears on your card. Height and weight are always optional.</p>
+    <div class="onboard-fields"><label class="field-label">Gender
+      <select class="field-control" data-onboard-gender><option value="">Skip</option>${["Man","Woman","Nonbinary","Other"].map(v=>`<option ${p.gender===v?"selected":""}>${v}</option>`).join("")}</select></label>
+      <label class="field-label" data-custom-gender-wrap style="${p.gender==="Other"?"":"display:none"}">Your gender<input class="field-control" data-custom-gender value="${escapeHtml(p.customGender)}" placeholder="Agender, bigender…"></label>
+      <div class="optional-pair"><label class="field-label">Height · optional<input class="field-control" data-height value="${escapeHtml(p.height)}" placeholder="5′ 10″"></label>
+      <label class="field-label">Weight · optional<input class="field-control" data-weight value="${escapeHtml(p.weight)}" placeholder="Skip"></label></div></div></div>`;
+  if (step === 1) body = `
+    <div class="onboard-step"><p class="eyebrow">What brings you here?</p><h2>Choose your frequency.</h2><p class="sub">Friendship and dating are separate pools. You can change this later without rebuilding your music profile.</p>
+    <div class="option-grid"><button data-goal="friends" class="${p.goal==="friends"?"selected":""}"><strong>Find friends</strong><br><small>Meet people to share music and sessions with.</small></button>
+    <button data-goal="dating" class="${p.goal==="dating"?"selected":""}"><strong>Date through music</strong><br><small>Mutual romantic discovery with compatibility controls.</small></button></div></div>`;
+  if (step === 2 && p.goal === "dating") body = `
+    <div class="onboard-step"><p class="eyebrow">Dating compatibility</p><h2>Who should find you?</h2><p class="sub">Orientation is used to form mutually compatible pools before music matching. It is never inferred from listening behavior.</p>
+    <div class="option-grid">${["Straight","Gay","Bisexual","Queer / open"].map(v=>`<button data-orientation="${v}" class="${p.orientation===v?"selected":""}">${v}</button>`).join("")}</div>
+    <div class="privacy-promise"><span>◉</span><span>Your exact location is never shown. Wavelength exposes only broad distance bands such as “within 5 miles.”</span></div></div>`;
+  const artistStep = p.goal === "dating" ? 3 : 2;
+  if (step === artistStep) body = `
+    <div class="onboard-step"><p class="eyebrow">Tune your matches</p><h2>Set your musical poles.</h2><p class="sub">An exclusion applies only when that artist is a sustained top affinity. One or two casual plays never hide somebody.</p>
+    <div class="onboard-fields"><label class="field-label">Artist you cannot stand · optional<input class="field-control" data-avoid-artist value="${escapeHtml(p.avoidArtist)}" placeholder="Search or skip"></label>
+    <label class="field-label">Priority artist · optional<input class="field-control" data-priority-artist value="${escapeHtml(p.priorityArtist)}" placeholder="Who do you want to bond over?"></label></div>
+    <div class="artist-search-results"><button class="artist-option" data-demo-artist="Melanie Martinez" data-kind="avoid"><span>Melanie Martinez</span><small>exclude top listeners</small></button>
+    <button class="artist-option" data-demo-artist="Japanese Breakfast" data-kind="priority"><span>Japanese Breakfast</span><small>prioritize fans</small></button></div></div>`;
+  openFeatureModal(`<div class="onboarding"><button class="icon-button" data-close-modal aria-label="Close">×</button>
+    <div class="onboard-progress">${Array.from({length:steps},(_,i)=>`<i class="${i<=step?"done":""}"></i>`).join("")}</div>${body}
+    <div class="onboard-footer"><button data-onboard-back>${step===0?"Not now":"Back"}</button><button class="next" data-onboard-next>${step===steps-1?"Enter Wavelength":"Continue"}</button></div></div>`);
+  const modal = $("#feature-modal");
+  const gender = $("[data-onboard-gender]",modal);
+  if (gender) gender.addEventListener("change", () => {
+    p.gender = gender.value; $("[data-custom-gender-wrap]",modal).style.display = gender.value === "Other" ? "grid" : "none";
+  });
+  $$("[data-goal]",modal).forEach(b=>b.addEventListener("click",()=>{p.goal=b.dataset.goal; openWavelengthOnboarding(1);}));
+  $$("[data-orientation]",modal).forEach(b=>b.addEventListener("click",()=>{p.orientation=b.dataset.orientation; openWavelengthOnboarding(2);}));
+  $$("[data-demo-artist]",modal).forEach(b=>b.addEventListener("click",()=>{
+    if(b.dataset.kind==="avoid") p.avoidArtist=b.dataset.demoArtist; else p.priorityArtist=b.dataset.demoArtist;
+    b.classList.add("selected");
+  }));
+  $("[data-onboard-back]",modal).addEventListener("click",()=>{
+    if(step===0) closeFeatureModal(); else openWavelengthOnboarding(step-1);
+  });
+  $("[data-onboard-next]",modal).addEventListener("click",()=>{
+    if(step===0){p.gender=gender.value;p.customGender=$("[data-custom-gender]",modal)?.value||"";p.height=$("[data-height]",modal).value;p.weight=$("[data-weight]",modal).value;}
+    if(step===artistStep){p.avoidArtist=$("[data-avoid-artist]",modal).value;p.priorityArtist=$("[data-priority-artist]",modal).value;}
+    if(step === steps-1){state.wavelengthReady=true;rebuildWavelengthQueue();closeFeatureModal();switchView("discover",true);toast(`${p.goal==="dating"?"Dating":"Friend"} Wavelength tuned.`);}
+    else openWavelengthOnboarding(step+1);
+  });
 }
 
 function profileByUsername(username) {
@@ -937,7 +1137,11 @@ function formatTime(seconds) {
   return `${Math.floor(whole / 60)}:${String(whole % 60).padStart(2, "0")}`;
 }
 
-function switchView(viewName) {
+function switchView(viewName, bypassOnboarding = false) {
+  if (viewName === "discover" && !state.wavelengthReady && !bypassOnboarding) {
+    openWavelengthOnboarding();
+    return;
+  }
   $$(".view").forEach((view) => view.classList.toggle("active", view.id === `${viewName}-view`));
   $$(".nav-item").forEach((button) => button.classList.toggle("active", button.dataset.view === viewName));
 }
@@ -966,16 +1170,22 @@ async function init() {
     if (!response.ok) throw new Error(`Profile data request failed: ${response.status}`);
     const data = await response.json();
     state.profiles = data.profiles;
+    const demoGenders = ["Woman","Man","Nonbinary","Woman","Man"];
+    const demoOrientations = ["Straight","Bisexual","Gay","Queer / open","Straight"];
+    state.profiles.forEach((profile,index) => {
+      profile.demoGender = demoGenders[index % demoGenders.length];
+      profile.demoOrientation = demoOrientations[index % demoOrientations.length];
+    });
     state.following = new Set(state.profiles.slice(0, 18).map((profile) => profile.username));
-    state.swipeQueue = [...state.profiles]
-      .filter(profile => profile.privacyMode !== "ghost")
-      .sort((a, b) => compatibility(b) - compatibility(a));
+    rebuildWavelengthQueue();
     buildConversations();
     $("#network-count").textContent = state.profiles.length;
     $("#live-count").textContent = `${state.profiles.filter((profile) => ["listening", "in-session"].includes(profile.status)).length} live now`;
     renderProfiles();
     renderRadar();
     renderActivity();
+    renderHome();
+    renderReviews();
     renderAnchors();
     renderCapsules();
     renderSwipeDeck();
@@ -1030,6 +1240,10 @@ $$("[data-user-privacy]").forEach((button) => button.addEventListener("click", (
   toast(`John is now in ${titleCase(state.userPrivacy)} mode.`);
 }));
 $("[data-open-spark]").addEventListener("click", openSparkDemo);
+$("[data-service-picker]").addEventListener("click", chooseMusicService);
+$("[data-start-own-session]").addEventListener("click", chooseOwnTrack);
+$("[data-see-all-live]").addEventListener("click", () => { state.wavelengthReady = true; switchView("discover", true); switchDiscoverMode("list"); });
+$("[data-open-wavelength]").addEventListener("click", () => switchView("discover"));
 $("#feature-modal").addEventListener("click", (event) => {
   if (event.target === event.currentTarget) closeFeatureModal();
 });
