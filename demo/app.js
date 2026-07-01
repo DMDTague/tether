@@ -18,9 +18,12 @@ const state = {
   pulseChargeTimer: null,
   pulseCooldownUntil: 0,
   sessionPaused: false,
+  pulsesThisSession: 0,
+  pulseCooldownTimerId: null,
   sessionStartedAt: 0,
   sessionTimerId: null,
-  toastTimer: null
+  toastTimer: null,
+  lastFocused: null
   ,swipeQueue: []
   ,swipeIndex: 0
   ,conversations: []
@@ -182,17 +185,24 @@ function actOnSwipe(direction) {
 function enableCardDrag() {
   const card = $("[data-swipe-card]");
   if (!card) return;
-  let startX = 0, deltaX = 0;
-  card.addEventListener("pointerdown", event => { startX = event.clientX; deltaX = 0; card.setPointerCapture(event.pointerId); card.classList.add("dragging"); });
+  let dragging = false, startX = 0, deltaX = 0;
+  card.addEventListener("pointerdown", event => {
+    dragging = true; startX = event.clientX; deltaX = 0;
+    card.setPointerCapture(event.pointerId); card.classList.add("dragging");
+  });
   card.addEventListener("pointermove", event => {
-    if (!startX) return;
+    if (!dragging) return;
     deltaX = event.clientX - startX;
     card.style.transform = `translateX(${deltaX}px) rotate(${deltaX / 18}deg)`;
   });
-  card.addEventListener("pointerup", () => {
-    card.classList.remove("dragging"); card.style.transform = ""; startX = 0;
+  const finish = () => {
+    if (!dragging) return;
+    dragging = false;
+    card.classList.remove("dragging"); card.style.transform = "";
     if (Math.abs(deltaX) > 85) actOnSwipe(deltaX > 0 ? "connect" : "pass");
-  });
+  };
+  card.addEventListener("pointerup", finish);
+  card.addEventListener("pointercancel", finish);
 }
 
 function renderConversations(query = "") {
@@ -204,16 +214,26 @@ function renderConversations(query = "") {
     ${conversation.unread ? `<i class="unread-dot"></i>` : `<span></span>`}
   </article>`).join("");
   $$("[data-conversation]", list).forEach(item => item.addEventListener("click", () => openConversation(item.dataset.conversation)));
+  updateUnreadBadge();
+}
+
+function updateUnreadBadge() {
+  const badge = $("[data-unread-badge]");
+  if (!badge) return;
+  const unread = state.conversations.filter(c => c.unread).length;
+  badge.hidden = unread === 0;
+  badge.textContent = unread;
 }
 
 function openConversation(username) {
   const conversation = state.conversations.find(c => c.profile.username === username);
   if (!conversation) return;
   conversation.unread = false;
+  updateUnreadBadge();
   const p = conversation.profile;
   const sheet = document.createElement("section");
   sheet.className = "chat-sheet";
-  sheet.innerHTML = `<header class="chat-head"><button data-close-chat>‹</button><span class="avatar small" style="${paletteStyle(p)}">${p.initials}</span><div class="chat-head-copy"><strong>${escapeHtml(p.name)}</strong><span>${p.status === "listening" ? "● listening now" : "last here recently"}</span></div><button data-chat-profile>•••</button></header>
+  sheet.innerHTML = `<header class="chat-head"><button data-close-chat>‹</button><span class="avatar small" style="${paletteStyle(p)}">${escapeHtml(p.initials)}</span><div class="chat-head-copy"><strong>${escapeHtml(p.name)}</strong><span>${p.status === "listening" ? "● listening now" : "last here recently"}</span></div><button data-chat-profile>•••</button></header>
     <div class="chat-stage">${conversation.messages.map(m => `<div class="bubble ${m.mine ? "me" : ""} ${m.track ? "shared-track" : ""}">${m.track ? "♫ &nbsp;" : ""}${escapeHtml(m.text)}</div>`).join("")}</div>
     <form class="chat-compose"><input aria-label="Message" placeholder="Message ${escapeHtml(p.name.split(" ")[0])}…"><button aria-label="Send">↑</button></form>`;
   $(".phone").appendChild(sheet);
@@ -314,9 +334,9 @@ function renderRadar() {
 }
 
 function selectRadarPing(username) {
-  state.selectedPing = username;
+  state.selectedPing = state.selectedPing === username ? null : username;
   renderRadar();
-  renderRadarPreview(state.profiles.find((profile) => profile.username === username));
+  renderRadarPreview(state.selectedPing ? state.profiles.find((profile) => profile.username === username) : null);
 }
 
 function renderRadarPreview(profile) {
@@ -347,7 +367,7 @@ function renderRadarPreview(profile) {
 }
 
 function paletteStyle(profile) {
-  const [accent = "#a59af4", secondary = "#24222e"] = profile.palette;
+  const [accent = "#9BA0FA", secondary = "#242A3E"] = profile.palette;
   return `--accent:${accent};--accent-soft:${accent}33;background:linear-gradient(145deg,${accent},${secondary})`;
 }
 
@@ -519,7 +539,7 @@ function chooseOwnTrack() {
   $$("[data-own-track]",$("#feature-modal")).forEach(button => button.addEventListener("click", () => {
     const track = tracks[Number(button.dataset.ownTrack)];
     closeFeatureModal();
-    startSession({name:"John Roastpork",first:"John",username:"john.roastpork",initials:"JR",palette:["#9490e8","#302e46","#5b9fde"],privacyMode:state.userPrivacy,status:"listening",location:{neighborhood:"Pennsport"},currentTrack:track});
+    startSession({name:"John Roastpork",first:"John",username:"john.roastpork",initials:"JR",palette:["#9BA0FA","#333B61","#77B7F0"],privacyMode:state.userPrivacy,status:"listening",location:{neighborhood:"Pennsport"},currentTrack:track});
   }));
 }
 
@@ -646,16 +666,41 @@ function renderCapsules() {
 
 function openFeatureModal(content) {
   const modal = $("#feature-modal");
-  modal.innerHTML = `<div class="modal-sheet">${content}</div>`;
+  state.lastFocused = document.activeElement;
+  modal.innerHTML = `<div class="modal-sheet" role="dialog" aria-modal="true">${content}</div>`;
   modal.classList.add("open");
   $$("[data-close-modal]", modal).forEach((button) => button.addEventListener("click", closeFeatureModal));
+  const firstControl = $(".modal-sheet button, .modal-sheet input, .modal-sheet select", modal);
+  if (firstControl) firstControl.focus();
 }
 
 function closeFeatureModal() {
   const modal = $("#feature-modal");
   modal.classList.remove("open");
   modal.innerHTML = "";
+  if (state.lastFocused?.isConnected) state.lastFocused.focus();
+  state.lastFocused = null;
 }
+
+// One Escape press closes the topmost layer, in stacking order.
+document.addEventListener("keydown", (event) => {
+  if (event.key !== "Escape") return;
+  const chatSheet = $(".chat-sheet");
+  if ($("#feature-modal").classList.contains("open")) { closeFeatureModal(); return; }
+  if (chatSheet) { chatSheet.remove(); renderConversations($("#message-search").value); updateUnreadBadge(); return; }
+  if ($("#session-view").classList.contains("open")) { endSession(); return; }
+  if ($("#profile-view").classList.contains("open")) { closeProfile(); return; }
+});
+
+// Arrow keys drive the Wavelength deck when it is on screen.
+document.addEventListener("keydown", (event) => {
+  if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
+  if (state.discoverMode !== "swipe") return;
+  if (!$("#discover-view").classList.contains("active")) return;
+  if ($("#feature-modal").classList.contains("open") || $(".chat-sheet")) return;
+  if (/input|select|textarea/i.test(document.activeElement?.tagName || "")) return;
+  actOnSwipe(event.key === "ArrowRight" ? "connect" : "pass");
+});
 
 function openFriendSettings(profile) {
   const transparent = state.transparentPresence.has(profile.username);
@@ -899,60 +944,13 @@ function handlePrimaryAction(profile) {
   }
 }
 
-function legacyStartSession(profile) {
-  state.session = profile;
-  closeProfile();
-  const view = $("#session-view");
-  const track = profile.currentTrack;
-  view.style.setProperty("--accent", profile.palette[0]);
-  view.style.setProperty("--accent-soft", `${profile.palette[0]}44`);
-  view.innerHTML = `
-    <div class="session-stage">
-      <button class="icon-button back" data-exit-session aria-label="Exit session">‹</button>
-      <div class="session-person">tethered with ${escapeHtml(profile.name)} · ${escapeHtml(profile.location.neighborhood)}</div>
-      <div class="session-art"></div>
-      <p class="session-title">${escapeHtml(track.name)}</p>
-      <p class="session-artist">${escapeHtml(track.artist)}</p>
-      <div class="progress session-progress"><span style="width:${track.progressPercent}%"></span></div>
-      <div class="session-time"><span>${formatTime(track.durationSeconds * track.progressPercent / 100)}</span><span>-${formatTime(track.durationSeconds * (100 - track.progressPercent) / 100)}</span></div>
-      <p class="sync">● synced within 84 ms</p>
-      <div class="pulse-wrap">
-        <button class="pulse-button" data-pulse aria-label="Send pulse">✦</button>
-        <p class="pulse-label">tap to send a pulse</p>
-        <p class="session-note" data-session-note></p>
-      </div>
-    </div>`;
-  view.classList.add("open");
-  $("[data-exit-session]", view).addEventListener("click", endSession);
-  $("[data-pulse]", view).addEventListener("click", sendPulse);
-}
-
-function legacyEndSession() {
-  $("#session-view").classList.remove("open");
-  state.session = null;
-  toast("Session saved as a new memory anchor.");
-}
-
-function legacySendPulse(event) {
-  const button = event.currentTarget;
-  button.classList.remove("pulsing");
-  void button.offsetWidth;
-  button.classList.add("pulsing");
-  $("[data-session-note]").textContent = `Pulse sent to ${state.session.name} ✦`;
-  button.disabled = true;
-  setTimeout(() => {
-    button.disabled = false;
-    $("[data-session-note]").textContent = "";
-  }, 1800);
-}
-
-// Enhanced session implementation. These declarations intentionally supersede
-// the compact prototype handlers above while preserving the same call sites.
+// Session implementation.
 function startSession(profile) {
   state.session = profile;
   state.sessionPaused = false;
   state.sessionStartedAt = Date.now();
   state.pulseReady = false;
+  state.pulsesThisSession = 0;
   closeProfile();
   const view = $("#session-view");
   const track = profile.currentTrack;
@@ -968,7 +966,7 @@ function startSession(profile) {
       <div class="listener-stack" aria-label="Session listeners">
         <span class="avatar" style="${paletteStyle(profile)}">${escapeHtml(profile.initials)}</span>
         ${companion ? `<span class="avatar" style="${paletteStyle(companion)}">${escapeHtml(companion.initials)}</span>` : ""}
-        <span class="avatar" style="background:linear-gradient(145deg,#a59af4,#3b3456)">JR</span>
+        <span class="avatar" style="background:linear-gradient(145deg,#9BA0FA,#3E45A8)">JR</span>
       </div>
       <div class="session-art"></div>
       <p class="session-title">${escapeHtml(track.name)}</p>
@@ -1005,6 +1003,7 @@ function startSession(profile) {
   pulseButton.addEventListener("keyup", (event) => {
     if (event.key === " " || event.key === "Enter") releasePulseCharge(event);
   });
+  if (Date.now() < state.pulseCooldownUntil) beginPulseCooldownDisplay();
   clearInterval(state.sessionTimerId);
   state.sessionTimerId = setInterval(() => {
     const timer = $("[data-session-timer]", view);
@@ -1022,7 +1021,7 @@ function endSession() {
       track: profile.currentTrack.name,
       artist: profile.currentTrack.artist,
       minutes: elapsed,
-      pulses: state.pulseCooldownUntil > Date.now() ? 1 : 0,
+      pulses: state.pulsesThisSession,
       date: "Just now",
       mood: null,
       distance: `${distanceMiles(profile).toFixed(1)} miles`,
@@ -1032,6 +1031,8 @@ function endSession() {
   }
   clearInterval(state.sessionTimerId);
   state.sessionTimerId = null;
+  clearInterval(state.pulseCooldownTimerId);
+  state.pulseCooldownTimerId = null;
   $("#session-view").classList.remove("open");
   state.session = null;
   state.sessionPaused = false;
@@ -1103,9 +1104,39 @@ function firePulse() {
   stage.appendChild(spark);
   spark.addEventListener("animationend", () => spark.remove());
   $("[data-session-note]").textContent = `Pulse sent to ${state.session.name} ✦`;
-  $("[data-pulse-label]").textContent = "5 minute cooldown";
-  state.pulseCooldownUntil = Date.now() + 300000;
+  state.pulsesThisSession += 1;
+  state.pulseCooldownUntil = Date.now() + PULSE_COOLDOWN_MS;
+  beginPulseCooldownDisplay();
+}
+
+// Pulses are rationed so each one stays meaningful. The demo shortens the
+// production 5-minute cooldown to 45 seconds so visitors can feel the cycle.
+const PULSE_COOLDOWN_MS = 45000;
+
+function beginPulseCooldownDisplay() {
+  const button = $("[data-pulse]");
+  const label = $("[data-pulse-label]");
+  if (!button || !label) return;
   button.disabled = true;
+  button.classList.add("cooling");
+  clearInterval(state.pulseCooldownTimerId);
+  const tick = () => {
+    const remaining = state.pulseCooldownUntil - Date.now();
+    const currentButton = $("[data-pulse]");
+    const currentLabel = $("[data-pulse-label]");
+    if (!currentButton || !currentLabel) { clearInterval(state.pulseCooldownTimerId); return; }
+    if (remaining <= 0) {
+      clearInterval(state.pulseCooldownTimerId);
+      state.pulseCooldownTimerId = null;
+      currentButton.disabled = false;
+      currentButton.classList.remove("cooling");
+      currentLabel.textContent = "press and hold for 1.5 seconds";
+      return;
+    }
+    currentLabel.textContent = `cooldown ${formatTime(remaining / 1000)} · demo-shortened from 5:00`;
+  };
+  tick();
+  state.pulseCooldownTimerId = setInterval(tick, 1000);
 }
 
 function toggleHostPause(event) {
@@ -1192,7 +1223,10 @@ async function init() {
     renderConversations();
   } catch (error) {
     console.error(error);
-    $("#profile-list").innerHTML = `<p class="empty">The Philadelphia profile data could not be loaded.</p>`;
+    const message = `<div class="load-error"><strong>The Philadelphia network is unreachable.</strong>Profile data failed to load. Refresh to try again — the demo needs data/profiles.json to be served alongside it.</div>`;
+    $("#live-session-rail").innerHTML = message;
+    $("#home-match-list").innerHTML = "";
+    $("#profile-list").innerHTML = message;
   }
 }
 
