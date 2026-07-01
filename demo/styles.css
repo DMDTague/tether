@@ -15,6 +15,23 @@
   --red: #ef7c82;
 }
 
+/* v0.3 visual system — lifted from the original interactive product prototype */
+:root {
+  --bg: #0d0d0b;
+  --surface: #161614;
+  --surface-2: #1e1e1b;
+  --surface-3: #272724;
+  --text: #e3e0d7;
+  --muted: #787470;
+  --dim: #4f4e4a;
+  --line: rgba(255,255,255,.075);
+  --purple: #9490e8;
+  --green: #4dc957;
+  --amber: #d99a35;
+  --blue: #5b9fde;
+  --red: #e05555;
+}
+
 * { box-sizing: border-box; }
 html, body { margin: 0; min-height: 100%; background: #050507; }
 body {
@@ -115,6 +132,95 @@ button.avatar { cursor: pointer; }
   box-shadow: 0 0 12px rgba(105,214,123,.8);
   animation: breathe 2s ease-in-out infinite;
 }
+
+.swipe-intro, .messages-heading {
+  display:flex; align-items:center; justify-content:space-between;
+}
+.swipe-intro {
+  min-height:32px; padding:0 4px 8px; color:var(--muted); font-size:10px;
+}
+.swipe-intro div { display:flex; align-items:center; gap:7px; color:var(--text); }
+.swipe-deck { position:relative; min-height:430px; perspective:900px; }
+.swipe-card {
+  position:absolute; inset:0; overflow:hidden; border-radius:28px;
+  border:1px solid rgba(255,255,255,.12); background:var(--surface);
+  box-shadow:0 22px 60px rgba(0,0,0,.45);
+  touch-action:none; transform-origin:50% 95%;
+  transition:transform .42s cubic-bezier(.32,.72,0,1), opacity .3s ease;
+}
+.swipe-card:nth-last-child(2) { transform:translateY(9px) scale(.965); opacity:.66; }
+.swipe-card:nth-last-child(3) { transform:translateY(18px) scale(.93); opacity:.32; }
+.swipe-card.dragging { transition:none; }
+.swipe-card.fly-left { transform:translate(-140%,40px) rotate(-22deg); opacity:0; }
+.swipe-card.fly-right { transform:translate(140%,40px) rotate(22deg); opacity:0; }
+.swipe-art {
+  height:57%; position:relative; display:flex; align-items:flex-end; padding:18px;
+  background:
+    radial-gradient(circle at 72% 22%, var(--card-a), transparent 38%),
+    linear-gradient(145deg,var(--card-b),#11110f 78%);
+}
+.swipe-art::before {
+  content:""; position:absolute; inset:12%; border:1px solid rgba(255,255,255,.13);
+  border-radius:50%; box-shadow:0 0 0 28px rgba(255,255,255,.025),0 0 0 56px rgba(255,255,255,.018);
+}
+.swipe-match {
+  position:absolute; top:16px; right:16px; padding:7px 11px; border-radius:20px;
+  background:rgba(13,13,11,.72); backdrop-filter:blur(10px); color:var(--green);
+  font-size:11px; font-weight:700; border:1px solid rgba(77,201,87,.25);
+}
+.swipe-avatar { width:66px; height:66px; z-index:1; font-size:16px; }
+.swipe-copy { padding:17px 18px 18px; }
+.swipe-name-row { display:flex; align-items:baseline; justify-content:space-between; gap:10px; }
+.swipe-name-row h3 { margin:0; font-size:22px; font-weight:500; letter-spacing:-.03em; }
+.swipe-name-row span { color:var(--muted); font-size:11px; white-space:nowrap; }
+.swipe-handle,.swipe-bio { margin:4px 0 0; color:var(--muted); font-size:11px; }
+.swipe-track {
+  margin-top:14px; padding:12px; border-radius:14px; background:rgba(91,159,222,.09);
+  border:1px solid rgba(91,159,222,.2); display:grid; gap:3px;
+}
+.swipe-track small { color:var(--blue); font-size:9px; text-transform:uppercase; letter-spacing:.1em; }
+.swipe-track strong { font-size:13px; }
+.swipe-tags { display:flex; gap:6px; margin-top:12px; overflow:hidden; }
+.swipe-tags span { padding:5px 8px; background:var(--surface-2); border-radius:12px; color:var(--muted); font-size:9px; white-space:nowrap; }
+.swipe-controls { display:flex; justify-content:center; gap:22px; padding-top:18px; }
+.swipe-action {
+  width:54px; height:54px; border-radius:50%; background:var(--surface); border:1px solid var(--line);
+  cursor:pointer; font-size:23px; box-shadow:0 7px 20px rgba(0,0,0,.25);
+}
+.swipe-action.profile { width:44px; height:44px; margin-top:5px; color:var(--muted); font-size:12px; }
+.swipe-action.pass { color:var(--red); border-color:rgba(224,85,85,.28); }
+.swipe-action.connect { color:var(--purple); border-color:rgba(148,144,232,.4); box-shadow:0 0 22px rgba(148,144,232,.1); }
+.swipe-note { text-align:center; margin:10px 0 0; color:var(--dim); font-size:9px; }
+
+.compose-button {
+  width:38px; height:38px; border-radius:50%; border:1px solid rgba(91,159,222,.25);
+  background:rgba(91,159,222,.1); color:var(--blue); font-size:20px; cursor:pointer;
+}
+.message-search { margin-top:18px; }
+.conversation-list { display:grid; gap:2px; margin-top:8px; }
+.conversation {
+  display:grid; grid-template-columns:48px 1fr auto; gap:12px; align-items:center;
+  padding:13px 4px; border-bottom:1px solid var(--line); cursor:pointer;
+}
+.conversation-copy { min-width:0; }
+.conversation-top { display:flex; justify-content:space-between; gap:10px; }
+.conversation strong { font-size:13px; }
+.conversation time { color:var(--dim); font-size:9px; }
+.conversation p { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; margin:5px 0 0; color:var(--muted); font-size:11px; }
+.unread-dot { width:7px; height:7px; border-radius:50%; background:var(--blue); box-shadow:0 0 9px rgba(91,159,222,.8); }
+.chat-sheet { position:absolute; inset:0; z-index:45; display:flex; flex-direction:column; background:var(--bg); animation:slidein .32s cubic-bezier(.32,.72,0,1); }
+@keyframes slidein { from { transform:translateX(100%); } }
+.chat-head { display:flex; gap:11px; align-items:center; padding:18px 18px 12px; border-bottom:1px solid var(--line); }
+.chat-head button { border:0; background:none; color:var(--muted); cursor:pointer; font-size:20px; }
+.chat-head-copy { flex:1; display:grid; gap:2px; }
+.chat-head-copy strong { font-size:13px; }.chat-head-copy span { color:var(--green); font-size:9px; }
+.chat-stage { flex:1; overflow:auto; padding:20px 18px; display:flex; flex-direction:column; gap:10px; }
+.bubble { max-width:76%; padding:10px 12px; border-radius:16px; background:var(--surface-2); color:var(--text); font-size:12px; line-height:1.4; }
+.bubble.me { align-self:flex-end; background:#1e5fa8; color:white; border-bottom-right-radius:5px; }
+.shared-track { border:1px solid rgba(148,144,232,.25); background:rgba(148,144,232,.09); }
+.chat-compose { display:grid; grid-template-columns:1fr 42px; gap:8px; padding:11px 16px max(16px,env(safe-area-inset-bottom)); border-top:1px solid var(--line); }
+.chat-compose input { min-width:0; border:1px solid var(--line); background:var(--surface); color:var(--text); border-radius:22px; padding:11px 15px; outline:none; }
+.chat-compose button { border:0; border-radius:50%; background:#1e5fa8; color:#fff; cursor:pointer; }
 @keyframes breathe { 50% { opacity: .4; transform: scale(.82); } }
 
 .discover-switch {
@@ -127,6 +233,7 @@ button.avatar { cursor: pointer; }
   border-radius: 14px;
   background: var(--surface);
 }
+.discover-switch.three { grid-template-columns: repeat(3, 1fr); }
 .mode-button {
   height: 34px;
   border: 0;
