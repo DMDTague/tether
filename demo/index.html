@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-  <meta name="theme-color" content="#09090d">
+  <meta name="theme-color" content="#0B0D14">
   <title>Tether — Philadelphia Live Demo</title>
   <link rel="stylesheet" href="styles.css">
 </head>
@@ -12,7 +12,14 @@
     <header class="topbar">
       <div>
         <p class="eyebrow">Philadelphia demo</p>
-        <h1>Tether</h1>
+        <div class="brand-row">
+          <svg class="brand-mark" viewBox="0 0 26 26" aria-hidden="true">
+            <path d="M6 19 C 10 8, 16 18, 20 7" />
+            <circle cx="6" cy="19" r="3.2" />
+            <circle class="b" cx="20" cy="7" r="3.2" />
+          </svg>
+          <h1>Tether</h1>
+        </div>
       </div>
       <button class="avatar self-avatar" aria-label="Open John Roastpork's profile">JR</button>
     </header>
@@ -35,12 +42,12 @@
         <div><p class="eyebrow">Live now</p><h3>Friends you can join</h3></div>
         <button data-see-all-live>See all</button>
       </div>
-      <div id="live-session-rail" class="live-session-rail"></div>
+      <div id="live-session-rail" class="live-session-rail"><div class="skeleton"></div><div class="skeleton"></div></div>
       <div class="home-section-head">
         <div><p class="eyebrow">Close to you</p><h3>On your wavelength</h3></div>
         <button data-open-wavelength>Explore</button>
       </div>
-      <div id="home-match-list" class="home-match-list"></div>
+      <div id="home-match-list" class="home-match-list"><div class="skeleton"></div><div class="skeleton"></div><div class="skeleton"></div></div>
       <div class="presence-explainer">
         <span class="presence-rings"><i></i><i></i><b>✦</b></span>
         <div><strong>Same song. Same second.</strong><p>Join a Tether and playback syncs to the host. No queue editing, no pressure—just presence.</p></div>
@@ -144,11 +151,12 @@
         <button class="memory-tab active" data-memory-tab="reviews">For you</button>
         <button class="memory-tab" data-memory-tab="live">Listening</button>
         <button class="memory-tab" data-memory-tab="anchors">Your diary</button>
+        <button class="memory-tab" data-memory-tab="capsules">Capsules</button>
       </div>
       <div id="review-feed" class="review-feed memory-panel active" data-memory-panel="reviews"></div>
       <div id="activity-feed" class="activity-feed memory-panel" data-memory-panel="live"></div>
       <div id="anchor-feed" class="anchor-feed memory-panel" data-memory-panel="anchors"></div>
-      <div id="capsule-feed" hidden></div>
+      <div id="capsule-feed" class="capsule-feed memory-panel" data-memory-panel="capsules"></div>
     </section>
 
     <section id="messages-view" class="view" aria-labelledby="messages-title">
@@ -217,19 +225,20 @@
 
     <nav class="bottom-nav" aria-label="Main navigation">
       <button class="nav-item active" data-view="home">
-        <span>⌂</span><small>Home</small>
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 11 L12 4 L20 11 M6 10 V19 H18 V10"/></svg><small>Home</small>
       </button>
       <button class="nav-item" data-view="discover">
-        <span>◎</span><small>Wavelength</small>
+        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="2.4"/><path d="M6.5 6.5 A7.8 7.8 0 0 0 6.5 17.5 M17.5 6.5 A7.8 7.8 0 0 1 17.5 17.5"/></svg><small>Wavelength</small>
       </button>
       <button class="nav-item" data-view="activity">
-        <span>◌</span><small>Exchange</small>
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 15 V9 M9.5 18 V6 M14.5 15.5 V8.5 M19 17 V7"/></svg><small>Exchange</small>
       </button>
       <button class="nav-item" data-view="messages">
-        <span>◇</span><small>Messages</small>
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6.5 A2.5 2.5 0 0 1 6.5 4 H17.5 A2.5 2.5 0 0 1 20 6.5 V14 A2.5 2.5 0 0 1 17.5 16.5 H10 L5.5 20 V16.5 H6.5 A2.5 2.5 0 0 1 4 14 Z"/></svg><small>Messages</small>
+        <span class="nav-badge" data-unread-badge hidden>0</span>
       </button>
       <button class="nav-item" data-view="you">
-        <span>◈</span><small>You</small>
+        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8.5" r="3.4"/><path d="M5.5 19.5 C6.5 15.5, 9 14, 12 14 C15 14, 17.5 15.5, 18.5 19.5"/></svg><small>You</small>
       </button>
     </nav>
 
