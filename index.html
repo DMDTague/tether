@@ -30,8 +30,9 @@
         </div>
       </div>
 
-      <div class="discover-switch" role="group" aria-label="Discover view">
+      <div class="discover-switch three" role="group" aria-label="Discover view">
         <button class="mode-button active" data-discover-mode="radar">Radar</button>
+        <button class="mode-button" data-discover-mode="swipe">For you</button>
         <button class="mode-button" data-discover-mode="list">People</button>
       </div>
 
@@ -73,6 +74,20 @@
         </div>
       </div>
 
+      <div id="swipe-panel" class="discover-panel">
+        <div class="swipe-intro">
+          <div><span class="live-dot"></span><strong> tuned for John</strong></div>
+          <span>drag or use the controls</span>
+        </div>
+        <div id="swipe-deck" class="swipe-deck" aria-live="polite"></div>
+        <div class="swipe-controls">
+          <button class="swipe-action pass" data-swipe-action="pass" aria-label="Pass">×</button>
+          <button class="swipe-action profile" data-swipe-action="profile" aria-label="View profile">•••</button>
+          <button class="swipe-action connect" data-swipe-action="connect" aria-label="Connect">✦</button>
+        </div>
+        <p class="swipe-note">Pass quietly · open their stage · tether</p>
+      </div>
+
       <div id="list-panel" class="discover-panel">
         <label class="search">
           <span aria-hidden="true">⌕</span>
@@ -92,8 +107,8 @@
 
     <section id="activity-view" class="view" aria-labelledby="activity-title">
       <div class="section-heading">
-        <p class="eyebrow">Across Philadelphia</p>
-        <h2 id="activity-title">What remains</h2>
+        <p class="eyebrow">Your inner circle</p>
+        <h2 id="activity-title">Social</h2>
       </div>
       <div class="memory-tabs" role="group" aria-label="Activity and memories">
         <button class="memory-tab active" data-memory-tab="live">Live</button>
@@ -103,6 +118,18 @@
       <div id="activity-feed" class="activity-feed memory-panel active" data-memory-panel="live"></div>
       <div id="anchor-feed" class="anchor-feed memory-panel" data-memory-panel="anchors"></div>
       <div id="capsule-feed" class="capsule-feed memory-panel" data-memory-panel="capsules"></div>
+    </section>
+
+    <section id="messages-view" class="view" aria-labelledby="messages-title">
+      <div class="section-heading messages-heading">
+        <div><p class="eyebrow">Private by design</p><h2 id="messages-title">Messages</h2></div>
+        <button class="compose-button" data-compose aria-label="New message">＋</button>
+      </div>
+      <label class="search message-search">
+        <span aria-hidden="true">⌕</span>
+        <input id="message-search" type="search" placeholder="Search conversations" autocomplete="off">
+      </label>
+      <div id="conversation-list" class="conversation-list"></div>
     </section>
 
     <section id="you-view" class="view" aria-labelledby="you-title">
@@ -159,10 +186,13 @@
 
     <nav class="bottom-nav" aria-label="Main navigation">
       <button class="nav-item active" data-view="discover">
-        <span>◎</span><small>People</small>
+        <span>◎</span><small>Discover</small>
       </button>
       <button class="nav-item" data-view="activity">
-        <span>◌</span><small>Memories</small>
+        <span>◌</span><small>Social</small>
+      </button>
+      <button class="nav-item" data-view="messages">
+        <span>◇</span><small>Messages</small>
       </button>
       <button class="nav-item" data-view="you">
         <span>◈</span><small>You</small>
