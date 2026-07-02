@@ -809,6 +809,129 @@ function playRoyaltyFreePreview(index, button) {
 
 function openWavelengthOnboarding(step = 0) {
   state.wavelengthStep = step;
+  const profile = state.wavelengthProfile;
+  const artistStep = profile.goal === "dating" ? 3 : 2;
+  const steps = profile.goal === "dating" ? 4 : 3;
+  const stepNames = ["You", "Intent", ...(profile.goal === "dating" ? ["Connection"] : []), "Taste"];
+  let body = "";
+  let visual = "";
+
+  if (step === 0) {
+    visual = `<div class="calibration-visual identity-signal" aria-hidden="true">
+      <span class="calibration-person">JR</span><i></i><i></i><i></i>
+      <b class="signal-caption">building your signal</b>
+    </div>`;
+    body = `<div class="onboard-step"><p class="eyebrow">Signal 01 · Identity</p><h2>Start with you.</h2>
+      <p class="sub">Share only what feels useful. Height and weight are always optional and your location stays approximate.</p>
+      <div class="onboard-fields"><label class="field-label">Gender
+        <select class="field-control" data-onboard-gender><option value="">Skip</option>${["Man","Woman","Nonbinary","Other"].map(value=>`<option ${profile.gender===value?"selected":""}>${value}</option>`).join("")}</select></label>
+        <label class="field-label" data-custom-gender-wrap style="${profile.gender==="Other"?"":"display:none"}">Your gender<input class="field-control" data-custom-gender value="${escapeHtml(profile.customGender)}" placeholder="Write your own"></label>
+        <div class="optional-pair"><label class="field-label">Height · optional<input class="field-control" data-height value="${escapeHtml(profile.height)}" placeholder="5′ 10″"></label>
+        <label class="field-label">Weight · optional<input class="field-control" data-weight value="${escapeHtml(profile.weight)}" placeholder="Skip"></label></div>
+      </div></div>`;
+  }
+
+  if (step === 1) {
+    visual = `<div class="calibration-visual intent-signal" aria-hidden="true">
+      <span class="intent-node you-node">YOU</span><span class="intent-line"></span>
+      <span class="intent-node match-node">${profile.goal === "dating" ? "DATE" : "FRIEND"}</span>
+      <b class="signal-caption">choose where the signal leads</b>
+    </div>`;
+    body = `<div class="onboard-step"><p class="eyebrow">Signal 02 · Intent</p><h2>What are you hoping to find?</h2>
+      <p class="sub">These are separate discovery pools. Your listening profile stays yours if you switch later.</p>
+      <div class="option-grid intent-options">
+        <button data-goal="friends" class="${profile.goal==="friends"?"selected":""}"><span class="option-glyph">◎</span><strong>New friends</strong><small>Find people to trade songs and share sessions with.</small></button>
+        <button data-goal="dating" class="${profile.goal==="dating"?"selected":""}"><span class="option-glyph">✦</span><strong>Dating</strong><small>Discover mutual chemistry through music.</small></button>
+      </div></div>`;
+  }
+
+  if (step === 2 && profile.goal === "dating") {
+    visual = `<div class="calibration-visual compatibility-signal" aria-hidden="true">
+      <span class="compat-orbit orbit-a"></span><span class="compat-orbit orbit-b"></span>
+      <span class="compat-heart">✦</span><b class="signal-caption">mutual connection only</b>
+    </div>`;
+    body = `<div class="onboard-step"><p class="eyebrow">Signal 03 · Connection</p><h2>Who belongs in your orbit?</h2>
+      <p class="sub">This creates mutually compatible pools before music matching. Tether never infers orientation from listening.</p>
+      <div class="option-grid orientation-options">${["Straight","Gay","Bisexual","Queer / open"].map(value=>`<button data-orientation="${value}" class="${profile.orientation===value?"selected":""}">${value}</button>`).join("")}</div>
+      <div class="privacy-promise"><span>◉</span><span>Your coordinates are never shown—only broad distance bands.</span></div></div>`;
+  }
+
+  if (step === artistStep) {
+    visual = `<div class="calibration-visual taste-signal" aria-hidden="true">
+      <span class="taste-core"><i></i><i></i><i></i><i></i><i></i></span>
+      <span class="taste-tag taste-one">${escapeHtml(profile.priorityArtist || "your favorite")}</span>
+      <span class="taste-tag taste-two">${escapeHtml(profile.avoidArtist || "your boundary")}</span>
+      <b class="signal-caption">shaping your match field</b>
+    </div>`;
+    body = `<div class="onboard-step"><p class="eyebrow">Final signal · Taste</p><h2>Set your musical poles.</h2>
+      <p class="sub">Prioritize a shared obsession or set a boundary. Casual plays never exclude somebody.</p>
+      <div class="onboard-fields"><label class="field-label">Artist you cannot stand · optional<input class="field-control" data-avoid-artist value="${escapeHtml(profile.avoidArtist)}" placeholder="Search or skip"></label>
+      <label class="field-label">Priority artist · optional<input class="field-control" data-priority-artist value="${escapeHtml(profile.priorityArtist)}" placeholder="Who do you want to bond over?"></label></div>
+      <div class="artist-search-results"><button class="artist-option" data-demo-artist="Melanie Martinez" data-kind="avoid"><span>Melanie Martinez</span><small>set boundary</small></button>
+      <button class="artist-option" data-demo-artist="Japanese Breakfast" data-kind="priority"><span>Japanese Breakfast</span><small>boost shared fans</small></button></div></div>`;
+  }
+
+  openFeatureModal(`<div class="wavelength-experience" data-calibration-step="${step}">
+    <div class="wavelength-experience-head"><button class="journey-close" data-close-modal aria-label="Close Wavelength setup">×</button>
+      <div class="journey-brand"><span class="journey-wave"><i></i><i></i><i></i></span><strong>Wavelength</strong></div>
+      <span class="journey-count">${String(step + 1).padStart(2, "0")} / ${String(steps).padStart(2, "0")}</span>
+    </div>
+    <div class="journey-progress">${stepNames.map((name,index)=>`<span class="${index===step?"current":index<step?"complete":""}"><i></i><small>${name}</small></span>`).join("")}</div>
+    <div class="journey-stage">${visual}<div class="onboarding">${body}</div></div>
+    <div class="onboard-footer"><button data-onboard-back>${step===0?"Not now":"Back"}</button><button class="next" data-onboard-next>${step===steps-1?"Enter Wavelength":"Continue"}</button></div>
+  </div>`);
+
+  const modal = $("#feature-modal");
+  modal.classList.add("wavelength-mode");
+  $(".phone").scrollTop = 0;
+  const gender = $("[data-onboard-gender]", modal);
+  gender?.addEventListener("change", () => {
+    profile.gender = gender.value;
+    $("[data-custom-gender-wrap]", modal).style.display = gender.value === "Other" ? "grid" : "none";
+  });
+  $$("[data-goal]", modal).forEach(button => button.addEventListener("click", () => {
+    profile.goal = button.dataset.goal;
+    openWavelengthOnboarding(1);
+  }));
+  $$("[data-orientation]", modal).forEach(button => button.addEventListener("click", () => {
+    profile.orientation = button.dataset.orientation;
+    openWavelengthOnboarding(2);
+  }));
+  $$("[data-demo-artist]", modal).forEach(button => button.addEventListener("click", () => {
+    if (button.dataset.kind === "avoid") profile.avoidArtist = button.dataset.demoArtist;
+    else profile.priorityArtist = button.dataset.demoArtist;
+    openWavelengthOnboarding(artistStep);
+  }));
+  $("[data-onboard-back]", modal).addEventListener("click", () => {
+    if (step === 0) closeFeatureModal();
+    else openWavelengthOnboarding(step - 1);
+  });
+  $("[data-onboard-next]", modal).addEventListener("click", () => {
+    if (step === 0) {
+      profile.gender = gender.value;
+      profile.customGender = $("[data-custom-gender]", modal)?.value || "";
+      profile.height = $("[data-height]", modal).value;
+      profile.weight = $("[data-weight]", modal).value;
+    }
+    if (step === artistStep) {
+      profile.avoidArtist = $("[data-avoid-artist]", modal).value;
+      profile.priorityArtist = $("[data-priority-artist]", modal).value;
+    }
+    if (step === steps - 1) {
+      state.wavelengthReady = true;
+      rebuildWavelengthQueue();
+      syncWavelengthHeader();
+      closeFeatureModal();
+      switchView("discover", true);
+      toast(`${profile.goal==="dating"?"Dating":"Friend"} Wavelength tuned.`);
+    } else {
+      openWavelengthOnboarding(step + 1);
+    }
+  });
+}
+
+function legacyWavelengthOnboarding(step = 0) {
+  state.wavelengthStep = step;
   const p = state.wavelengthProfile;
   const steps = p.goal === "dating" ? 4 : 3;
   let body = "";
@@ -931,16 +1054,17 @@ function renderCapsules() {
 function openFeatureModal(content) {
   const modal = $("#feature-modal");
   state.lastFocused = document.activeElement;
+  modal.classList.remove("wavelength-mode");
   modal.innerHTML = `<div class="modal-sheet" role="dialog" aria-modal="true">${content}</div>`;
   modal.classList.add("open");
   $$("[data-close-modal]", modal).forEach((button) => button.addEventListener("click", closeFeatureModal));
   const firstControl = $(".modal-sheet button, .modal-sheet input, .modal-sheet select", modal);
-  if (firstControl) firstControl.focus();
+  if (firstControl) firstControl.focus({ preventScroll: true });
 }
 
 function closeFeatureModal() {
   const modal = $("#feature-modal");
-  modal.classList.remove("open");
+  modal.classList.remove("open", "wavelength-mode");
   modal.innerHTML = "";
   if (state.lastFocused?.isConnected) state.lastFocused.focus();
   state.lastFocused = null;
@@ -1545,6 +1669,11 @@ function switchView(viewName, bypassOnboarding = false) {
   }
   $$(".view").forEach((view) => view.classList.toggle("active", view.id === `${viewName}-view`));
   $$(".nav-item").forEach((button) => button.classList.toggle("active", button.dataset.view === viewName));
+  const phone = $(".phone");
+  phone.dataset.scene = viewName;
+  const activeView = $(`#${viewName}-view`);
+  activeView?.classList.remove("view-arriving");
+  requestAnimationFrame(() => activeView?.classList.add("view-arriving"));
 }
 
 function switchDiscoverMode(mode) {
@@ -1679,5 +1808,26 @@ $("#feature-modal").addEventListener("click", (event) => {
 });
 $$(".nav-item").forEach((button) => button.addEventListener("click", () => switchView(button.dataset.view)));
 $$(".self-avatar").forEach((button) => button.addEventListener("click", () => switchView("you")));
+
+// Make the atmosphere and controls answer the user's touch instead of looping independently.
+const phone = $(".phone");
+phone.dataset.scene = "home";
+phone.addEventListener("pointermove", (event) => {
+  const bounds = phone.getBoundingClientRect();
+  phone.style.setProperty("--touch-x", `${((event.clientX - bounds.left) / bounds.width) * 100}%`);
+  phone.style.setProperty("--touch-y", `${((event.clientY - bounds.top) / bounds.height) * 100}%`);
+});
+document.addEventListener("pointerdown", (event) => {
+  const button = event.target.closest("button");
+  if (!button || button.disabled) return;
+  const bounds = button.getBoundingClientRect();
+  const ripple = document.createElement("span");
+  ripple.className = "intent-ripple";
+  ripple.style.left = `${event.clientX - bounds.left}px`;
+  ripple.style.top = `${event.clientY - bounds.top}px`;
+  button.appendChild(ripple);
+  setTimeout(() => ripple.remove(), 650);
+  if (navigator.vibrate && matchMedia("(pointer: coarse)").matches) navigator.vibrate(7);
+});
 
 init();
