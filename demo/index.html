@@ -32,6 +32,8 @@
         </div>
         <button class="service-pill" data-service-picker><span class="service-dot spotify"></span><strong>Spotify</strong><span>⌄</span></button>
       </div>
+      <div class="signal-stories-head"><strong>Live frequencies</strong><span>Philadelphia now</span></div>
+      <div id="signal-story-rail" class="signal-story-rail" aria-label="Live listening sessions"></div>
       <button class="start-session-card" data-start-own-session>
         <span class="session-orbit"><i></i><i></i><b>JR</b></span>
         <span class="start-copy"><small>Your Stage is quiet</small><strong>Choose a preselected track or connect</strong><em>Playing from your linked account automatically starts a Tether.</em></span>
@@ -138,6 +140,11 @@
         <p class="eyebrow">Music community</p>
         <h2 id="activity-title">The Exchange</h2>
       </div>
+      <button class="exchange-composer" data-open-exchange-composer>
+        <span class="avatar small self-avatar">JR</span>
+        <span><strong>Share what you're hearing</strong><small>Review a track, album, artist, or moment</small></span>
+        <i>+</i>
+      </button>
       <div class="memory-tabs" role="group" aria-label="Activity and memories">
         <button class="memory-tab active" data-memory-tab="reviews">For you</button>
         <button class="memory-tab" data-memory-tab="drafts">Drafts</button>
@@ -157,6 +164,8 @@
         <span aria-hidden="true">⌕</span>
         <input id="message-search" type="search" placeholder="Search conversations" autocomplete="off">
       </label>
+      <div class="message-presence-head"><strong>Available now</strong><span>Start a private Tether</span></div>
+      <div id="message-presence-rail" class="message-presence-rail"></div>
       <div id="conversation-list" class="conversation-list"></div>
     </section>
 
@@ -178,6 +187,12 @@
         <p class="eyebrow">Listening identity</p>
         <h3>John's Top 5</h3>
         <div id="profile-top-five" class="profile-top-five"></div>
+      </div>
+      <div class="profile-collection-head"><div><p class="eyebrow">Collected signal</p><h3>Your music life</h3></div><button data-view="activity" class="profile-exchange-link">Open Exchange</button></div>
+      <div class="profile-showcase-grid">
+        <article class="profile-showcase featured"><span>86h</span><strong>tethered together</strong><small>this season</small></article>
+        <article class="profile-showcase violet"><span>12</span><strong>reviews</strong><small>worth revisiting</small></article>
+        <article class="profile-showcase teal"><span>48</span><strong>memory anchors</strong><small>shared moments</small></article>
       </div>
       <div class="recap-card">
         <p class="eyebrow">Shared history</p>
