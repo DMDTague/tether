@@ -1,7 +1,9 @@
 import fs from "node:fs/promises";
 
-const input =
-  "C:/Users/Dylan/Documents/Codex/2026-06-30/use-github-to-debug-my-project/outputs/philly-profile-cleanup/Philly_Music_Users_Corrected.csv";
+const input = process.argv[2];
+if (!input) {
+  throw new Error("Usage: node scripts/build_demo_profiles.mjs <profiles.csv>");
+}
 const output = new URL("../demo/data/profiles.json", import.meta.url);
 
 function parseCsv(text) {
