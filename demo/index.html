@@ -5,10 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
   <meta name="theme-color" content="#0B0D14">
   <title>Tether — Philadelphia Live Demo</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="styles.css?v=9">
 </head>
 <body>
   <main class="phone" aria-label="Tether Philadelphia interactive demo">
@@ -66,7 +63,10 @@
         <button class="mode-button active" data-discover-mode="swipe">Profiles</button>
         <button class="mode-button" data-discover-mode="radar">Signal map</button>
         <button class="mode-button" data-discover-mode="list">Browse</button>
+        <button class="mode-button" data-discover-mode="grid">Explore</button>
       </div>
+
+      <div id="grid-panel" class="discover-panel"><div id="explore-grid" class="explore-grid"></div></div>
 
       <div id="radar-panel" class="discover-panel">
         <div class="radar-summary">
@@ -241,6 +241,6 @@
 
     <div id="toast" class="toast" role="status"></div>
   </main>
-  <script src="app.js" defer></script>
+  <script src="app.js?v=9" defer></script>
 </body>
 </html>
