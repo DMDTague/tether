@@ -34,6 +34,10 @@ const state = {
   ,wavelengthUnlocked: new Set()
   ,reviewScore: 0
   ,sessionPulseCount: 0
+  ,sessionIsSelf: false
+  ,sessionTrack: null
+  ,sessionJoinTimerId: null
+  ,ratedHistory: []
 };
 
 const CURRENT_USER = {
@@ -148,7 +152,7 @@ function rebuildWavelengthQueue() {
   const avoid = settings.avoidArtist.trim().toLowerCase();
   const priority = settings.priorityArtist.trim().toLowerCase();
   state.swipeQueue = [...state.profiles]
-    .filter(profile => profile.privacyMode !== "ghost" && isDatingCompatible(profile))
+    .filter(profile => profile.privacyMode !== "ghost" && !state.severed.has(profile.username) && isDatingCompatible(profile))
     // TopArtists represents sustained affinity. Incidental track history is
     // intentionally ignored so a casual play never excludes a person.
     .filter(profile => !avoid || !profile.topArtists.some(artist => artist.toLowerCase() === avoid))
@@ -171,9 +175,11 @@ function syncWavelengthHeader() {
 
 function wavelengthDistanceBand(profile) {
   const miles = distanceMiles(profile);
+  if (!Number.isFinite(miles)) return "in Philadelphia";
   if (miles <= 5) return "within 5 miles";
   if (miles <= 10) return "5–10 miles away";
-  return "10–15 miles away";
+  if (miles <= 15) return "10–15 miles away";
+  return "15+ miles away";
 }
 
 function wavelengthReason(profile) {
@@ -268,14 +274,40 @@ function enableCardDrag() {
   card.addEventListener("pointercancel", finish);
 }
 
+function ensureConversation(profile) {
+  let conversation = state.conversations.find(c => c.profile.username === profile.username);
+  if (!conversation) {
+    conversation = { profile, preview: "Start a conversation", time: "Now", unread: false, messages: [] };
+    state.conversations.unshift(conversation);
+  }
+  return conversation;
+}
+
+function conversationReply(conversation) {
+  const p = conversation.profile;
+  const artist = p.topArtists[0];
+  const track = p.currentTrack;
+  const pool = [
+    track ? `Honestly ${track.name} has been on repeat all week.` : `I keep coming back to ${artist} lately.`,
+    "Yes! Open your stage, I'll drop in.",
+    `That reminds me — I owe you a ${artist} deep cut.`,
+    "Perfect timing, I was just queuing something up.",
+    track ? `Wait until this ${track.artist} bridge hits. Tether me.` : "Send me what you're hearing right now."
+  ];
+  const seed = [...p.username].reduce((sum, ch) => sum + ch.charCodeAt(0), conversation.messages.length);
+  return pool[seed % pool.length];
+}
+
 function renderConversations(query = "") {
   const list = $("#conversation-list");
-  const items = state.conversations.filter(c => `${c.profile.name} ${c.profile.username}`.toLowerCase().includes(query.toLowerCase()));
-  list.innerHTML = items.map((conversation, index) => `<article class="conversation" data-conversation="${conversation.profile.username}">
+  const items = state.conversations
+    .filter(c => !state.severed.has(c.profile.username))
+    .filter(c => `${c.profile.name} ${c.profile.username}`.toLowerCase().includes(query.toLowerCase()));
+  list.innerHTML = items.length ? items.map((conversation, index) => `<article class="conversation" data-conversation="${conversation.profile.username}">
     <span class="avatar" style="${paletteStyle(conversation.profile)}">${escapeHtml(conversation.profile.initials)}</span>
     <div class="conversation-copy"><div class="conversation-top"><strong>${escapeHtml(conversation.profile.name)}</strong><time>${conversation.time}</time></div><p>${escapeHtml(conversation.preview)}</p></div>
     ${conversation.unread ? `<i class="unread-dot"></i>` : `<span></span>`}
-  </article>`).join("");
+  </article>`).join("") : `<p class="empty">No conversations match${query ? ` “${escapeHtml(query)}”` : ""}.</p>`;
   $$("[data-conversation]", list).forEach(item => item.addEventListener("click", () => openConversation(item.dataset.conversation)));
   updateUnreadBadge();
 }
@@ -317,6 +349,12 @@ function openConversation(username) {
       if (!sheet.isConnected) return;
       const receipt = $("[data-new-receipt]", sheet); if (receipt) { receipt.textContent = "Read"; receipt.removeAttribute("data-new-receipt"); }
       const typing = $("[data-typing]", sheet); if (typing) typing.remove();
+      const replyText = conversationReply(conversation);
+      conversation.messages.push({ mine:false, text: replyText });
+      conversation.preview = replyText;
+      conversation.time = "Now";
+      stage.insertAdjacentHTML("beforeend", `<div class="message-row"><div class="bubble">${escapeHtml(replyText)}</div></div>`);
+      stage.scrollTop = 99999;
     }, 2100);
   });
 }
@@ -520,33 +558,18 @@ function renderProfiles() {
   });
 }
 
-function renderActivity() {
-  const active = state.profiles.filter((profile) => ["listening", "in-session"].includes(profile.status));
-  const events = [
-    ...active.slice(0, 5).map((profile, index) => ({
-      profile,
-      text: profile.status === "in-session"
-        ? `<strong>${escapeHtml(profile.name)}</strong> started a shared session in ${escapeHtml(profile.location.neighborhood)}.`
-        : `<strong>${escapeHtml(profile.name)}</strong> is listening to ${escapeHtml(profile.currentTrack.name)}.`,
-      time: `${index * 2 + 1} min ago`
-    })),
-    ...state.profiles.slice(15, 19).map((profile, index) => ({
-      profile,
-      text: `<strong>${escapeHtml(profile.name)}</strong> created a memory anchor with a friend.`,
-      time: `${index * 7 + 12} min ago`
-    }))
-  ];
-  $("#activity-feed").innerHTML = events.map(({ profile, text, time }) => `
-    <article class="activity-item">
-      <span class="avatar small" style="${paletteStyle(profile)}">${escapeHtml(profile.initials)}</span>
-      <div><p>${text}</p><time>${time}</time></div>
-    </article>
-  `).join("");
-}
-
 function renderHome() {
+  const eyebrow = $("#home-eyebrow");
+  if (eyebrow) {
+    const now = new Date();
+    const weekday = now.toLocaleDateString("en-US", { weekday: "long" });
+    const hour = now.getHours();
+    const part = hour < 5 ? "late night" : hour < 12 ? "morning" : hour < 17 ? "afternoon" : "evening";
+    eyebrow.textContent = `${weekday} ${part}`;
+  }
   const live = state.profiles
     .filter(profile => ["listening","in-session"].includes(profile.status) && profile.currentTrack)
+    .filter(profile => !state.severed.has(profile.username) && !state.muted.has(profile.username))
     .sort((a,b) => compatibility(b) - compatibility(a));
   $("#live-session-rail").innerHTML = live.slice(0,6).map(profile => `
     <article class="live-session-card" data-home-session="${escapeHtml(profile.username)}">
@@ -573,17 +596,29 @@ function renderHome() {
 
 function renderReviews() {
   const ranked = reviews
-    .map((review, sourceIndex) => ({...review, sourceIndex, engagementScore:(review.subjectRatings * review.reviewRating) / (1 + sourceIndex * .35)}))
+    .map((review, sourceIndex) => ({...review, sourceIndex, engagementScore: review.mine ? 1e9 - sourceIndex : (review.subjectRatings * review.reviewRating) / (1 + sourceIndex * .35)}))
+    .filter(review => review.mine || !state.muted.has(review.username))
     .sort((a,b) => b.engagementScore - a.engagementScore);
   $("#review-feed").innerHTML = ranked.map((review,index) => {
-    const profile = profileByUsername(review.username) || state.profiles[index];
+    const profile = review.mine ? null : profileByUsername(review.username) || state.profiles[index];
+    const avatar = review.mine
+      ? `<span class="avatar small" style="background:linear-gradient(145deg,#9BA0FA,#3E45A8)">JR</span>`
+      : `<span class="avatar small" style="${paletteStyle(profile)}">${escapeHtml(profile.initials)}</span>`;
+    const author = review.mine ? "You" : escapeHtml(profile.name);
+    const coverA = review.mine ? "#9BA0FA" : profile.palette[0];
+    const coverB = review.mine ? "#3E45A8" : profile.palette[2];
+    const headline = review.type === "note"
+      ? "posted to The Exchange"
+      : `reviewed a${review.type === "artist" ? "n" : ""} ${review.type}`;
     return `<article class="review-card">
-      <header class="review-head"><span class="avatar small" style="${paletteStyle(profile)}">${escapeHtml(profile.initials)}</span>
-        <div><strong>${escapeHtml(profile.name)}</strong><p>reviewed a${review.type === "artist" ? "n" : ""} ${review.type}</p></div><time>${review.time}</time></header>
-      <div class="review-subject"><span class="review-cover" style="--a:${profile.palette[0]};--b:${profile.palette[2]}"><i class="liquid-wave-icon"><b></b><b></b><b></b><b></b><b></b></i></span>
-        <div><h3>${escapeHtml(review.title)}</h3><p class="track-artist">${escapeHtml(review.artist)}</p>${signalBloomStrip(review.score,true)}<small> ${review.score}/5</small></div></div>
+      <header class="review-head">${avatar}
+        <div><strong>${author}</strong><p>${headline}${review.verified ? " · ✓ verified listen" : ""}</p></div><time>${review.time}</time></header>
+      ${review.type === "note" ? "" : `<div class="review-subject"><span class="review-cover" style="--a:${coverA};--b:${coverB}"><i class="liquid-wave-icon"><b></b><b></b><b></b><b></b><b></b></i></span>
+        <div><h3>${escapeHtml(review.title)}</h3><p class="track-artist">${escapeHtml(review.artist)}</p>${review.score ? `${signalBloomStrip(review.score,true)}<small> ${review.score}/5</small>` : ""}</div></div>`}
       <p class="review-body">${escapeHtml(review.body)}</p>
-      <footer class="review-actions"><button data-rate-review="${review.sourceIndex}">☆ Rate · ${review.reviewRating}</button><button data-review-reply="${review.sourceIndex}">Reply</button><button data-review-session="${review.username}">Listen</button></footer>
+      <footer class="review-actions">${review.mine
+        ? `<button disabled>Posted just now</button>`
+        : `<button data-rate-review="${review.sourceIndex}"><i class="signal-bloom inline-bloom" style="--bloom-fill:100%"><span></span></i> Rate · ${review.reviewRating}</button><button data-review-reply="${review.sourceIndex}">Reply</button><button data-review-session="${review.username}">Listen</button>`}</footer>
     </article>`;
   }).join("");
   $$("[data-rate-review]").forEach(button => button.addEventListener("click", () => {
@@ -594,7 +629,9 @@ function renderReviews() {
   $$("[data-review-reply]").forEach(button => button.addEventListener("click", () => {
     const review = reviews[Number(button.dataset.reviewReply)];
     const profile = profileByUsername(review.username);
-    if (profile) openConversation(profile.username);
+    if (!profile) return;
+    ensureConversation(profile);
+    openConversation(profile.username);
   }));
   $$("[data-review-session]").forEach(button => button.addEventListener("click", () => {
     const profile = profileByUsername(button.dataset.reviewSession);
@@ -633,11 +670,24 @@ function openReviewSlider(review, triggerButton) {
   };
   slider.addEventListener("pointerdown", event => { slider.setPointerCapture(event.pointerId); update(event.clientX); });
   slider.addEventListener("pointermove", event => { if (slider.hasPointerCapture(event.pointerId)) update(event.clientX); });
+  slider.tabIndex = 0;
+  slider.addEventListener("keydown", event => {
+    if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
+    event.preventDefault();
+    const current = state.reviewScore;
+    const next = event.key === "ArrowRight"
+      ? (current >= 5 ? 6 : Math.min(5, current + .5))
+      : (current === 6 ? 5 : Math.max(1, current - .5));
+    const rect = slider.getBoundingClientRect();
+    update(rect.left + rect.width * (next === 6 ? 1.12 : (next - 1) / 4));
+  });
   $("[data-save-review-rating]", modal).addEventListener("click", () => {
     const score = state.reviewScore;
     closeFeatureModal();
     triggerButton.classList.add("rated");
     triggerButton.textContent = score === 6 ? "Platinum 6.0" : `Rated ${score.toFixed(1)}`;
+    state.ratedHistory.unshift({ title: review.title, score, when: "just now" });
+    renderHistory();
     toast(score === 6 ? "Platinum rating saved." : "Review rating saved.");
   });
 }
@@ -660,8 +710,38 @@ function renderExchangePanels() {
     $("[data-draft-validation]").classList.toggle("invalid", !heard);
   };
   asset.addEventListener("change", validate); text.addEventListener("input", validate);
-  submit.addEventListener("click", () => { text.value = ""; asset.value = ""; validate(); toast("Draft published to The Exchange."); });
-  $("#history-feed").innerHTML = reviews.slice(0,3).map(review => `<article class="history-item">${signalBloomStrip(review.score,true)}<div><strong>${escapeHtml(review.title)}</strong><p>You rated this ${review.score}/5 · ${review.time} ago</p></div></article>`).join("");
+  submit.addEventListener("click", () => {
+    const attached = asset.value;
+    const artists = { "Grace": "Jeff Buckley", "Let Down": "Radiohead" };
+    reviews.unshift({
+      mine: true,
+      username: CURRENT_USER.username,
+      type: attached ? "track" : "note",
+      title: attached || "Note",
+      artist: attached ? artists[attached] || "From your library" : "",
+      score: 0,
+      verified: Boolean(attached),
+      body: text.value.trim(),
+      subjectRatings: 0,
+      reviewRating: 0,
+      time: "now"
+    });
+    text.value = ""; asset.value = ""; validate();
+    renderReviews();
+    $$(".memory-tab").forEach(tab => tab.classList.toggle("active", tab.dataset.memoryTab === "reviews"));
+    $$("[data-memory-panel]").forEach(panel => panel.classList.toggle("active", panel.dataset.memoryPanel === "reviews"));
+    toast("Posted to The Exchange.");
+  });
+  renderHistory();
+}
+
+function renderHistory() {
+  const seeded = reviews
+    .filter(review => !review.mine)
+    .slice(0, 3)
+    .map(review => ({ title: review.title, score: review.score, when: `${review.time} ago` }));
+  const items = [...state.ratedHistory, ...seeded];
+  $("#history-feed").innerHTML = items.map(item => `<article class="history-item">${signalBloomStrip(Math.min(item.score, 5), true)}<div><strong>${escapeHtml(item.title)}</strong><p>You rated this ${item.score === 6 ? "Platinum · 6.0" : `${item.score}/5`} · ${escapeHtml(item.when)}</p></div></article>`).join("");
 }
 
 function renderProfileTopFive() {
@@ -913,11 +993,20 @@ function confirmConnectionAction(profile, action) {
   $("[data-confirm-action]", $("#feature-modal")).addEventListener("click", () => {
     if (action === "mute" || action === "unmute") {
       if (action === "mute") state.muted.add(profile.username); else state.muted.delete(profile.username);
+      renderHome();
+      renderReviews();
     }
     if (action === "block") {
       state.severed.add(profile.username);
       state.following.delete(profile.username);
-      closeProfile(); renderProfiles(); renderRadar();
+      state.conversations = state.conversations.filter(c => c.profile.username !== profile.username);
+      closeProfile();
+      renderProfiles();
+      renderRadar();
+      renderHome();
+      renderReviews();
+      rebuildWavelengthQueue();
+      renderConversations($("#message-search")?.value || "");
     }
     closeFeatureModal();
     const result = action === "mute" ? "muted" : action === "unmute" ? "unmuted" : "blocked";
@@ -1016,8 +1105,8 @@ function openProfile(username) {
       <div class="avatar xl" style="${paletteStyle(profile)}">${escapeHtml(profile.initials)}</div>
       <p class="eyebrow">${compatibility(profile)}% vibe match</p>
       <h2>${escapeHtml(profile.name)}</h2>
-      <p class="handle">@${escapeHtml(profile.username)} · ${profile.followerCount} followers</p>
-      <p class="bio">${escapeHtml(profile.bio)}</p>
+      <p class="handle">@${escapeHtml(profile.username)} · ${profile.demoAge} · ${profile.followerCount} followers</p>
+      <p class="bio">${escapeHtml(wavelengthBio(profile))}</p>
       <span class="location">⌁ ${wavelengthDistanceBand(profile)} · exact location hidden</span>
       <div class="action-row">
         <button class="btn" data-follow>${isFollowing ? "Following" : "Follow"}</button>
@@ -1090,9 +1179,7 @@ function openProfile(username) {
   $("[data-follow]", view).addEventListener("click", () => toggleFollow(profile));
   $("[data-message]", view).addEventListener("click", () => {
     closeProfile();
-    if (!state.conversations.some(c => c.profile.username === profile.username)) {
-      state.conversations.unshift({profile, preview:"Start a conversation", time:"Now", unread:false, messages:[]});
-    }
+    ensureConversation(profile);
     openConversation(profile.username);
   });
   const sessionButton = $("[data-session]", view);
@@ -1119,7 +1206,7 @@ function handlePrimaryAction(profile) {
     return;
   }
   if (profile.privacyMode === "knock-first") {
-    const button = $("[data-session]", $("#profile-view")) || $("[data-radar-action]", $("#radar-preview"));
+    const button = $("#profile-view").classList.contains("open") ? $("[data-session]", $("#profile-view")) : $("[data-radar-profile]", $("#radar-preview"));
     if (button) {
       button.disabled = true;
       button.textContent = "Knocking…";
@@ -1138,41 +1225,55 @@ function startSession(profile) {
   state.sessionStartedAt = Date.now();
   state.pulseReady = false;
   state.pulsesThisSession = 0;
+  const isSelf = profile.username === CURRENT_USER.username;
+  state.sessionIsSelf = isSelf;
+  state.sessionGuestJoined = false;
   closeProfile();
   const view = $("#session-view");
-  const track = profile.currentTrack;
-  const companion = state.profiles.find((item) =>
-    item.username !== profile.username && item.status === "in-session"
+  const track = profile.currentTrack || {
+    name: `${profile.topArtists[0]} radio`,
+    artist: "Live mix",
+    durationSeconds: 224,
+    progressPercent: 12
+  };
+  state.sessionTrack = {
+    name: track.name,
+    artist: track.artist,
+    durationSeconds: track.durationSeconds,
+    elapsedSeconds: track.durationSeconds * track.progressPercent / 100
+  };
+  const companion = isSelf ? null : state.profiles.find((item) =>
+    item.username !== profile.username && item.status === "in-session" && !state.severed.has(item.username)
   );
   view.style.setProperty("--accent", profile.palette[0]);
   view.style.setProperty("--accent-soft", `${profile.palette[0]}44`);
   view.innerHTML = `
     <div class="session-stage crossfading">
       <button class="icon-button back" data-exit-session aria-label="Exit session">‹</button>
-      <div class="session-person">Listening with ${escapeHtml(profile.name)} · <span data-session-timer>0:00</span></div>
+      <div class="session-person">${isSelf ? "Your Stage is live" : `Listening with ${escapeHtml(profile.name)}`} · <span data-session-timer>0:00</span></div>
       <div class="listener-stack" aria-label="Session listeners">
-        <span class="avatar" style="${paletteStyle(profile)}">${escapeHtml(profile.initials)}</span>
+        ${isSelf ? "" : `<span class="avatar" style="${paletteStyle(profile)}">${escapeHtml(profile.initials)}</span>`}
         ${companion ? `<span class="avatar" style="${paletteStyle(companion)}">${escapeHtml(companion.initials)}</span>` : ""}
         <span class="avatar" style="background:linear-gradient(145deg,#9BA0FA,#3E45A8)">JR</span>
       </div>
       <div class="session-art"></div>
-      <p class="session-title">${escapeHtml(track.name)}</p>
-      <p class="session-artist">${escapeHtml(track.artist)}</p>
-      <div class="progress session-progress"><span style="width:${track.progressPercent}%"></span></div>
-      <div class="session-time"><span>${formatTime(track.durationSeconds * track.progressPercent / 100)}</span><span>-${formatTime(track.durationSeconds * (100 - track.progressPercent) / 100)}</span></div>
-      <p class="sync" data-sync-status>● synced within 84 ms</p>
+      <p class="session-title">${escapeHtml(state.sessionTrack.name)}</p>
+      <p class="session-artist" data-session-artist>${escapeHtml(state.sessionTrack.artist)}</p>
+      <div class="progress session-progress"><span data-session-progress style="width:${track.progressPercent}%"></span></div>
+      <div class="session-time"><span data-session-elapsed>${formatTime(state.sessionTrack.elapsedSeconds)}</span><span data-session-remaining>-${formatTime(state.sessionTrack.durationSeconds - state.sessionTrack.elapsedSeconds)}</span></div>
+      <p class="sync" data-sync-status>● synced within ${64 + Math.floor(Math.random() * 40)} ms</p>
       <p class="pause-notice" data-pause-notice></p>
       <div class="session-controls">
-        <button data-host-pause>Simulate host pause</button>
-        <button data-track-change>Simulate track change</button>
+        <button data-host-pause>${isSelf ? "Pause your stage" : "Simulate host pause"}</button>
+        <button data-track-change>${isSelf ? "Play next track" : "Simulate track change"}</button>
       </div>
       <div class="pulse-wrap">
-        <button class="pulse-button" data-pulse aria-label="Hold to send pulse">
+        <button class="pulse-button" data-pulse aria-label="Hold to send pulse" ${isSelf ? "disabled" : ""}>
           <span class="pulse-fill" data-pulse-fill></span>
           <span class="pulse-symbol">✦</span>
         </button>
-        <p class="pulse-label" data-pulse-label>press and hold for 1.5 seconds</p>
-        <p class="session-note" data-session-note></p>
+        <p class="pulse-label" data-pulse-label>${isSelf ? "Pulses unlock when a friend joins" : "press and hold for 1.5 seconds"}</p>
+        <p class="session-note" data-session-note>${isSelf ? "Friends in your Orbit can see your Stage is live." : ""}</p>
       </div>
     </div>`;
   view.classList.add("open");
@@ -1190,28 +1291,103 @@ function startSession(profile) {
   pulseButton.addEventListener("keyup", (event) => {
     if (event.key === " " || event.key === "Enter") releasePulseCharge(event);
   });
-  if (Date.now() < state.pulseCooldownUntil) beginPulseCooldownDisplay();
+  if (Date.now() < state.pulseCooldownUntil && !isSelf) beginPulseCooldownDisplay();
+  clearTimeout(state.sessionJoinTimerId);
+  if (isSelf) {
+    // A friend discovers the live Stage a few seconds in — the payoff moment.
+    const guest = state.profiles
+      .filter(p => ["listening", "in-session"].includes(p.status) && !state.severed.has(p.username) && !state.muted.has(p.username))
+      .sort((a, b) => compatibility(b) - compatibility(a))[0];
+    if (guest) state.sessionJoinTimerId = setTimeout(() => {
+      const stack = $(".listener-stack", view);
+      if (!stack || !view.classList.contains("open") || !state.sessionIsSelf) return;
+      state.sessionGuestJoined = true;
+      stack.insertAdjacentHTML("afterbegin", `<span class="avatar" style="${paletteStyle(guest)}">${escapeHtml(guest.initials)}</span>`);
+      const person = $(".session-person", view);
+      if (person) person.innerHTML = `You + ${escapeHtml(guest.name.split(" ")[0])} · live · <span data-session-timer>${formatTime((Date.now() - state.sessionStartedAt) / 1000)}</span>`;
+      const button = $("[data-pulse]", view);
+      const label = $("[data-pulse-label]", view);
+      if (Date.now() < state.pulseCooldownUntil) {
+        beginPulseCooldownDisplay();
+      } else {
+        if (button) button.disabled = false;
+        if (label) label.textContent = "press and hold for 1.5 seconds";
+      }
+      const note = $("[data-session-note]", view);
+      if (note) note.textContent = "";
+      toast(`${guest.name} joined your Stage ✦`);
+    }, 5500);
+  }
   clearInterval(state.sessionTimerId);
   state.sessionTimerId = setInterval(() => {
     const timer = $("[data-session-timer]", view);
     if (timer) timer.textContent = formatTime((Date.now() - state.sessionStartedAt) / 1000);
+    updateSessionProgress(view);
   }, 1000);
+}
+
+function updateSessionProgress(view) {
+  const track = state.sessionTrack;
+  if (!track || state.sessionPaused) return;
+  track.elapsedSeconds += 1;
+  if (track.elapsedSeconds >= track.durationSeconds) {
+    advanceSessionTrack(view);
+    return;
+  }
+  const bar = $("[data-session-progress]", view);
+  const elapsed = $("[data-session-elapsed]", view);
+  const remaining = $("[data-session-remaining]", view);
+  if (bar) bar.style.width = `${(track.elapsedSeconds / track.durationSeconds) * 100}%`;
+  if (elapsed) elapsed.textContent = formatTime(track.elapsedSeconds);
+  if (remaining) remaining.textContent = `-${formatTime(track.durationSeconds - track.elapsedSeconds)}`;
+}
+
+const SESSION_QUEUE = [
+  { name: "Soft Static", artist: "Novelette", durationSeconds: 236 },
+  { name: "River Lights", artist: "Marrow & Pine", durationSeconds: 211 },
+  { name: "Golden Noise", artist: "Ada Winter", durationSeconds: 264 },
+  { name: "Pennsport Glow", artist: "The Delaware Loop", durationSeconds: 198 }
+];
+let sessionQueueIndex = 0;
+
+function advanceSessionTrack(view) {
+  const next = SESSION_QUEUE[sessionQueueIndex % SESSION_QUEUE.length];
+  sessionQueueIndex += 1;
+  state.sessionTrack = { name: next.name, artist: next.artist, durationSeconds: next.durationSeconds, elapsedSeconds: 0 };
+  const stage = $(".session-stage", view);
+  if (stage) {
+    stage.classList.remove("crossfading");
+    void stage.offsetWidth;
+    stage.classList.add("crossfading");
+  }
+  const title = $(".session-title", view);
+  const artist = $("[data-session-artist]", view);
+  const bar = $("[data-session-progress]", view);
+  const elapsed = $("[data-session-elapsed]", view);
+  const remaining = $("[data-session-remaining]", view);
+  if (title) title.textContent = next.name;
+  if (artist) artist.textContent = next.artist;
+  if (bar) bar.style.width = "0%";
+  if (elapsed) elapsed.textContent = "0:00";
+  if (remaining) remaining.textContent = `-${formatTime(next.durationSeconds)}`;
 }
 
 function endSession() {
   const profile = state.session;
   const elapsed = Math.max(1, Math.round((Date.now() - state.sessionStartedAt) / 60000));
-  if (profile?.currentTrack) {
+  const isSelf = state.sessionIsSelf;
+  if (!isSelf && profile && state.sessionTrack) {
+    const miles = distanceMiles(profile);
     anchors.unshift({
       id: `a${Date.now()}`,
       username: profile.username,
-      track: profile.currentTrack.name,
-      artist: profile.currentTrack.artist,
+      track: state.sessionTrack.name,
+      artist: state.sessionTrack.artist,
       minutes: elapsed,
       pulses: state.pulsesThisSession,
       date: "Just now",
       mood: null,
-      distance: `${distanceMiles(profile).toFixed(1)} miles`,
+      distance: Number.isFinite(miles) ? `${miles.toFixed(1)} miles` : "Philadelphia",
       health: 100
     });
     renderAnchors();
@@ -1220,10 +1396,14 @@ function endSession() {
   state.sessionTimerId = null;
   clearInterval(state.pulseCooldownTimerId);
   state.pulseCooldownTimerId = null;
+  clearTimeout(state.sessionJoinTimerId);
+  state.sessionJoinTimerId = null;
   $("#session-view").classList.remove("open");
   state.session = null;
+  state.sessionTrack = null;
+  state.sessionIsSelf = false;
   state.sessionPaused = false;
-  toast("Session saved as a private Memory Anchor.");
+  toast(isSelf ? "Your Stage went quiet." : "Session saved as a private Memory Anchor.");
 }
 
 function startPulseCharge(event) {
@@ -1315,6 +1495,11 @@ function beginPulseCooldownDisplay() {
     if (remaining <= 0) {
       clearInterval(state.pulseCooldownTimerId);
       state.pulseCooldownTimerId = null;
+      if (state.sessionIsSelf && !state.sessionGuestJoined) {
+        currentButton.classList.remove("cooling");
+        currentLabel.textContent = "Pulses unlock when a friend joins";
+        return;
+      }
       currentButton.disabled = false;
       currentButton.classList.remove("cooling");
       currentLabel.textContent = "press and hold for 1.5 seconds";
@@ -1330,23 +1515,21 @@ function toggleHostPause(event) {
   state.sessionPaused = !state.sessionPaused;
   const stage = $(".session-stage");
   stage.classList.toggle("paused", state.sessionPaused);
-  $("[data-pause-notice]").textContent = state.sessionPaused ? `${state.session.name} paused` : "";
-  $("[data-sync-status]").textContent = state.sessionPaused ? "Ⅱ host paused · playback stopped" : "● re-synced within 71 ms";
-  event.currentTarget.textContent = state.sessionPaused ? "Simulate host resume" : "Simulate host pause";
+  const who = state.sessionIsSelf ? "You" : state.session.name;
+  $("[data-pause-notice]").textContent = state.sessionPaused ? `${who} paused` : "";
+  $("[data-sync-status]").textContent = state.sessionPaused ? "Ⅱ host paused · playback stopped" : `● re-synced within ${58 + Math.floor(Math.random() * 40)} ms`;
+  event.currentTarget.textContent = state.sessionIsSelf
+    ? (state.sessionPaused ? "Resume your stage" : "Pause your stage")
+    : (state.sessionPaused ? "Simulate host resume" : "Simulate host pause");
 }
 
 function simulateTrackChange(event) {
-  if (!state.session?.currentTrack) return;
+  if (!state.session || !state.sessionTrack) return;
   const button = event.currentTarget;
-  const stage = $(".session-stage");
-  stage.classList.remove("crossfading");
-  void stage.offsetWidth;
-  stage.classList.add("crossfading");
-  const titles = ["Soft Static", "River Lights", "Golden Noise"];
-  $(".session-title").textContent = titles[Math.floor(Date.now() / 1000) % titles.length];
+  advanceSessionTrack($("#session-view"));
   button.textContent = "Crossfaded to next track";
   setTimeout(() => {
-    if (button.isConnected) button.textContent = "Simulate track change";
+    if (button.isConnected) button.textContent = state.sessionIsSelf ? "Play next track" : "Simulate track change";
   }, 1800);
 }
 
@@ -1402,7 +1585,6 @@ async function init() {
     syncWavelengthHeader();
     renderProfiles();
     renderRadar();
-    renderActivity();
     renderHome();
     renderReviews();
     renderExchangePanels();
@@ -1444,7 +1626,31 @@ $$("[data-swipe-action]").forEach(button => button.addEventListener("click", () 
   } else actOnSwipe(button.dataset.swipeAction);
 }));
 $("#message-search").addEventListener("input", event => renderConversations(event.target.value));
-$("[data-compose]").addEventListener("click", () => toast("Choose any person in Discover to start a private conversation."));
+$("[data-compose]").addEventListener("click", () => {
+  const candidates = state.profiles
+    .filter(p => !state.severed.has(p.username) && p.privacyMode !== "ghost")
+    .sort((a, b) => {
+      const aLive = ["listening", "in-session"].includes(a.status) ? 1 : 0;
+      const bLive = ["listening", "in-session"].includes(b.status) ? 1 : 0;
+      return bLive - aLive || compatibility(b) - compatibility(a);
+    })
+    .slice(0, 6);
+  openFeatureModal(`<div class="modal-head"><div><p class="eyebrow">New message</p><h3>Who are you thinking of?</h3></div><button class="icon-button" data-close-modal aria-label="Close">×</button></div>
+    <div class="option-list compose-picker">
+      ${candidates.map(p => `<button class="option-button" data-compose-to="${escapeHtml(p.username)}">
+        <span class="avatar small" style="${paletteStyle(p)}">${escapeHtml(p.initials)}</span>
+        <span class="compose-copy"><strong>${escapeHtml(p.name)}</strong><small>${["listening","in-session"].includes(p.status) ? "listening now" : "recently active"} · ${compatibility(p)}% match</small></span>
+        <span>›</span>
+      </button>`).join("")}
+    </div>`);
+  $$("[data-compose-to]", $("#feature-modal")).forEach(button => button.addEventListener("click", () => {
+    const profile = profileByUsername(button.dataset.composeTo);
+    if (!profile) return;
+    closeFeatureModal();
+    ensureConversation(profile);
+    openConversation(profile.username);
+  }));
+});
 $$(".memory-tab").forEach((button) => button.addEventListener("click", () => {
   $$(".memory-tab").forEach((item) => item.classList.toggle("active", item === button));
   $$("[data-memory-panel]").forEach((panel) =>

@@ -1081,3 +1081,17 @@ button.avatar { cursor: pointer; }
 .bottom-nav{background:rgba(7,9,16,.82);backdrop-filter:blur(22px) saturate(1.3);border-top-color:rgba(255,255,255,.09)}.bottom-nav .nav-item{border-radius:18px;transition:color .2s,background .25s,transform .2s}.bottom-nav .nav-item.active{background:linear-gradient(145deg,rgba(155,160,250,.16),rgba(76,211,165,.06));transform:translateY(-2px);box-shadow:inset 0 1px rgba(255,255,255,.08)}
 .utility-bloom{width:13px;height:13px;flex:0 0 auto}.utility-bloom>span{background:linear-gradient(135deg,#dac8ff,#8f7aff)}.liquid-wave-icon{display:flex;align-items:center;gap:3px;height:28px}.liquid-wave-icon b{display:block;width:3px;border-radius:999px;background:rgba(255,255,255,.72);animation:waveBreath 1.8s ease-in-out infinite}.liquid-wave-icon b:nth-child(1),.liquid-wave-icon b:nth-child(5){height:9px}.liquid-wave-icon b:nth-child(2),.liquid-wave-icon b:nth-child(4){height:18px;animation-delay:.15s}.liquid-wave-icon b:nth-child(3){height:27px;animation-delay:.3s}@keyframes waveBreath{50%{transform:scaleY(.55);opacity:.55}}.top-cover .signal-bloom{width:34px;height:34px}[data-save-review-rating]{width:100%;border-radius:17px;padding:13px;font-weight:800;box-shadow:0 14px 28px rgba(105,92,214,.22)}
 @media(prefers-reduced-motion:reduce){.gel-mass,.gel-caustic,.wavelength-portrait,.start-session-card::before{animation:none!important}.liquid-atmosphere{opacity:.62}}
+
+/* v0.6 correctness + polish pass */
+.history-item{grid-template-columns:auto 1fr}
+.anchor-feed{display:grid;gap:10px}
+.anchor-feed:empty::after{content:"Shared sessions you save will appear here.";color:var(--muted);font-size:10px}
+.compose-picker .option-button{padding:9px 12px}
+.compose-picker .avatar.small{width:32px;height:32px;font-size:9px}
+.compose-copy{display:grid;gap:2px;min-width:0}
+.compose-copy strong{font-size:11.5px;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.compose-copy small{font-size:9px;color:var(--muted)}
+.review-actions .inline-bloom{display:inline-block;width:11px;height:11px;vertical-align:-2px;margin-right:3px;background:var(--accent,#9BA0FA)}
+.review-actions button:disabled{color:var(--muted);opacity:.65;cursor:default}
+.review-actions button:disabled::after{display:none}
+.pulse-button{touch-action:none;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
