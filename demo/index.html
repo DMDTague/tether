@@ -24,7 +24,7 @@
     <section id="home-view" class="view active" aria-labelledby="home-title">
       <div class="home-welcome">
         <div>
-          <p class="eyebrow">Tuesday evening</p>
+          <p class="eyebrow" id="home-eyebrow">This evening</p>
           <h2 id="home-title">Your Stage</h2>
         </div>
         <button class="service-pill" data-service-picker><span class="service-dot spotify"></span><strong>Spotify</strong><span>⌄</span></button>
@@ -143,7 +143,6 @@
       <div id="review-feed" class="review-feed memory-panel active" data-memory-panel="reviews"></div>
       <div id="draft-feed" class="memory-panel" data-memory-panel="drafts"></div>
       <div id="history-feed" class="memory-panel" data-memory-panel="history"></div>
-      <div id="activity-feed" hidden></div><div id="anchor-feed" hidden></div>
     </section>
 
     <section id="messages-view" class="view" aria-labelledby="messages-title">
@@ -176,6 +175,11 @@
         <p class="eyebrow">Listening identity</p>
         <h3>John's Top 5</h3>
         <div id="profile-top-five" class="profile-top-five"></div>
+      </div>
+      <div class="recap-card">
+        <p class="eyebrow">Shared history</p>
+        <h3>Memory Anchors</h3>
+        <div id="anchor-feed" class="anchor-feed"></div>
       </div>
       <div class="recap-card">
         <p class="eyebrow">Presence settings</p>
