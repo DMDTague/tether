@@ -9,12 +9,16 @@
 </head>
 <body>
   <main class="phone" aria-label="Tether Philadelphia interactive demo">
+    <div class="liquid-atmosphere" aria-hidden="true">
+      <div class="gel-mass gel-one"></div><div class="gel-mass gel-two"></div><div class="gel-mass gel-three"></div>
+      <div class="gel-caustic"></div>
+    </div>
     <header class="topbar">
       <div class="brand-lockup">
         <span class="demo-badge">Demo</span>
         <div class="tether-wordmark" aria-label="Tether">tether</div>
       </div>
-      <button class="tap-tether-utility" data-open-spark><span>✦</span> Tap to Tether</button>
+      <button class="tap-tether-utility" data-open-spark><i class="signal-bloom utility-bloom" style="--bloom-fill:100%"><span></span></i> Tap to Tether</button>
     </header>
 
     <section id="home-view" class="view active" aria-labelledby="home-title">
@@ -102,9 +106,9 @@
         </div>
         <div id="swipe-deck" class="swipe-deck" aria-live="polite"></div>
         <div class="swipe-controls">
-          <button class="swipe-action pass" data-swipe-action="pass" aria-label="Pass">×</button>
-          <button class="swipe-action profile" data-swipe-action="profile" aria-label="View profile">•••</button>
-          <button class="swipe-action connect" data-swipe-action="connect" aria-label="Connect">✦</button>
+          <button class="swipe-action pass" data-swipe-action="pass" aria-label="Pass"><svg viewBox="0 0 32 32" aria-hidden="true"><path d="M9 9 C13 12 14 14 16 16 C19 13 21 11 24 8 M16 16 C13 20 11 22 8 24 M16 16 C20 19 22 21 25 24"/></svg></button>
+          <button class="swipe-action profile" data-swipe-action="profile" aria-label="View profile"><svg viewBox="0 0 32 32" aria-hidden="true"><circle cx="16" cy="11" r="5"/><path d="M7 26 C8 19 12 17 16 17 C20 17 24 19 25 26"/></svg></button>
+          <button class="swipe-action connect" data-swipe-action="connect" aria-label="Connect"><svg viewBox="0 0 32 32" aria-hidden="true"><path d="M16 4 C17 11 21 15 28 16 C21 17 17 21 16 28 C15 21 11 17 4 16 C11 15 15 11 16 4Z"/></svg></button>
         </div>
         <p class="swipe-note">Pass quietly · open their stage · tether</p>
       </div>
