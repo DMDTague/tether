@@ -38,6 +38,12 @@ const state = {
   ,sessionTrack: null
   ,sessionJoinTimerId: null
   ,ratedHistory: []
+  ,openThreads: new Set()
+  ,bookmarked: new Set()
+  ,userReplies: {}
+  ,popKeys: new Set()
+  ,seenViews: new Set(["home"])
+  ,threads: null
 };
 
 const CURRENT_USER = {
@@ -221,7 +227,7 @@ function renderSwipeDeck() {
         <span class="wavelength-intent-badge">${intent}</span>
         <span class="swipe-match">${compatibility(profile)}% match</span>
         <div class="wavelength-portrait" style="${paletteStyle(profile)}">
-          <span>${escapeHtml(profile.initials)}</span><i></i><i></i>
+          <span>${escapeHtml(profile.initials)}</span>${profile.avatarUrl ? `<img class="avatar-photo portrait-photo" src="${escapeHtml(profile.avatarUrl)}" alt="" loading="lazy" onerror="this.remove()">` : ""}<i></i><i></i>
         </div>
         <div class="wavelength-card-identity">
           <div><h3>${escapeHtml(profile.name)}, ${profile.demoAge}</h3><p>${escapeHtml(profile.demoGender)} · ${wavelengthDistanceBand(profile)}</p></div>
@@ -304,7 +310,7 @@ function renderConversations(query = "") {
     .filter(c => !state.severed.has(c.profile.username))
     .filter(c => `${c.profile.name} ${c.profile.username}`.toLowerCase().includes(query.toLowerCase()));
   list.innerHTML = items.length ? items.map((conversation, index) => `<article class="conversation" data-conversation="${conversation.profile.username}">
-    <span class="avatar" style="${paletteStyle(conversation.profile)}">${escapeHtml(conversation.profile.initials)}</span>
+    ${avatarSpan(conversation.profile)}
     <div class="conversation-copy"><div class="conversation-top"><strong>${escapeHtml(conversation.profile.name)}</strong><time>${conversation.time}</time></div><p>${escapeHtml(conversation.preview)}</p></div>
     ${conversation.unread ? `<i class="unread-dot"></i>` : `<span></span>`}
   </article>`).join("") : `<p class="empty">No conversations match${query ? ` “${escapeHtml(query)}”` : ""}.</p>`;
@@ -340,8 +346,8 @@ function openConversation(username) {
   const p = conversation.profile;
   const sheet = document.createElement("section");
   sheet.className = "chat-sheet";
-  sheet.innerHTML = `<header class="chat-head"><button data-close-chat>‹</button><span class="avatar small" style="${paletteStyle(p)}">${escapeHtml(p.initials)}</span><div class="chat-head-copy"><strong>${escapeHtml(p.name)}</strong><span>${p.status === "listening" ? "● listening now" : "last here recently"}</span></div><button data-chat-profile>•••</button></header>
-    <div class="chat-stage">${conversation.messages.map(m => `<div class="message-row ${m.mine ? "mine" : ""}"><div class="bubble ${m.mine ? "me" : ""} ${m.track ? "shared-track" : ""}">${m.track ? "♫ &nbsp;" : ""}${escapeHtml(m.text)}</div>${m.mine ? `<small class="message-receipt">Read</small>` : ""}</div>`).join("")}</div>
+  sheet.innerHTML = `<header class="chat-head"><button data-close-chat>‹</button>${avatarSpan(p, "avatar small")}<div class="chat-head-copy"><strong>${escapeHtml(p.name)}</strong><span>${p.status === "listening" ? "● listening now" : "last here recently"}</span></div><button data-chat-profile>•••</button></header>
+    <div class="chat-stage">${conversation.messages.map(m => `<div class="message-row ${m.mine ? "mine" : ""}"><div class="bubble ${m.mine ? "me" : ""} ${m.track ? "shared-track" : ""}">${m.track ? "♫ &nbsp;" : ""}${escapeHtml(m.text)}</div>${m.mine ? `<small class="message-receipt read">✓✓ Read</small>` : ""}</div>`).join("")}</div>
     <form class="chat-compose"><input aria-label="Message" placeholder="Message ${escapeHtml(p.name.split(" ")[0])}…"><button aria-label="Send">↑</button></form>`;
   $(".phone").appendChild(sheet);
   $("[data-close-chat]", sheet).addEventListener("click", () => { sheet.remove(); renderConversations($("#message-search").value); });
@@ -350,7 +356,11 @@ function openConversation(username) {
     event.preventDefault(); const input = $("input", event.currentTarget); if (!input.value.trim()) return;
     conversation.messages.push({mine:true,text:input.value.trim()});
     const stage = $(".chat-stage", sheet);
-    stage.insertAdjacentHTML("beforeend", `<div class="message-row mine"><div class="bubble me">${escapeHtml(input.value.trim())}</div><small class="message-receipt" data-new-receipt>Delivered</small></div>`);
+    stage.insertAdjacentHTML("beforeend", `<div class="message-row mine"><div class="bubble me">${escapeHtml(input.value.trim())}</div><small class="message-receipt sending" data-new-receipt>· Sending</small></div>`);
+    setTimeout(() => {
+      const receipt = $("[data-new-receipt]", sheet);
+      if (receipt && receipt.classList.contains("sending")) { receipt.textContent = "✓ Delivered"; receipt.classList.remove("sending"); receipt.classList.add("delivered"); }
+    }, 480);
     input.value = ""; stage.scrollTop = 99999;
     setTimeout(() => {
       if (!sheet.isConnected) return;
@@ -359,7 +369,12 @@ function openConversation(username) {
     }, 450);
     setTimeout(() => {
       if (!sheet.isConnected) return;
-      const receipt = $("[data-new-receipt]", sheet); if (receipt) { receipt.textContent = "Read"; receipt.removeAttribute("data-new-receipt"); }
+      const receipt = $("[data-new-receipt]", sheet); if (receipt) {
+        const at = new Date().toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
+        receipt.textContent = `✓✓ Read ${at}`;
+        receipt.classList.remove("delivered"); receipt.classList.add("read", "receipt-pop");
+        receipt.removeAttribute("data-new-receipt");
+      }
       const typing = $("[data-typing]", sheet); if (typing) typing.remove();
       const replyText = conversationReply(conversation);
       conversation.messages.push({ mine:false, text: replyText });
@@ -469,7 +484,7 @@ function selectRadarPing(username) {
 
 function openWavelengthUnlock(profile) {
   openFeatureModal(`<div class="unlock-modal">
-    <div class="unlock-orbit"><span style="${paletteStyle(profile)}">${escapeHtml(profile.initials)}</span><i></i><i></i></div>
+    <div class="unlock-orbit">${avatarSpan(profile, "orbit-face")}<i></i><i></i></div>
     <p class="eyebrow">Signal locked</p><h3>Meet people beyond your orbit</h3>
     <p class="modal-copy">Wavelength keeps distance bands private. Unlock this signal with Tether Pro or watch a short demo ad.</p>
     <button class="btn primary" data-watch-unlock>Watch ad to unlock</button>
@@ -500,7 +515,7 @@ function renderRadarPreview(profile) {
   preview.innerHTML = `
     <article class="signal-card">
       <div class="signal-head">
-        <span class="avatar small" style="${paletteStyle(profile)}">${escapeHtml(profile.initials)}</span>
+        ${avatarSpan(profile, "avatar small")}
         <div>
           <p class="signal-name">${escapeHtml(profile.name)}</p>
           <p class="signal-meta">${distanceMiles(profile).toFixed(1)} mi away · ${titleCase(profile.privacyMode)}</p>
@@ -516,6 +531,72 @@ function renderRadarPreview(profile) {
 function paletteStyle(profile) {
   const [accent = "#9BA0FA", secondary = "#242A3E"] = profile.palette;
   return `--accent:${accent};--accent-soft:${accent}33;background:linear-gradient(145deg,${accent},${secondary})`;
+}
+
+
+const SELF_LITE = { initials: "JR", avatarUrl: "avatars/john.roastpork.svg", palette: ["#9BA0FA", "#3E45A8"] };
+
+function avatarSpan(profile, classes = "avatar") {
+  const img = profile.avatarUrl
+    ? `<img class="avatar-photo" src="${escapeHtml(profile.avatarUrl)}" alt="" loading="lazy" onerror="this.remove()">`
+    : "";
+  return `<span class="${classes}" style="${paletteStyle(profile)}"><b class="avatar-fallback">${escapeHtml(profile.initials || "•")}</b>${img}</span>`;
+}
+
+function artHash(value) {
+  let h = 2166136261;
+  for (const ch of String(value)) { h ^= ch.charCodeAt(0); h = Math.imul(h, 16777619); }
+  return h >>> 0;
+}
+
+// Original, deterministic generative cover art — every title/artist pair gets
+// the same unique artwork everywhere it appears. No licensed imagery.
+function coverArt(title, artist = "") {
+  const seed = artHash(`${title}\u00b7${artist}`);
+  const hue = seed % 360;
+  const hue2 = (hue + 36 + (seed >> 4) % 48) % 360;
+  const uid = (seed % 1e7).toString(36);
+  const a = `hsl(${hue} 72% 58%)`;
+  const b = `hsl(${hue2} 78% 42%)`;
+  const deep = `hsl(${hue} 45% 12%)`;
+  const glow = `hsl(${hue2} 90% 70%)`;
+  const variant = seed % 4;
+  const letter = (title || "?").trim().charAt(0).toLowerCase();
+  let art = "";
+  if (variant === 0) {
+    // vinyl rings
+    art = `<circle cx="60" cy="60" r="44" fill="none" stroke="${a}" stroke-width="1.4" opacity=".75"/>
+      <circle cx="60" cy="60" r="33" fill="none" stroke="${glow}" stroke-width="1" opacity=".5"/>
+      <circle cx="60" cy="60" r="22" fill="none" stroke="${a}" stroke-width="1.6" opacity=".85"/>
+      <circle cx="60" cy="60" r="7" fill="${glow}"/>
+      <path d="M18 96 A58 58 0 0 1 96 18" fill="none" stroke="${b}" stroke-width="7" opacity=".55" stroke-linecap="round"/>`;
+  } else if (variant === 1) {
+    // waveform bars
+    const bars = Array.from({ length: 9 }, (_, i) => {
+      const h = 14 + ((seed >> (i * 3)) % 52);
+      return `<rect x="${14 + i * 11}" y="${60 - h / 2}" width="6" height="${h}" rx="3" fill="${i % 3 === 1 ? glow : a}" opacity="${i % 2 ? .9 : .6}"/>`;
+    }).join("");
+    art = `${bars}<circle cx="${20 + (seed % 80)}" cy="24" r="5" fill="${b}" opacity=".8"/>`;
+  } else if (variant === 2) {
+    // gel masses
+    art = `<circle cx="${34 + (seed % 20)}" cy="${40 + (seed >> 3) % 18}" r="30" fill="${a}" opacity=".8"/>
+      <circle cx="${74 - (seed >> 6) % 16}" cy="${72 - (seed >> 9) % 20}" r="26" fill="${b}" opacity=".78"/>
+      <circle cx="66" cy="38" r="10" fill="${glow}" opacity=".9"/>`;
+  } else {
+    // horizon + arc
+    art = `<rect x="0" y="66" width="120" height="54" fill="${b}" opacity=".85"/>
+      <circle cx="60" cy="66" r="24" fill="${glow}" opacity=".95"/>
+      <circle cx="60" cy="66" r="34" fill="none" stroke="${a}" stroke-width="1.4" opacity=".6"/>
+      <rect x="0" y="66" width="120" height="2.5" fill="${a}"/>`;
+  }
+  return `<svg class="cover-art" viewBox="0 0 120 120" role="img" aria-label="${escapeHtml(title)} artwork" xmlns="http://www.w3.org/2000/svg">
+    <defs><linearGradient id="cg${uid}" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="${deep}"/><stop offset="1" stop-color="hsl(${hue2} 40% 8%)"/>
+    </linearGradient></defs>
+    <rect width="120" height="120" fill="url(#cg${uid})"/>
+    ${art}
+    <text x="8" y="112" font-family="Space Grotesk, sans-serif" font-weight="700" font-size="30" fill="${a}" opacity=".28">${escapeHtml(letter)}</text>
+  </svg>`;
 }
 
 function stateLabel(profile) {
@@ -552,7 +633,7 @@ function renderProfiles() {
   const list = $("#profile-list");
   list.innerHTML = profiles.length ? profiles.map((profile) => `
     <button class="profile-card" data-profile="${escapeHtml(profile.username)}">
-      <span class="avatar" style="${paletteStyle(profile)}">${escapeHtml(profile.initials)}</span>
+      ${avatarSpan(profile)}
       <span class="profile-copy">
         <span class="profile-name">
           ${escapeHtml(profile.name)}
@@ -596,17 +677,17 @@ function renderHome() {
   $("#live-session-rail").innerHTML = live.slice(0,6).map(profile => `
     <article class="live-session-card" data-home-session="${escapeHtml(profile.username)}">
       <div class="live-session-top">
-        <span class="avatar small" style="${paletteStyle(profile)}">${escapeHtml(profile.initials)}</span>
+        ${avatarSpan(profile, "avatar small")}
         <div><strong>${escapeHtml(profile.name)}</strong><p>${escapeHtml(profile.location.neighborhood)} · ${titleCase(profile.privacyMode)}</p></div>
         <span class="join-chip">${profile.privacyMode === "open-door" ? "Join" : "Knock"}</span>
       </div>
-      <div class="mini-track"><span class="mini-art" style="--a:${profile.palette[0]};--b:${profile.palette[2]}"></span><div><strong>${escapeHtml(profile.currentTrack.name)}</strong><p>${escapeHtml(profile.currentTrack.artist)} · synced live</p></div></div>
+      <div class="mini-track"><span class="mini-art">${coverArt(profile.currentTrack.name, profile.currentTrack.artist)}</span><div><strong>${escapeHtml(profile.currentTrack.name)}</strong><p>${escapeHtml(profile.currentTrack.artist)} · synced live</p></div></div>
     </article>`).join("");
   $("#trending-session-list").innerHTML = live
     .sort((a,b) => b.metrics.sessionsHosted - a.metrics.sessionsHosted).slice(0,4)
     .map((profile,index) => `<article class="trending-session" data-home-session="${escapeHtml(profile.username)}">
       <span class="trend-rank">${index + 1}</span>
-      <span class="mini-art" style="--a:${profile.palette[0]};--b:${profile.palette[2]}"></span>
+      <span class="mini-art">${coverArt(profile.currentTrack.name, profile.currentTrack.artist)}</span>
       <div><strong>${escapeHtml(profile.currentTrack.name)}</strong><p>${escapeHtml(profile.currentTrack.artist)} · hosted by ${escapeHtml(profile.name)}</p></div>
       <span class="listener-count">${18 + profile.metrics.sessionsJoined + index * 7} listening</span>
     </article>`).join("");
@@ -614,6 +695,45 @@ function renderHome() {
     const profile = profileByUsername(card.dataset.homeSession);
     if (profile) handlePrimaryAction(profile);
   }));
+}
+
+
+const REPLY_POOLS = [
+  ["This is exactly the take I needed today.", "Sequencing on this is a whole journey.", "Queuing it for tonight's session.", "The restraint is what sells it, agreed."],
+  ["Felt this in my chest. Instant save.", "The bridge alone deserves Platinum.", "Okay adding this to my Orbit rotation."],
+  ["Exhausting is generous — but I can't stop replaying it.", "Committed to the bit and it works.", "Saw this live, review is dead on."],
+  ["Grief and joy as neighbors — beautifully put.", "This retrospective sent me back to the whole catalog.", "The expansion without losing intimacy is rare."]
+];
+
+function buildReviewThreads() {
+  const pool = state.profiles.filter(p => p.privacyMode !== "ghost");
+  state.threads = reviews.map((review, index) => {
+    const seed = artHash(review.title + review.username);
+    const count = 2 + (seed % 3);
+    const texts = REPLY_POOLS[index % REPLY_POOLS.length];
+    return Array.from({ length: count }, (_, i) => {
+      const profile = pool[(seed + i * 17) % pool.length];
+      return profile.username === review.username
+        ? { profile: pool[(seed + i * 17 + 5) % pool.length], text: texts[i % texts.length], when: `${4 + i * 9}m` }
+        : { profile, text: texts[i % texts.length], when: `${4 + i * 9}m` };
+    });
+  });
+}
+
+function threadFor(sourceIndex) {
+  const seeded = (state.threads && state.threads[sourceIndex]) || [];
+  const mine = (state.userReplies[sourceIndex] || []).map(text => ({ profile: null, text, when: "now", mine: true }));
+  return [...seeded, ...mine];
+}
+
+function shiftReviewInteractionState() {
+  const shiftSet = values => new Set([...values].map(index => index + 1));
+  state.openThreads = shiftSet(state.openThreads);
+  state.bookmarked = shiftSet(state.bookmarked);
+  state.userReplies = Object.fromEntries(
+    Object.entries(state.userReplies).map(([index, replies]) => [Number(index) + 1, replies])
+  );
+  if (state.threads) state.threads.unshift([]);
 }
 
 function renderReviews() {
@@ -624,8 +744,8 @@ function renderReviews() {
   $("#review-feed").innerHTML = ranked.map((review,index) => {
     const profile = review.mine ? null : profileByUsername(review.username) || state.profiles[index];
     const avatar = review.mine
-      ? `<span class="avatar small" style="background:linear-gradient(145deg,#9BA0FA,#3E45A8)">JR</span>`
-      : `<span class="avatar small" style="${paletteStyle(profile)}">${escapeHtml(profile.initials)}</span>`;
+      ? avatarSpan(SELF_LITE, "avatar small")
+      : avatarSpan(profile, "avatar small");
     const author = review.mine ? "You" : escapeHtml(profile.name);
     const coverA = review.mine ? "#9BA0FA" : profile.palette[0];
     const coverB = review.mine ? "#3E45A8" : profile.palette[2];
@@ -635,25 +755,73 @@ function renderReviews() {
     return `<article class="review-card">
       <header class="review-head">${avatar}
         <div><strong>${author}</strong><p>${headline}${review.verified ? " · ✓ verified listen" : ""}</p></div><time>${review.time}</time></header>
-      ${review.type === "note" ? "" : `<div class="review-subject"><span class="review-cover" style="--a:${coverA};--b:${coverB}"><i class="liquid-wave-icon"><b></b><b></b><b></b><b></b><b></b></i></span>
+      ${review.type === "note" ? "" : `<div class="review-subject"><span class="review-cover">${coverArt(review.title, review.artist)}</span>
         <div><h3>${escapeHtml(review.title)}</h3><p class="track-artist">${escapeHtml(review.artist)}</p>${review.score ? `${signalBloomStrip(review.score,true)}<small> ${review.score}/5</small>` : ""}</div></div>`}
       <p class="review-body">${escapeHtml(review.body)}</p>
+      ${(() => {
+        const replies = threadFor(review.sourceIndex);
+        const open = state.openThreads.has(review.sourceIndex);
+        const stack = replies.slice(0, 3).map(r => r.mine ? avatarSpan(SELF_LITE, "avatar micro") : avatarSpan(r.profile, "avatar micro")).join("");
+        const pop = state.popKeys.has(`replies-${review.sourceIndex}`) ? " count-pop" : "";
+        const meta = `<button class="thread-meta" data-toggle-thread="${review.sourceIndex}" aria-expanded="${open}">
+          <span class="reply-stack">${stack}</span>
+          <span class="thread-counts${pop}">${replies.length} ${replies.length === 1 ? "reply" : "replies"} · ${review.subjectRatings || replies.length * 3} ratings</span>
+          <span class="thread-chevron">${open ? "▾" : "▸"}</span>
+        </button>`;
+        if (!open) return meta;
+        return meta + `<div class="thread-replies">
+          ${replies.map(r => `<div class="thread-reply">${r.mine ? avatarSpan(SELF_LITE, "avatar micro") : avatarSpan(r.profile, "avatar micro")}
+            <div class="thread-reply-copy"><strong>${r.mine ? "You" : escapeHtml(r.profile.name)}</strong><p>${escapeHtml(r.text)}</p><small>${escapeHtml(r.when)}</small></div></div>`).join("")}
+          <form class="thread-compose" data-thread-compose="${review.sourceIndex}">
+            ${avatarSpan(SELF_LITE, "avatar micro")}
+            <input type="text" maxlength="200" placeholder="Add to the thread" aria-label="Reply to this post">
+            <button type="submit">Send</button>
+          </form>
+        </div>`;
+      })()}
       <footer class="review-actions">${review.mine
-        ? `<button disabled>Posted just now</button>`
-        : `<button data-rate-review="${review.sourceIndex}"><i class="signal-bloom inline-bloom" style="--bloom-fill:100%"><span></span></i> Rate · ${review.reviewRating}</button><button data-review-reply="${review.sourceIndex}">Reply</button><button data-review-session="${review.username}">Listen</button>`}</footer>
+        ? `<button disabled>Posted just now</button><button class="bookmark ${state.bookmarked.has(review.sourceIndex) ? "saved" : ""}" data-bookmark="${review.sourceIndex}" aria-label="Save post">${state.bookmarked.has(review.sourceIndex) ? "◆ Saved" : "◇ Save"}</button>`
+        : `<button data-rate-review="${review.sourceIndex}"><i class="signal-bloom inline-bloom" style="--bloom-fill:100%"><span></span></i> <span class="${state.popKeys.has(`rating-${review.sourceIndex}`) ? "count-pop" : ""}">Rate · ${review.reviewRating}</span></button><button data-review-reply="${review.sourceIndex}">Reply</button><button data-review-session="${review.username}">Listen</button><button class="bookmark ${state.bookmarked.has(review.sourceIndex) ? "saved" : ""}" data-bookmark="${review.sourceIndex}" aria-label="Save post">${state.bookmarked.has(review.sourceIndex) ? "◆ Saved" : "◇ Save"}</button>`}</footer>
     </article>`;
   }).join("");
+  state.popKeys.clear();
   $$("[data-rate-review]").forEach(button => button.addEventListener("click", () => {
     const index = Number(button.dataset.rateReview);
     const review = reviews[index];
     openReviewSlider(review, button);
   }));
   $$("[data-review-reply]").forEach(button => button.addEventListener("click", () => {
-    const review = reviews[Number(button.dataset.reviewReply)];
-    const profile = profileByUsername(review.username);
-    if (!profile) return;
-    ensureConversation(profile);
-    openConversation(profile.username);
+    const index = Number(button.dataset.reviewReply);
+    state.openThreads.add(index);
+    renderReviews();
+    const composer = $(`[data-thread-compose="${index}"] input`);
+    if (composer) composer.focus();
+  }));
+  $$("[data-toggle-thread]").forEach(button => button.addEventListener("click", () => {
+    const index = Number(button.dataset.toggleThread);
+    if (state.openThreads.has(index)) state.openThreads.delete(index); else state.openThreads.add(index);
+    renderReviews();
+  }));
+  $$("[data-thread-compose]").forEach(form => form.addEventListener("submit", event => {
+    event.preventDefault();
+    const index = Number(form.dataset.threadCompose);
+    const input = $("input", form);
+    const text = input.value.trim();
+    if (!text) return;
+    (state.userReplies[index] = state.userReplies[index] || []).push(text);
+    state.openThreads.add(index);
+    state.popKeys.add(`replies-${index}`);
+    renderReviews();
+    if (navigator.vibrate) navigator.vibrate(6);
+  }));
+  $$("[data-bookmark]").forEach(button => button.addEventListener("click", () => {
+    const index = Number(button.dataset.bookmark);
+    const saving = !state.bookmarked.has(index);
+    if (saving) state.bookmarked.add(index); else state.bookmarked.delete(index);
+    button.classList.toggle("saved", saving);
+    button.textContent = saving ? "◆ Saved" : "◇ Save";
+    button.classList.remove("bookmark-pop"); void button.offsetWidth; button.classList.add("bookmark-pop");
+    toast(saving ? "Saved to your library." : "Removed from your library.");
   }));
   $$("[data-review-session]").forEach(button => button.addEventListener("click", () => {
     const profile = profileByUsername(button.dataset.reviewSession);
@@ -709,6 +877,7 @@ function openReviewSlider(review, triggerButton) {
     triggerButton.classList.add("rated");
     triggerButton.textContent = score === 6 ? "Platinum 6.0" : `Rated ${score.toFixed(1)}`;
     state.ratedHistory.unshift({ title: review.title, score, when: "just now" });
+    triggerButton.classList.remove("count-pop"); void triggerButton.offsetWidth; triggerButton.classList.add("count-pop");
     renderHistory();
     toast(score === 6 ? "Platinum rating saved." : "Review rating saved.");
   });
@@ -735,6 +904,7 @@ function renderExchangePanels() {
   submit.addEventListener("click", () => {
     const attached = asset.value;
     const artists = { "Grace": "Jeff Buckley", "Let Down": "Radiohead" };
+    shiftReviewInteractionState();
     reviews.unshift({
       mine: true,
       username: CURRENT_USER.username,
@@ -771,7 +941,7 @@ function renderProfileTopFive() {
     ["Grace","Jeff Buckley",6],["Let Down","Radiohead",6],["Jubilee","Japanese Breakfast",5],
     ["Blonde","Frank Ocean",5],["Bon Iver","Bon Iver",4.5]
   ];
-  $("#profile-top-five").innerHTML = top.map(([title,artist,score],index) => `<article class="top-five-item" style="--cover-a:${["#7f65d8","#4265a8","#d34f87","#d99a35","#4ca58b"][index]};--cover-b:${["#241b45","#14243f","#40162c","#4a2a08","#163b31"][index]}"><span class="top-cover">${score===6?`<i class="signal-bloom" style="--bloom-fill:100%"><span></span></i>`:`<i class="liquid-wave-icon"><b></b><b></b><b></b><b></b><b></b></i>`}</span><strong>${title}</strong><small>${artist} · ${score === 6 ? "Platinum" : `${score} bloom`}</small></article>`).join("");
+  $("#profile-top-five").innerHTML = top.map(([title,artist,score],index) => `<article class="top-five-item" style="--cover-a:${["#7f65d8","#4265a8","#d34f87","#d99a35","#4ca58b"][index]};--cover-b:${["#241b45","#14243f","#40162c","#4a2a08","#163b31"][index]}"><span class="top-cover">${coverArt(title, artist)}${score===6?`<i class="signal-bloom plat-badge" style="--bloom-fill:100%"><span></span></i>`:""}</span><strong>${title}</strong><small>${artist} · ${score === 6 ? "Platinum" : `${score} bloom`}</small></article>`).join("");
 }
 
 function chooseMusicService() {
@@ -796,7 +966,7 @@ function chooseOwnTrack() {
   ];
   openFeatureModal(`<div class="modal-head"><div><p class="eyebrow">${state.musicService}</p><h3>Start your stage</h3></div><button class="icon-button" data-close-modal>×</button></div>
     <p class="modal-copy">Automatically starts a Tether. These original demo instrumentals stand in for playback from ${state.musicService}; the live app detects playback from your linked account.</p>
-    <div class="demo-track-list">${tracks.map((track,index)=>`<article class="demo-track-row"><span class="demo-track-note">♫</span><div><strong>${track.name}</strong><small>${track.artist}</small></div><button data-track-preview="${index}">Preview</button><button class="start-demo-track" data-own-track="${index}">Start</button></article>`).join("")}</div>`);
+    <div class="demo-track-list">${tracks.map((track,index)=>`<article class="demo-track-row"><span class="demo-track-note">${coverArt(track.name, track.artist)}</span><div><strong>${track.name}</strong><small>${track.artist}</small></div><button data-track-preview="${index}">Preview</button><button class="start-demo-track" data-own-track="${index}">Start</button></article>`).join("")}</div>`);
   $$("[data-track-preview]",$("#feature-modal")).forEach(button => button.addEventListener("click", () => playRoyaltyFreePreview(Number(button.dataset.trackPreview), button)));
   $$("[data-own-track]",$("#feature-modal")).forEach(button => button.addEventListener("click", () => {
     const track = tracks[Number(button.dataset.ownTrack)];
@@ -1017,7 +1187,7 @@ function renderAnchors() {
       <article class="anchor-card">
         <div class="anchor-head">
           <div class="anchor-person">
-            <span class="avatar small" style="${paletteStyle(profile)}">${escapeHtml(profile.initials)}</span>
+            ${avatarSpan(profile, "avatar small")}
             <div><strong>${escapeHtml(profile.name)}</strong><small>${escapeHtml(anchor.date)}</small></div>
           </div>
           ${anchor.mood ? `<span class="mood-tag">${escapeHtml(anchor.mood)}</span>` : `<span class="mood-tag">Add mood</span>`}
@@ -1048,7 +1218,7 @@ function renderCapsules() {
     return `
       <article class="capsule-card ${sealed ? "sealed" : ""}">
         <div class="anchor-person">
-          <span class="avatar small" style="${paletteStyle(profile)}">${escapeHtml(profile.initials)}</span>
+          ${avatarSpan(profile, "avatar small")}
           <div>
             <strong>${capsule.direction === "sent" ? `Sent to ${escapeHtml(profile.name)}` : `From ${escapeHtml(profile.name)}`}</strong>
             <small>${sealed ? "Sealed moment" : "Opened moment"}</small>
@@ -1248,7 +1418,7 @@ function openProfile(username) {
       <button class="icon-button" data-more aria-label="More options">···</button>
     </div>
     <div class="profile-hero">
-      <div class="avatar xl" style="${paletteStyle(profile)}">${escapeHtml(profile.initials)}</div>
+      ${avatarSpan(profile, "avatar xl")}
       <p class="eyebrow">${compatibility(profile)}% vibe match</p>
       <h2>${escapeHtml(profile.name)}</h2>
       <p class="handle">@${escapeHtml(profile.username)} · ${profile.demoAge} · ${profile.followerCount} followers</p>
@@ -1265,7 +1435,7 @@ function openProfile(username) {
         <section class="panel">
           <p class="panel-title">Listening now</p>
           <div class="now-track">
-            <div class="album-art"></div>
+            <div class="album-art">${coverArt(track.name, track.artist)}</div>
             <div>
               <p class="track-title">${escapeHtml(track.name)}</p>
               <p class="track-artist">${escapeHtml(track.artist)} · ${escapeHtml(track.album)}</p>
@@ -1398,11 +1568,11 @@ function startSession(profile) {
       <button class="icon-button back" data-exit-session aria-label="Exit session">‹</button>
       <div class="session-person">${isSelf ? "Your Stage is live" : `Listening with ${escapeHtml(profile.name)}`} · <span data-session-timer>0:00</span></div>
       <div class="listener-stack" aria-label="Session listeners">
-        ${isSelf ? "" : `<span class="avatar" style="${paletteStyle(profile)}">${escapeHtml(profile.initials)}</span>`}
-        ${companion ? `<span class="avatar" style="${paletteStyle(companion)}">${escapeHtml(companion.initials)}</span>` : ""}
-        <span class="avatar" style="background:linear-gradient(145deg,#9BA0FA,#3E45A8)">JR</span>
+        ${isSelf ? "" : avatarSpan(profile)}
+        ${companion ? avatarSpan(companion) : ""}
+        ${avatarSpan(SELF_LITE)}
       </div>
-      <div class="session-art"></div>
+      <div class="session-art" data-session-art>${coverArt(state.sessionTrack.name, state.sessionTrack.artist)}</div>
       <p class="session-title">${escapeHtml(state.sessionTrack.name)}</p>
       <p class="session-artist" data-session-artist>${escapeHtml(state.sessionTrack.artist)}</p>
       <div class="progress session-progress"><span data-session-progress style="width:${track.progressPercent}%"></span></div>
@@ -1448,7 +1618,7 @@ function startSession(profile) {
       const stack = $(".listener-stack", view);
       if (!stack || !view.classList.contains("open") || !state.sessionIsSelf) return;
       state.sessionGuestJoined = true;
-      stack.insertAdjacentHTML("afterbegin", `<span class="avatar" style="${paletteStyle(guest)}">${escapeHtml(guest.initials)}</span>`);
+      stack.insertAdjacentHTML("afterbegin", avatarSpan(guest));
       const person = $(".session-person", view);
       if (person) person.innerHTML = `You + ${escapeHtml(guest.name.split(" ")[0])} · live · <span data-session-timer>${formatTime((Date.now() - state.sessionStartedAt) / 1000)}</span>`;
       const button = $("[data-pulse]", view);
@@ -1513,6 +1683,8 @@ function advanceSessionTrack(view) {
   const remaining = $("[data-session-remaining]", view);
   if (title) title.textContent = next.name;
   if (artist) artist.textContent = next.artist;
+  const artBox = $("[data-session-art]", view);
+  if (artBox) artBox.innerHTML = coverArt(next.name, next.artist);
   if (bar) bar.style.width = "0%";
   if (elapsed) elapsed.textContent = "0:00";
   if (remaining) remaining.textContent = `-${formatTime(next.durationSeconds)}`;
@@ -1684,6 +1856,29 @@ function formatTime(seconds) {
   return `${Math.floor(whole / 60)}:${String(whole % 60).padStart(2, "0")}`;
 }
 
+
+const VIEW_SKELETONS = {
+  discover: `<div class="sk-deck skeleton"></div><div class="sk-row"><span class="skeleton sk-pill"></span><span class="skeleton sk-pill"></span><span class="skeleton sk-pill"></span></div>`,
+  activity: Array.from({length:3}, () => `<div class="sk-post"><div class="sk-line"><span class="skeleton sk-avatar"></span><span class="skeleton sk-text w40"></span></div><div class="skeleton sk-subject"></div><span class="skeleton sk-text w90"></span><span class="skeleton sk-text w70"></span></div>`).join(""),
+  messages: Array.from({length:6}, () => `<div class="sk-line"><span class="skeleton sk-avatar"></span><div class="sk-stack"><span class="skeleton sk-text w50"></span><span class="skeleton sk-text w80"></span></div></div>`).join(""),
+  you: `<div class="sk-line center"><span class="skeleton sk-avatar xl"></span></div><span class="skeleton sk-text w40 center"></span><div class="sk-row"><span class="skeleton sk-tile"></span><span class="skeleton sk-tile"></span><span class="skeleton sk-tile"></span></div><div class="skeleton sk-subject"></div>`
+};
+
+function showViewSkeleton(viewName) {
+  const view = $(`#${viewName}-view`);
+  const template = VIEW_SKELETONS[viewName];
+  if (!view || !template || view.querySelector(".view-skeleton")) return;
+  const overlay = document.createElement("div");
+  overlay.className = "view-skeleton";
+  overlay.setAttribute("aria-hidden", "true");
+  overlay.innerHTML = template;
+  view.prepend(overlay);
+  setTimeout(() => {
+    overlay.classList.add("done");
+    setTimeout(() => overlay.remove(), 260);
+  }, 520);
+}
+
 function switchView(viewName, bypassOnboarding = false) {
   if (viewName === "discover" && !state.wavelengthReady && !bypassOnboarding) {
     openWavelengthOnboarding();
@@ -1698,6 +1893,10 @@ function switchView(viewName, bypassOnboarding = false) {
   if (activeView) activeView.scrollTop = 0;
   activeView?.classList.remove("view-arriving");
   requestAnimationFrame(() => activeView?.classList.add("view-arriving"));
+  if (!state.seenViews.has(viewName)) {
+    state.seenViews.add(viewName);
+    showViewSkeleton(viewName);
+  }
 }
 
 function switchDiscoverMode(mode) {
@@ -1706,8 +1905,30 @@ function switchDiscoverMode(mode) {
   $("#radar-panel").classList.toggle("active", mode === "radar");
   $("#swipe-panel").classList.toggle("active", mode === "swipe");
   $("#list-panel").classList.toggle("active", mode === "list");
+  $("#grid-panel")?.classList.toggle("active", mode === "grid");
   if (mode === "radar") renderRadar();
   if (mode === "swipe") renderSwipeDeck();
+  if (mode === "grid") renderExploreGrid();
+}
+
+function renderExploreGrid() {
+  const host = $("#explore-grid");
+  if (!host) return;
+  const people = state.profiles
+    .filter(p => p.privacyMode !== "ghost" && !state.severed.has(p.username) && isDatingCompatible(p))
+    .sort((a, b) => compatibility(b) - compatibility(a))
+    .slice(0, 18);
+  host.innerHTML = people.map((profile, index) => {
+    const track = profile.currentTrack || { name: `${profile.topArtists[0]} radio`, artist: profile.topArtists[0] };
+    const live = ["listening", "in-session"].includes(profile.status);
+    return `<button class="explore-tile ${index % 5 === 0 ? "tall" : ""}" data-grid-profile="${escapeHtml(profile.username)}">
+      <span class="explore-cover">${coverArt(track.name, track.artist)}</span>
+      <span class="explore-scrim"></span>
+      ${live ? `<span class="explore-live">● live</span>` : ""}
+      <span class="explore-info">${avatarSpan(profile, "avatar micro")}<span class="explore-copy"><strong>${escapeHtml(profile.name.split(" ")[0])}</strong><small>${compatibility(profile)}% · ${escapeHtml(track.artist)}</small></span></span>
+    </button>`;
+  }).join("");
+  $$("[data-grid-profile]", host).forEach(tile => tile.addEventListener("click", () => openProfile(tile.dataset.gridProfile)));
 }
 
 function toast(message) {
@@ -1720,7 +1941,7 @@ function toast(message) {
 
 async function init() {
   try {
-    const response = await fetch("data/profiles.json");
+    const response = await fetch("data/profiles.json?v=9");
     if (!response.ok) throw new Error(`Profile data request failed: ${response.status}`);
     const data = await response.json();
     state.profiles = data.profiles;
@@ -1739,6 +1960,7 @@ async function init() {
     renderProfiles();
     renderRadar();
     renderHome();
+    buildReviewThreads();
     renderReviews();
     renderExchangePanels();
     renderProfileTopFive();
@@ -1791,7 +2013,7 @@ $("[data-compose]").addEventListener("click", () => {
   openFeatureModal(`<div class="modal-head"><div><p class="eyebrow">New message</p><h3>Who are you thinking of?</h3></div><button class="icon-button" data-close-modal aria-label="Close">×</button></div>
     <div class="option-list compose-picker">
       ${candidates.map(p => `<button class="option-button" data-compose-to="${escapeHtml(p.username)}">
-        <span class="avatar small" style="${paletteStyle(p)}">${escapeHtml(p.initials)}</span>
+        ${avatarSpan(p, "avatar small")}
         <span class="compose-copy"><strong>${escapeHtml(p.name)}</strong><small>${["listening","in-session"].includes(p.status) ? "listening now" : "recently active"} · ${compatibility(p)}% match</small></span>
         <span>›</span>
       </button>`).join("")}
