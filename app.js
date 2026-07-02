@@ -308,6 +308,18 @@ function renderConversations(query = "") {
     <div class="conversation-copy"><div class="conversation-top"><strong>${escapeHtml(conversation.profile.name)}</strong><time>${conversation.time}</time></div><p>${escapeHtml(conversation.preview)}</p></div>
     ${conversation.unread ? `<i class="unread-dot"></i>` : `<span></span>`}
   </article>`).join("") : `<p class="empty">No conversations match${query ? ` “${escapeHtml(query)}”` : ""}.</p>`;
+  const presenceRail = $("#message-presence-rail");
+  if (presenceRail) {
+    presenceRail.innerHTML = state.conversations
+      .filter(conversation => ["listening","in-session"].includes(conversation.profile.status))
+      .filter(conversation => !state.severed.has(conversation.profile.username))
+      .slice(0, 7)
+      .map(conversation => `<button class="presence-person" data-presence-chat="${escapeHtml(conversation.profile.username)}">
+        <span class="presence-avatar"><i class="avatar" style="${paletteStyle(conversation.profile)}">${escapeHtml(conversation.profile.initials)}</i><b></b></span>
+        <small>${escapeHtml(conversation.profile.name.split(" ")[0])}</small>
+      </button>`).join("");
+    $$("[data-presence-chat]", presenceRail).forEach(button => button.addEventListener("click", () => openConversation(button.dataset.presenceChat)));
+  }
   $$("[data-conversation]", list).forEach(item => item.addEventListener("click", () => openConversation(item.dataset.conversation)));
   updateUnreadBadge();
 }
@@ -571,6 +583,16 @@ function renderHome() {
     .filter(profile => ["listening","in-session"].includes(profile.status) && profile.currentTrack)
     .filter(profile => !state.severed.has(profile.username) && !state.muted.has(profile.username))
     .sort((a,b) => compatibility(b) - compatibility(a));
+  const storyRail = $("#signal-story-rail");
+  if (storyRail) {
+    storyRail.innerHTML = `<button class="signal-story your-story" data-story-start>
+      <span class="story-orbit"><i class="avatar">JR</i><b>+</b></span><small>Your stage</small>
+    </button>` + live.slice(0,8).map(profile => `<button class="signal-story" data-home-session="${escapeHtml(profile.username)}">
+      <span class="story-orbit ${profile.status === "in-session" ? "tethering" : ""}"><i class="avatar" style="${paletteStyle(profile)}">${escapeHtml(profile.initials)}</i><b></b></span>
+      <small>${escapeHtml(profile.name.split(" ")[0])}</small><em>${profile.status === "in-session" ? "tethered" : "listening"}</em>
+    </button>`).join("");
+    $("[data-story-start]", storyRail)?.addEventListener("click", chooseOwnTrack);
+  }
   $("#live-session-rail").innerHTML = live.slice(0,6).map(profile => `
     <article class="live-session-card" data-home-session="${escapeHtml(profile.username)}">
       <div class="live-session-top">
@@ -1671,7 +1693,9 @@ function switchView(viewName, bypassOnboarding = false) {
   $$(".nav-item").forEach((button) => button.classList.toggle("active", button.dataset.view === viewName));
   const phone = $(".phone");
   phone.dataset.scene = viewName;
+  phone.scrollTop = 0;
   const activeView = $(`#${viewName}-view`);
+  if (activeView) activeView.scrollTop = 0;
   activeView?.classList.remove("view-arriving");
   requestAnimationFrame(() => activeView?.classList.add("view-arriving"));
 }
@@ -1803,6 +1827,13 @@ $("[data-open-spark]").addEventListener("click", openSparkDemo);
 $("[data-service-picker]").addEventListener("click", chooseMusicService);
 $("[data-start-own-session]").addEventListener("click", chooseOwnTrack);
 $("[data-wavelength-settings]").addEventListener("click", () => openWavelengthOnboarding());
+$("[data-open-exchange-composer]").addEventListener("click", () => {
+  $$(".memory-tab").forEach(tab => tab.classList.toggle("active", tab.dataset.memoryTab === "drafts"));
+  $$("[data-memory-panel]").forEach(panel => panel.classList.toggle("active", panel.dataset.memoryPanel === "drafts"));
+  $("[data-draft-text]")?.focus({ preventScroll: true });
+  $("[data-draft-feed]")?.scrollIntoView?.({ behavior: "smooth", block: "start" });
+});
+$("[data-view='activity'].profile-exchange-link").addEventListener("click", () => switchView("activity"));
 $("#feature-modal").addEventListener("click", (event) => {
   if (event.target === event.currentTarget) closeFeatureModal();
 });
