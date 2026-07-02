@@ -86,6 +86,13 @@ function formatApproxCount(value) {
   return "a few";
 }
 
+function signalBloomStrip(score, compact = false) {
+  return `<span class="signal-bloom-strip ${compact ? "compact" : ""}" aria-label="${score} out of 5">${[1,2,3,4,5].map(value => {
+    const fill = score >= value ? 100 : score >= value - .5 ? 50 : 0;
+    return `<i class="signal-bloom" style="--bloom-fill:${fill}%"><span></span></i>`;
+  }).join("")}</span>`;
+}
+
 function compatibility(profile) {
   const vector = Object.values(profile.vibe);
   const dot = vector.reduce((sum, value, index) => sum + value * CURRENT_USER.vibe[index], 0);
@@ -570,13 +577,11 @@ function renderReviews() {
     .sort((a,b) => b.engagementScore - a.engagementScore);
   $("#review-feed").innerHTML = ranked.map((review,index) => {
     const profile = profileByUsername(review.username) || state.profiles[index];
-    const whole = Math.floor(review.score);
-    const stars = "★".repeat(whole) + (review.score % 1 ? "½" : "");
     return `<article class="review-card">
       <header class="review-head"><span class="avatar small" style="${paletteStyle(profile)}">${escapeHtml(profile.initials)}</span>
         <div><strong>${escapeHtml(profile.name)}</strong><p>reviewed a${review.type === "artist" ? "n" : ""} ${review.type}</p></div><time>${review.time}</time></header>
-      <div class="review-subject"><span class="review-cover" style="--a:${profile.palette[0]};--b:${profile.palette[2]}">♫</span>
-        <div><h3>${escapeHtml(review.title)}</h3><p class="track-artist">${escapeHtml(review.artist)}</p><span class="stars">${stars}</span><small> ${review.score}/5</small></div></div>
+      <div class="review-subject"><span class="review-cover" style="--a:${profile.palette[0]};--b:${profile.palette[2]}"><i class="liquid-wave-icon"><b></b><b></b><b></b><b></b><b></b></i></span>
+        <div><h3>${escapeHtml(review.title)}</h3><p class="track-artist">${escapeHtml(review.artist)}</p>${signalBloomStrip(review.score,true)}<small> ${review.score}/5</small></div></div>
       <p class="review-body">${escapeHtml(review.body)}</p>
       <footer class="review-actions"><button data-rate-review="${review.sourceIndex}">☆ Rate · ${review.reviewRating}</button><button data-review-reply="${review.sourceIndex}">Reply</button><button data-review-session="${review.username}">Listen</button></footer>
     </article>`;
@@ -598,28 +603,27 @@ function renderReviews() {
 }
 
 function openReviewSlider(review, triggerButton) {
-  state.reviewScore = 0;
+  state.reviewScore = 1;
   openFeatureModal(`<div class="modal-head"><div><p class="eyebrow">Rate the criticism</p><h3>Was this review useful?</h3></div><button class="icon-button" data-close-modal>×</button></div>
-    <p class="modal-copy">Drag across the stars. Push beyond five only for a genuinely perfect take.</p>
-    <div class="star-score"><strong data-score-display>0.0</strong><span>/ 5</span></div>
-    <div class="star-slider" data-star-slider role="slider" aria-label="Review rating" aria-valuemin="0" aria-valuemax="6" aria-valuenow="0">
-      ${[1,2,3,4,5].map(index => `<span data-star="${index}">★</span>`).join("")}<span class="platinum-star" data-star="6">★</span>
+    <p class="modal-copy">Drag across Tether’s signal blooms. Ratings begin at one; push beyond five only for a perfect take.</p>
+    <div class="star-score"><strong data-score-display>1.0</strong><span>/ 5</span></div>
+    <div class="star-slider signal-rating-slider" data-star-slider role="slider" aria-label="Review rating" aria-valuemin="1" aria-valuemax="6" aria-valuenow="1">
+      ${[1,2,3,4,5].map(index => `<span class="rating-bloom ${index===1?"filled":""}" data-star="${index}"><i class="signal-bloom"><span></span></i></span>`).join("")}<span class="rating-bloom platinum-star" data-star="6"><i class="signal-bloom"><span></span></i></span>
     </div>
     <p class="platinum-copy" data-platinum-copy>Drag past the edge to reveal Platinum.</p>
-    <button class="btn primary" data-save-review-rating disabled>Save rating</button>`);
+    <button class="btn primary" data-save-review-rating>Save rating</button>`);
   const modal = $("#feature-modal");
   const slider = $("[data-star-slider]", modal);
   const update = clientX => {
     const rect = slider.getBoundingClientRect();
     const ratio = Math.max(0, Math.min(1.12, (clientX - rect.left) / rect.width));
-    const next = ratio > 1.01 ? 6 : Math.round(Math.min(5, ratio * 5) * 2) / 2;
+    const next = ratio > 1.01 ? 6 : 1 + Math.round(Math.min(1, ratio) * 8) / 2;
     const becamePlatinum = next === 6 && state.reviewScore !== 6;
     state.reviewScore = next;
     slider.classList.toggle("platinum", next === 6);
     slider.setAttribute("aria-valuenow", String(next));
     $("[data-score-display]", modal).textContent = next === 6 ? "6.0" : next.toFixed(1);
     $("[data-score-display]", modal).classList.toggle("platinum", next === 6);
-    $("[data-save-review-rating]", modal).disabled = next === 0;
     $$("[data-star]", slider).forEach((star,index) => {
       const value = index + 1;
       star.classList.toggle("filled", next >= value || (next === 6 && value === 6));
@@ -633,7 +637,7 @@ function openReviewSlider(review, triggerButton) {
     const score = state.reviewScore;
     closeFeatureModal();
     triggerButton.classList.add("rated");
-    triggerButton.textContent = score === 6 ? "✦ Platinum 6.0" : `★ Rated ${score.toFixed(1)}`;
+    triggerButton.textContent = score === 6 ? "Platinum 6.0" : `Rated ${score.toFixed(1)}`;
     toast(score === 6 ? "Platinum rating saved." : "Review rating saved.");
   });
 }
@@ -657,7 +661,7 @@ function renderExchangePanels() {
   };
   asset.addEventListener("change", validate); text.addEventListener("input", validate);
   submit.addEventListener("click", () => { text.value = ""; asset.value = ""; validate(); toast("Draft published to The Exchange."); });
-  $("#history-feed").innerHTML = reviews.slice(0,3).map(review => `<article class="history-item"><span>★</span><div><strong>${escapeHtml(review.title)}</strong><p>You rated this ${review.score}/5 · ${review.time} ago</p></div></article>`).join("");
+  $("#history-feed").innerHTML = reviews.slice(0,3).map(review => `<article class="history-item">${signalBloomStrip(review.score,true)}<div><strong>${escapeHtml(review.title)}</strong><p>You rated this ${review.score}/5 · ${review.time} ago</p></div></article>`).join("");
 }
 
 function renderProfileTopFive() {
@@ -665,7 +669,7 @@ function renderProfileTopFive() {
     ["Grace","Jeff Buckley",6],["Let Down","Radiohead",6],["Jubilee","Japanese Breakfast",5],
     ["Blonde","Frank Ocean",5],["Bon Iver","Bon Iver",4.5]
   ];
-  $("#profile-top-five").innerHTML = top.map(([title,artist,score],index) => `<article class="top-five-item" style="--cover-a:${["#7f65d8","#4265a8","#d34f87","#d99a35","#4ca58b"][index]};--cover-b:${["#241b45","#14243f","#40162c","#4a2a08","#163b31"][index]}"><span class="top-cover">${score===6?"✦":"♫"}</span><strong>${title}</strong><small>${artist} · ${score === 6 ? "Platinum" : `${score} ★`}</small></article>`).join("");
+  $("#profile-top-five").innerHTML = top.map(([title,artist,score],index) => `<article class="top-five-item" style="--cover-a:${["#7f65d8","#4265a8","#d34f87","#d99a35","#4ca58b"][index]};--cover-b:${["#241b45","#14243f","#40162c","#4a2a08","#163b31"][index]}"><span class="top-cover">${score===6?`<i class="signal-bloom" style="--bloom-fill:100%"><span></span></i>`:`<i class="liquid-wave-icon"><b></b><b></b><b></b><b></b><b></b></i>`}</span><strong>${title}</strong><small>${artist} · ${score === 6 ? "Platinum" : `${score} bloom`}</small></article>`).join("");
 }
 
 function chooseMusicService() {
