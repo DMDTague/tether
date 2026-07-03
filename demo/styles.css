@@ -312,6 +312,7 @@ button.avatar { cursor: pointer; }
   background: var(--surface);
 }
 .discover-switch.three { grid-template-columns: repeat(3, 1fr); }
+.discover-switch.four { grid-template-columns: repeat(4, 1fr); }
 .mode-button {
   height: 34px;
   border: 0;
@@ -1307,3 +1308,27 @@ button,input,select,textarea{font-family:inherit}
 .message-receipt.read{color:#9BA0FA}
 .receipt-pop{animation:countPop .42s cubic-bezier(.34,1.56,.64,1)}
 @media(prefers-reduced-motion:reduce){.count-pop,.bookmark-pop,.receipt-pop{animation:none!important}}
+
+/* v0.10 — investor-demo legibility and interaction pass */
+body{font-family:"Outfit","Avenir Next",sans-serif;font-size:14px}
+h1,h2,h3,.tether-wordmark,.wavelength-title,.session-title,.profile-name{font-family:"Space Grotesk","Outfit",sans-serif;font-style:normal}
+h1{font-size:31px;font-weight:700}
+h2{font-size:27px}
+h3{font-size:19px}
+.eyebrow{font-size:11px}
+.hero-label,.swipe-intro,.swipe-note,.wavelength-active,.wavelength-taste>small,.review-head p,.review-head time,.review-actions button,.thread-reply-copy strong,.thread-reply-copy p,.conversation p,.presence-person small{font-size:11px}
+.swipe-bio,.review-body,.bio,.modal-copy,.onboard-step .sub{font-size:13px}
+.mode-button,.filter,.radius-controls button,.listener-count,.track-artist{font-size:12px}
+input,select,textarea,.thread-compose input,.chat-compose input{font-size:16px}
+.mode-button,.filter,.radius-controls button,.review-actions button,.join-chip,.service-pill{min-height:44px}
+.header-profile{width:42px;height:42px;border:1px solid rgba(255,255,255,.14);border-radius:50%;background:linear-gradient(145deg,#9ba0fa,#3e45a8);color:#fff;font-weight:800;cursor:pointer}
+.session-stage .sync-status,.session-time{font-size:13px}
+.discover-switch.four{gap:5px}
+.discover-switch.four .mode-button{padding-inline:5px}
+.listener-ping.open-session{border-radius:50%}
+.listener-ping.knock-session{border-radius:3px;transform:translate(-50%,-50%) rotate(45deg)}
+.listener-ping.close-match::after{content:"";position:absolute;inset:28%;border-radius:50%;background:#fff}
+.legend-dot.open-session{border-radius:50%}
+.legend-dot.knock-session{border-radius:1px;transform:rotate(45deg)}
+.legend-dot.close-match{border-radius:50%;box-shadow:inset 0 0 0 2px #fff}
+@media(max-width:370px){.discover-switch.four .mode-button{font-size:11px}}
