@@ -2075,7 +2075,7 @@ function toast(message) {
 
 async function init() {
   try {
-    const response = await fetch("data/profiles.json?v=11");
+    const response = await fetch("data/profiles.json?v=12");
     if (!response.ok) throw new Error(`Profile data request failed: ${response.status}`);
     const data = await response.json();
     state.profiles = data.profiles;
