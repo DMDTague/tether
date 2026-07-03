@@ -12,7 +12,7 @@
   <meta name="twitter:card" content="summary">
   <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 64 64%22><rect width=%2264%22 height=%2264%22 rx=%2216%22 fill=%22%230b0d14%22/><circle cx=%2218%22 cy=%2232%22 r=%226%22 fill=%22%239ba0fa%22/><circle cx=%2246%22 cy=%2232%22 r=%226%22 fill=%22%234cd3a5%22/><path d=%22M24 32h16%22 stroke=%22white%22 stroke-width=%224%22 stroke-linecap=%22round%22/></svg>">
   <title>Tether — Philadelphia Live Demo</title>
-  <link rel="stylesheet" href="styles.css?v=12">
+  <link rel="stylesheet" href="styles.css?v=13">
 </head>
 <body>
   <main class="phone" aria-label="Tether Philadelphia interactive demo">
@@ -34,7 +34,10 @@
           <p class="eyebrow" id="home-eyebrow">This evening</p>
           <h2 id="home-title">Listen together.</h2>
         </div>
-        <button class="service-pill" data-service-picker><span class="service-dot spotify"></span><strong>Spotify</strong><span>⌄</span></button>
+        <div class="home-tools">
+          <button class="presence-quick open-door" data-presence-quick><i></i><span>Open Door</span><b>⌄</b></button>
+          <button class="service-pill" data-service-picker><span class="service-dot spotify"></span><span class="service-copy"><small>Music source</small><strong>Spotify</strong></span><span>⌄</span></button>
+        </div>
       </div>
       <div class="signal-stories-head"><strong>Friends listening</strong><span>Philadelphia now</span></div>
       <div id="signal-story-rail" class="signal-story-rail" aria-label="Live listening sessions"></div>
@@ -48,7 +51,7 @@
       </div>
       <div id="live-session-rail" class="live-session-rail"><div class="skeleton"></div><div class="skeleton"></div></div>
       <div class="home-section-head">
-        <div><p class="eyebrow">Around Philadelphia</p><h3>Popular now</h3></div>
+        <div><p class="eyebrow">Local listening</p><h3>Trending in Philadelphia</h3></div>
       </div>
       <div id="trending-session-list" class="trending-session-list"><div class="skeleton"></div><div class="skeleton"></div></div>
     </section>
@@ -62,7 +65,7 @@
         </div>
         <div class="wavelength-intent">
           <span id="wavelength-goal">Friends</span>
-          <button data-wavelength-settings aria-label="Edit Wavelength preferences">Tune</button>
+          <button data-wavelength-settings aria-label="Edit Wavelength preferences">Preferences</button>
         </div>
       </div>
 
@@ -100,9 +103,11 @@
           <button class="active" data-radius="15">15 mi</button>
         </div>
         <div class="radar-legend">
+          <strong>Map key</strong>
           <span><i class="legend-dot close-match"></i> closer vibe</span>
           <span><i class="legend-dot open-session"></i> open session</span>
           <span><i class="legend-dot knock-session"></i> knock first</span>
+          <button data-radar-help aria-label="Explain the Signal Map">?</button>
         </div>
         <div id="radar-preview" class="radar-preview" aria-live="polite">
           <p class="empty-preview">Tap a live signal to hear what Philadelphia is listening to.</p>
@@ -152,10 +157,11 @@
       </button>
       <div class="memory-tabs" role="group" aria-label="Activity and memories">
         <button class="memory-tab active" data-memory-tab="reviews">For you</button>
-        <button class="memory-tab" data-memory-tab="drafts">Drafts</button>
-        <button class="memory-tab" data-memory-tab="history">History</button>
+        <button class="memory-tab" data-memory-tab="following">Following</button>
+        <button class="memory-tab" data-memory-tab="history">Your activity</button>
       </div>
       <div id="review-feed" class="review-feed memory-panel active" data-memory-panel="reviews"></div>
+      <div id="following-feed" class="review-feed memory-panel" data-memory-panel="following"></div>
       <div id="draft-feed" class="memory-panel" data-memory-panel="drafts"></div>
       <div id="history-feed" class="memory-panel" data-memory-panel="history"></div>
     </section>
@@ -252,7 +258,7 @@
         <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="2.4"/><path d="M6.5 6.5 A7.8 7.8 0 0 0 6.5 17.5 M17.5 6.5 A7.8 7.8 0 0 1 17.5 17.5"/></svg><small>Wavelength</small>
       </button>
       <button class="nav-item" data-view="activity">
-        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 15 V9 M9.5 18 V6 M14.5 15.5 V8.5 M19 17 V7"/></svg><small>Exchange</small>
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5.5h14v10H11l-4.5 3v-3H5z"/><path d="M9 9h6M9 12h4"/></svg><small>Exchange</small>
       </button>
       <button class="nav-item" data-view="messages">
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6.5 A2.5 2.5 0 0 1 6.5 4 H17.5 A2.5 2.5 0 0 1 20 6.5 V14 A2.5 2.5 0 0 1 17.5 16.5 H10 L5.5 20 V16.5 H6.5 A2.5 2.5 0 0 1 4 14 Z"/></svg><small>Messages</small>
@@ -265,6 +271,6 @@
 
     <div id="toast" class="toast" role="status"></div>
   </main>
-  <script src="app.js?v=12" defer></script>
+  <script src="app.js?v=13" defer></script>
 </body>
 </html>
