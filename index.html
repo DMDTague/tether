@@ -4,8 +4,15 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
   <meta name="theme-color" content="#0B0D14">
+  <meta name="description" content="Tether is a social music experience for listening together, discovering people through taste, and sharing music criticism.">
+  <meta property="og:title" content="Tether — Listen together">
+  <meta property="og:description" content="Share the same song at the same second, discover people through music, and explore Philadelphia's listening community.">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://dmdtague.github.io/tether/">
+  <meta name="twitter:card" content="summary">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 64 64%22><rect width=%2264%22 height=%2264%22 rx=%2216%22 fill=%22%230b0d14%22/><circle cx=%2218%22 cy=%2232%22 r=%226%22 fill=%22%239ba0fa%22/><circle cx=%2246%22 cy=%2232%22 r=%226%22 fill=%22%234cd3a5%22/><path d=%22M24 32h16%22 stroke=%22white%22 stroke-width=%224%22 stroke-linecap=%22round%22/></svg>">
   <title>Tether — Philadelphia Live Demo</title>
-  <link rel="stylesheet" href="styles.css?v=9">
+  <link rel="stylesheet" href="styles.css?v=10">
 </head>
 <body>
   <main class="phone" aria-label="Tether Philadelphia interactive demo">
@@ -18,30 +25,30 @@
         <span class="demo-badge">Demo</span>
         <div class="tether-wordmark" aria-label="Tether">tether</div>
       </div>
-      <button class="tap-tether-utility" data-open-spark><i class="signal-bloom utility-bloom" style="--bloom-fill:100%"><span></span></i> Tap to Tether</button>
+      <button class="self-avatar header-profile" aria-label="Open John Roastpork's profile">JR</button>
     </header>
 
     <section id="home-view" class="view active" aria-labelledby="home-title">
       <div class="home-welcome">
         <div>
           <p class="eyebrow" id="home-eyebrow">This evening</p>
-          <h2 id="home-title">Your Stage</h2>
+          <h2 id="home-title">Listen together.</h2>
         </div>
         <button class="service-pill" data-service-picker><span class="service-dot spotify"></span><strong>Spotify</strong><span>⌄</span></button>
       </div>
-      <div class="signal-stories-head"><strong>Live frequencies</strong><span>Philadelphia now</span></div>
+      <div class="signal-stories-head"><strong>Friends listening</strong><span>Philadelphia now</span></div>
       <div id="signal-story-rail" class="signal-story-rail" aria-label="Live listening sessions"></div>
       <button class="start-session-card" data-start-own-session>
         <span class="session-orbit"><i></i><i></i><b>JR</b></span>
-        <span class="start-copy"><small>Your Stage is quiet</small><strong>Choose a preselected track or connect</strong><em>Playing from your linked account automatically starts a Tether.</em></span>
+        <span class="start-copy"><small>Start a listening session</small><strong>Choose a song to listen together</strong><em>Your friends can join at the same point in the track.</em></span>
         <span class="start-arrow">›</span>
       </button>
       <div class="home-section-head">
-        <div><p class="eyebrow">Live now</p><h3>In the Same Orbit</h3></div>
+        <div><p class="eyebrow">Live now</p><h3>Join a session</h3></div>
       </div>
       <div id="live-session-rail" class="live-session-rail"><div class="skeleton"></div><div class="skeleton"></div></div>
       <div class="home-section-head">
-        <div><p class="eyebrow">Across Tether</p><h3>Hot Tethers</h3></div>
+        <div><p class="eyebrow">Around Philadelphia</p><h3>Popular now</h3></div>
       </div>
       <div id="trending-session-list" class="trending-session-list"><div class="skeleton"></div><div class="skeleton"></div></div>
     </section>
@@ -59,7 +66,7 @@
         </div>
       </div>
 
-      <div class="discover-switch three" role="group" aria-label="Discover view">
+      <div class="discover-switch four" role="group" aria-label="Discover view">
         <button class="mode-button active" data-discover-mode="swipe">Profiles</button>
         <button class="mode-button" data-discover-mode="radar">Signal map</button>
         <button class="mode-button" data-discover-mode="list">Browse</button>
@@ -71,7 +78,7 @@
       <div id="radar-panel" class="discover-panel">
         <div class="radar-summary">
           <div>
-            <strong id="radar-live-count">0 live signals</strong>
+            <strong id="radar-live-count">Finding nearby listeners…</strong>
             <span id="radar-radius-label">within 15 miles</span>
           </div>
           <span class="radar-privacy">Approximate · never exact</span>
@@ -216,9 +223,9 @@
       </div>
     </section>
 
-    <section id="profile-view" class="overlay-view" aria-live="polite"></section>
-    <section id="session-view" class="overlay-view" aria-live="polite"></section>
-    <section id="feature-modal" class="feature-modal" aria-live="polite"></section>
+    <section id="profile-view" class="overlay-view"></section>
+    <section id="session-view" class="overlay-view"></section>
+    <section id="feature-modal" class="feature-modal"></section>
 
     <nav class="bottom-nav" aria-label="Main navigation">
       <button class="nav-item active" data-view="home">
@@ -241,6 +248,6 @@
 
     <div id="toast" class="toast" role="status"></div>
   </main>
-  <script src="app.js?v=9" defer></script>
+  <script src="app.js?v=10" defer></script>
 </body>
 </html>
