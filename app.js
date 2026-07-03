@@ -741,8 +741,10 @@ function renderHome() {
     storyRail.innerHTML = `<button class="presence-person presence-self" data-story-start aria-label="Start your listening session">
       <span class="presence-avatar">${avatarSpan(SELF_LITE)}<b aria-hidden="true">+</b></span>
       <small>You</small><em>start</em>
-    </button>` + live.slice(0,8).map(profile => presencePerson(profile, "home")).join("");
+    </button>` + live.slice(0,4).map(profile => presencePerson(profile, "home")).join("")
+      + (live.length > 4 ? `<button class="presence-see-all" data-presence-see-all><span>+${live.length - 4}</span><strong>See all</strong></button>` : "");
     $("[data-story-start]", storyRail)?.addEventListener("click", chooseOwnTrack);
+    $("[data-presence-see-all]", storyRail)?.addEventListener("click", () => switchView("messages"));
   }
   $("#live-session-rail").innerHTML = live.slice(0,6).map(profile => `
     <article class="live-session-card" data-home-session="${escapeHtml(profile.username)}">
