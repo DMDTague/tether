@@ -343,6 +343,41 @@ function conversationReply(conversation) {
   return pool[seed % pool.length];
 }
 
+function presenceState(profile) {
+  if (profile.status === "in-session") {
+    return { tone: "tethered", label: "tethered", action: profile.privacyMode === "knock-first" ? "Knock" : "Join" };
+  }
+  if (profile.status === "listening") {
+    return { tone: profile.privacyMode === "knock-first" ? "knock" : "open", label: "listening", action: profile.privacyMode === "knock-first" ? "Knock" : "Join" };
+  }
+  return { tone: "recent", label: "recent", action: "Message" };
+}
+
+function presencePerson(profile, context) {
+  const presence = presenceState(profile);
+  const attribute = context === "messages"
+    ? `data-presence-chat="${escapeHtml(profile.username)}"`
+    : `data-home-session="${escapeHtml(profile.username)}"`;
+  return `<button class="presence-person ${presence.tone}" ${attribute} aria-label="${escapeHtml(profile.name)}, ${presence.label}">
+    <span class="presence-avatar">${avatarSpan(profile)}<b aria-hidden="true"></b></span>
+    <small>${escapeHtml(profile.name.split(" ")[0])}</small>
+    <em>${presence.label}</em>
+  </button>`;
+}
+
+function renderPresenceRail(container, profiles, context) {
+  if (!container) return;
+  container.innerHTML = profiles.slice(0, 8).map(profile => presencePerson(profile, context)).join("");
+  if (context === "messages") {
+    $$("[data-presence-chat]", container).forEach(button => button.addEventListener("click", () => {
+      const profile = profileByUsername(button.dataset.presenceChat);
+      if (!profile) return;
+      ensureConversation(profile);
+      openConversation(profile.username);
+    }));
+  }
+}
+
 function renderConversations(query = "") {
   const list = $("#conversation-list");
   const items = state.conversations
@@ -355,15 +390,11 @@ function renderConversations(query = "") {
   </article>`).join("") : `<p class="empty">No conversations match${query ? ` “${escapeHtml(query)}”` : ""}.</p>`;
   const presenceRail = $("#message-presence-rail");
   if (presenceRail) {
-    presenceRail.innerHTML = state.conversations
-      .filter(conversation => ["listening","in-session"].includes(conversation.profile.status))
-      .filter(conversation => !state.severed.has(conversation.profile.username))
-      .slice(0, 7)
-      .map(conversation => `<button class="presence-person" data-presence-chat="${escapeHtml(conversation.profile.username)}">
-        <span class="presence-avatar"><i class="avatar" style="${paletteStyle(conversation.profile)}">${escapeHtml(conversation.profile.initials)}</i><b></b></span>
-        <small>${escapeHtml(conversation.profile.name.split(" ")[0])}</small>
-      </button>`).join("");
-    $$("[data-presence-chat]", presenceRail).forEach(button => button.addEventListener("click", () => openConversation(button.dataset.presenceChat)));
+    const available = state.profiles
+      .filter(profile => ["listening","in-session"].includes(profile.status) && profile.currentTrack)
+      .filter(profile => !state.severed.has(profile.username) && !state.muted.has(profile.username))
+      .sort((a,b) => compatibility(b) - compatibility(a));
+    renderPresenceRail(presenceRail, available, "messages");
   }
   $$("[data-conversation]", list).forEach(item => item.addEventListener("click", () => openConversation(item.dataset.conversation)));
   updateUnreadBadge();
@@ -705,12 +736,10 @@ function renderHome() {
     .sort((a,b) => compatibility(b) - compatibility(a));
   const storyRail = $("#signal-story-rail");
   if (storyRail) {
-    storyRail.innerHTML = `<button class="signal-story your-story" data-story-start>
-      <span class="story-orbit"><i class="avatar">JR</i><b>+</b></span><small>Your stage</small>
-    </button>` + live.slice(0,8).map(profile => `<button class="signal-story" data-home-session="${escapeHtml(profile.username)}">
-      <span class="story-orbit ${profile.status === "in-session" ? "tethering" : ""}"><i class="avatar" style="${paletteStyle(profile)}">${escapeHtml(profile.initials)}</i><b></b></span>
-      <small>${escapeHtml(profile.name.split(" ")[0])}</small><em>${profile.status === "in-session" ? "tethered" : "listening"}</em>
-    </button>`).join("");
+    storyRail.innerHTML = `<button class="presence-person presence-self" data-story-start aria-label="Start your listening session">
+      <span class="presence-avatar"><span class="avatar" style="${paletteStyle(SELF_LITE)}"><b class="avatar-fallback">JR</b></span><b aria-hidden="true">+</b></span>
+      <small>You</small><em>start</em>
+    </button>` + live.slice(0,8).map(profile => presencePerson(profile, "home")).join("");
     $("[data-story-start]", storyRail)?.addEventListener("click", chooseOwnTrack);
   }
   $("#live-session-rail").innerHTML = live.slice(0,6).map(profile => `
@@ -718,7 +747,7 @@ function renderHome() {
       <div class="live-session-top">
         ${avatarSpan(profile, "avatar small")}
         <div><strong>${escapeHtml(profile.name)}</strong><p>${escapeHtml(profile.location.neighborhood)} · ${titleCase(profile.privacyMode)}</p></div>
-        <span class="join-chip">${profile.privacyMode === "open-door" ? "Join" : "Knock"}</span>
+        <button class="session-cta ${profile.privacyMode === "open-door" ? "join" : "knock"}">${profile.privacyMode === "open-door" ? "Join" : "Knock"}</button>
       </div>
       <div class="mini-track"><span class="mini-art">${coverArt(profile.currentTrack.name, profile.currentTrack.artist)}</span><div><strong>${escapeHtml(profile.currentTrack.name)}</strong><p>${escapeHtml(profile.currentTrack.artist)} · synced live</p></div></div>
     </article>`).join("");
@@ -727,8 +756,8 @@ function renderHome() {
     .map((profile,index) => `<article class="trending-session" data-home-session="${escapeHtml(profile.username)}">
       <span class="trend-rank">${index + 1}</span>
       <span class="mini-art">${coverArt(profile.currentTrack.name, profile.currentTrack.artist)}</span>
-      <div><strong>${escapeHtml(profile.currentTrack.name)}</strong><p>${escapeHtml(profile.currentTrack.artist)} · hosted by ${escapeHtml(profile.name)}</p></div>
-      <span class="listener-count">${18 + profile.metrics.sessionsJoined + index * 7} listening</span>
+      <div><strong>${escapeHtml(profile.currentTrack.name)}</strong><p>${escapeHtml(profile.currentTrack.artist)} · session started by ${escapeHtml(profile.name)}</p></div>
+      <span class="listener-count">${23 + (artHash(profile.username) % 470)} listening</span>
     </article>`).join("");
   $$("[data-home-session]").forEach(card => card.addEventListener("click", () => {
     const profile = profileByUsername(card.dataset.homeSession);
@@ -802,7 +831,7 @@ function renderReviews() {
         const open = state.openThreads.has(review.sourceIndex);
         const stack = replies.slice(0, 3).map(r => r.mine ? avatarSpan(SELF_LITE, "avatar micro") : avatarSpan(r.profile, "avatar micro")).join("");
         const pop = state.popKeys.has(`replies-${review.sourceIndex}`) ? " count-pop" : "";
-        const meta = `<button class="thread-meta" data-toggle-thread="${review.sourceIndex}" aria-expanded="${open}">
+        const meta = `${!open && replies[0] ? `<p class="thread-preview"><strong>${replies[0].mine ? "You" : escapeHtml(replies[0].profile.name.split(" ")[0])}</strong> ${escapeHtml(replies[0].text)}</p>` : ""}<button class="thread-meta" data-toggle-thread="${review.sourceIndex}" aria-expanded="${open}">
           <span class="reply-stack">${stack}</span>
           <span class="thread-counts${pop}">${replies.length} ${replies.length === 1 ? "reply" : "replies"} · ${review.subjectRatings || replies.length * 3} ratings</span>
           <span class="thread-chevron">${open ? "▾" : "▸"}</span>
@@ -820,7 +849,7 @@ function renderReviews() {
       })()}
       <footer class="review-actions">${review.mine
         ? `<button disabled>Posted just now</button><button class="bookmark ${state.bookmarked.has(review.sourceIndex) ? "saved" : ""}" data-bookmark="${review.sourceIndex}" aria-label="Save post">${state.bookmarked.has(review.sourceIndex) ? "◆ Saved" : "◇ Save"}</button>`
-        : `<button data-rate-review="${review.sourceIndex}"><i class="signal-bloom inline-bloom" style="--bloom-fill:100%"><span></span></i> <span class="${state.popKeys.has(`rating-${review.sourceIndex}`) ? "count-pop" : ""}">Rate · ${review.reviewRating}</span></button><button data-review-reply="${review.sourceIndex}">Reply</button><button data-review-session="${review.username}">Listen</button><button class="bookmark ${state.bookmarked.has(review.sourceIndex) ? "saved" : ""}" data-bookmark="${review.sourceIndex}" aria-label="Save post">${state.bookmarked.has(review.sourceIndex) ? "◆ Saved" : "◇ Save"}</button>`}</footer>
+        : `<button data-rate-review="${review.sourceIndex}"><i class="signal-bloom inline-bloom" style="--bloom-fill:100%"><span></span></i> <span class="${state.popKeys.has(`rating-${review.sourceIndex}`) ? "count-pop" : ""}">Rate review · ${review.reviewRating}</span></button><button data-review-reply="${review.sourceIndex}">Reply</button><button data-review-session="${review.username}">Join session</button><button class="bookmark ${state.bookmarked.has(review.sourceIndex) ? "saved" : ""}" data-bookmark="${review.sourceIndex}" aria-label="Save review">${state.bookmarked.has(review.sourceIndex) ? "◆ Saved" : "◇ Save"}</button>`}</footer>
     </article>`;
   }).join("");
   state.popKeys.clear();
@@ -1229,9 +1258,109 @@ function renderCapsules() {
   }));
 }
 
+function sharedIdentityFor(profile) {
+  const sharedArtists = profile.topArtists.filter(artist => CURRENT_USER.topArtists.includes(artist));
+  const seed = artHash(`shared-${profile.username}`);
+  const hours = 6 + (seed % 78);
+  const moments = 2 + (seed % 17);
+  const signature = sharedArtists.length
+    ? `${sharedArtists[0]} is part of your common language.`
+    : `Your tastes meet through ${profile.topArtists[0]} and ${CURRENT_USER.topArtists[seed % CURRENT_USER.topArtists.length]}.`;
+  return { sharedArtists, hours, moments, signature, score: 68 + (seed % 30) };
+}
+
+function renderSharedIdentities() {
+  const feed = $("#shared-identity-feed");
+  if (!feed) return;
+  const people = ["linda_331", "zuri1188", "raj_539", "james_341", "realmary", "realwilliam"]
+    .map(profileByUsername)
+    .filter(Boolean);
+  feed.innerHTML = people.map(profile => {
+    const shared = sharedIdentityFor(profile);
+    return `<button class="shared-identity-card" data-shared-identity="${escapeHtml(profile.username)}" style="--identity-a:${profile.palette[0]};--identity-b:${profile.palette[2]}">
+      <span class="shared-avatar-pair">${avatarSpan(SELF_LITE, "avatar small")}${avatarSpan(profile, "avatar small")}</span>
+      <span class="shared-identity-copy"><strong>You + ${escapeHtml(profile.name.split(" ")[0])}</strong><small>${shared.hours}h together · ${shared.moments} anchors</small><em>${escapeHtml(shared.sharedArtists[0] || "a discovery bridge")}</em></span>
+      <span class="shared-identity-score">${shared.score}%</span>
+    </button>`;
+  }).join("");
+  $$("[data-shared-identity]", feed).forEach(button => button.addEventListener("click", () => openSharedIdentity(button.dataset.sharedIdentity)));
+}
+
+function openSharedIdentity(username) {
+  const profile = profileByUsername(username);
+  if (!profile) return;
+  const shared = sharedIdentityFor(profile);
+  const relatedAnchors = anchors.filter(anchor => anchor.username === username);
+  openFeatureModal(`<div class="modal-head"><div><p class="eyebrow">Shared identity</p><h3>You + ${escapeHtml(profile.name)}</h3></div><button class="icon-button" data-close-modal aria-label="Close">×</button></div>
+    <div class="shared-identity-hero" style="--identity-a:${profile.palette[0]};--identity-b:${profile.palette[2]}">
+      <div class="shared-orbit">${avatarSpan(SELF_LITE, "avatar xl")}${avatarSpan(profile, "avatar xl")}<i></i></div>
+      <strong>${shared.score}% shared frequency</strong>
+      <p>${escapeHtml(shared.signature)}</p>
+    </div>
+    <div class="shared-identity-metrics"><div><strong>${shared.hours}h</strong><span>listening together</span></div><div><strong>${shared.moments}</strong><span>saved anchors</span></div><div><strong>${shared.sharedArtists.length || 3}</strong><span>artists connecting you</span></div></div>
+    <div class="shared-taste"><p class="eyebrow">The sound between you</p>${(shared.sharedArtists.length ? shared.sharedArtists : [profile.topArtists[0], CURRENT_USER.topArtists[1], profile.topArtists[2]]).slice(0,3).map(artist => `<span>${escapeHtml(artist)}</span>`).join("")}</div>
+    <div class="shared-memory-preview"><p class="eyebrow">A moment you share</p><strong>${escapeHtml(relatedAnchors[0]?.track || profile.currentTrack?.name || `${profile.topArtists[0]} radio`)}</strong><small>${relatedAnchors[0] ? `${relatedAnchors[0].minutes} minutes · ${relatedAnchors[0].mood}` : "Your next Tether can become an Anchor."}</small></div>
+    <button class="btn primary" data-shared-message>Message ${escapeHtml(profile.name.split(" ")[0])}</button>`);
+  $("[data-shared-message]", $("#feature-modal")).addEventListener("click", () => {
+    closeFeatureModal();
+    ensureConversation(profile);
+    switchView("messages");
+    openConversation(profile.username);
+  });
+}
+
+function openDemoMenu() {
+  openFeatureModal(`<div class="modal-head"><div><p class="eyebrow">Tether demo</p><h3>Choose what to preview</h3></div><button class="icon-button" data-close-modal aria-label="Close">×</button></div>
+    <p class="modal-copy">The main demo shows an established account. You can also preview how Tether introduces itself on someone’s first day.</p>
+    <div class="option-list demo-menu-list">
+      <button class="option-button" data-preview-day-zero><span><strong>Preview Day Zero</strong><small>Connect music → find one person → make an Anchor</small></span><span>›</span></button>
+      <button class="option-button" data-preview-language><span><strong>Learn Tether’s language</strong><small>Pulse, Anchor, Capsule, Bloom, and Platinum</small></span><span>›</span></button>
+    </div>`);
+  $("[data-preview-day-zero]", $("#feature-modal")).addEventListener("click", () => openDayZeroPreview(0));
+  $("[data-preview-language]", $("#feature-modal")).addEventListener("click", openTermGuide);
+}
+
+function openDayZeroPreview(step = 0) {
+  const steps = [
+    { eyebrow:"First day · 1 of 4", title:"Bring your music.", copy:"Connect the service you already use. Tether never replaces your library—it adds people to the moment.", art:"♫", action:"Connect music" },
+    { eyebrow:"First day · 2 of 4", title:"Find one person.", copy:"Invite a friend or discover someone nearby through the music you already love.", art:"◎", action:"Find someone" },
+    { eyebrow:"First day · 3 of 4", title:"Press play together.", copy:"When one person starts a Tether, everyone hears the same point of the same song.", art:"≈", action:"Start your first Tether" },
+    { eyebrow:"First day · 4 of 4", title:"Keep what it meant.", copy:"When the session ends, Tether saves the song, person, and feeling as your first Memory Anchor.", art:"✦", action:"See your first Anchor" }
+  ];
+  const item = steps[step];
+  openFeatureModal(`<div class="day-zero" data-day-zero-step="${step}">
+    <div class="modal-head"><div><p class="eyebrow">${item.eyebrow}</p><h3>${item.title}</h3></div><button class="icon-button" data-close-modal aria-label="Close">×</button></div>
+    <div class="day-zero-art" aria-hidden="true"><span>${item.art}</span><i></i><i></i></div>
+    <p class="modal-copy">${item.copy}</p>
+    <div class="day-zero-path">${steps.map((_, index) => `<i class="${index <= step ? "active" : ""}"></i>`).join("")}</div>
+    <div class="onboard-footer"><button data-day-zero-back>${step ? "Back" : "Close"}</button><button class="next" data-day-zero-next>${step === steps.length - 1 ? "Enter populated demo" : item.action}</button></div>
+  </div>`);
+  $("[data-day-zero-back]", $("#feature-modal")).addEventListener("click", () => step ? openDayZeroPreview(step - 1) : closeFeatureModal());
+  $("[data-day-zero-next]", $("#feature-modal")).addEventListener("click", () => {
+    if (step < steps.length - 1) openDayZeroPreview(step + 1);
+    else {
+      closeFeatureModal();
+      switchView("home");
+      toast("Day Zero complete · your first Anchor is waiting.");
+    }
+  });
+}
+
+function openTermGuide() {
+  const terms = [
+    ["Pulse", "A quiet, haptic way to say “I’m here with you” during a session."],
+    ["Memory Anchor", "A listening moment saved with its person, song, time, and feeling."],
+    ["Time Capsule", "A song sent now but opened in a meaningful future moment."],
+    ["Bloom", "Tether’s five-point rating symbol for music and criticism."],
+    ["Platinum", "A rare sixth Bloom reserved for something beyond a normal perfect score."]
+  ];
+  openFeatureModal(`<div class="modal-head"><div><p class="eyebrow">Tether language</p><h3>Words introduced through experience</h3></div><button class="icon-button" data-close-modal aria-label="Close">×</button></div>
+    <div class="term-guide">${terms.map(([term, meaning], index) => `<article><span>${String(index + 1).padStart(2,"0")}</span><div><strong>${term}</strong><p>${meaning}</p></div></article>`).join("")}</div>`);
+}
+
 function openFeatureModal(content) {
   const modal = $("#feature-modal");
-  state.lastFocused = document.activeElement;
+  if (!modal.classList.contains("open")) state.lastFocused = document.activeElement;
   modal.classList.remove("wavelength-mode");
   modal.innerHTML = `<div class="modal-sheet" role="dialog" aria-modal="true">${content}</div>`;
   modal.classList.add("open");
@@ -1576,22 +1705,24 @@ function startSession(profile) {
       <p class="sync" data-sync-status>● synced within ${64 + Math.floor(Math.random() * 40)} ms</p>
       <p class="pause-notice" data-pause-notice></p>
       <div class="session-controls">
-        <button data-host-pause>${isSelf ? "Pause your stage" : "Simulate host pause"}</button>
-        <button data-track-change>${isSelf ? "Play next track" : "Simulate track change"}</button>
+        ${isSelf
+          ? `<button data-host-pause>Pause your stage</button><button data-track-change>Play next track</button>`
+          : `<button class="demo-controls-trigger" data-session-demo-controls>Demo controls</button>`}
       </div>
       <div class="pulse-wrap">
         <button class="pulse-button" data-pulse aria-label="Hold to send pulse" ${isSelf ? "disabled" : ""}>
           <span class="pulse-fill" data-pulse-fill></span>
           <span class="pulse-symbol">✦</span>
         </button>
-        <p class="pulse-label" data-pulse-label>${isSelf ? "Pulses unlock when a friend joins" : "press and hold for 1.5 seconds"}</p>
+        <p class="pulse-label" data-pulse-label>${isSelf ? "Pulses unlock when a friend joins" : "Pulse — hold for 1.5 seconds to say “I’m here”"}</p>
         <p class="session-note" data-session-note>${isSelf ? "Friends in your Orbit can see your Stage is live." : ""}</p>
       </div>
     </div>`;
   view.classList.add("open");
   $("[data-exit-session]", view).addEventListener("click", endSession);
-  $("[data-host-pause]", view).addEventListener("click", toggleHostPause);
-  $("[data-track-change]", view).addEventListener("click", simulateTrackChange);
+  $("[data-host-pause]", view)?.addEventListener("click", toggleHostPause);
+  $("[data-track-change]", view)?.addEventListener("click", simulateTrackChange);
+  $("[data-session-demo-controls]", view)?.addEventListener("click", () => openSessionDemoControls());
   const pulseButton = $("[data-pulse]", view);
   pulseButton.addEventListener("pointerdown", startPulseCharge);
   pulseButton.addEventListener("pointerup", releasePulseCharge);
@@ -1636,6 +1767,17 @@ function startSession(profile) {
     if (timer) timer.textContent = formatTime((Date.now() - state.sessionStartedAt) / 1000);
     updateSessionProgress(view);
   }, 1000);
+}
+
+function openSessionDemoControls() {
+  openFeatureModal(`<div class="modal-head"><div><p class="eyebrow">Demo controls</p><h3>Show how synchronization responds</h3></div><button class="icon-button" data-close-modal aria-label="Close">×</button></div>
+    <p class="modal-copy">These controls simulate actions taken by the session host. They are separated from the listener experience.</p>
+    <div class="option-list">
+      <button class="option-button" data-demo-host-pause><span>Pause or resume the host</span><span>Ⅱ</span></button>
+      <button class="option-button" data-demo-track-change><span>Change the host’s track</span><span>♫</span></button>
+    </div>`);
+  $("[data-demo-host-pause]", $("#feature-modal")).addEventListener("click", event => toggleHostPause(event));
+  $("[data-demo-track-change]", $("#feature-modal")).addEventListener("click", event => simulateTrackChange(event));
 }
 
 function updateSessionProgress(view) {
@@ -1834,7 +1976,7 @@ function toggleHostPause(event) {
   $("[data-sync-status]").textContent = state.sessionPaused ? "Ⅱ host paused · playback stopped" : `● re-synced within ${58 + Math.floor(Math.random() * 40)} ms`;
   event.currentTarget.textContent = state.sessionIsSelf
     ? (state.sessionPaused ? "Resume your stage" : "Pause your stage")
-    : (state.sessionPaused ? "Simulate host resume" : "Simulate host pause");
+    : (state.sessionPaused ? "Resume host" : "Pause host");
 }
 
 function simulateTrackChange(event) {
@@ -1843,7 +1985,7 @@ function simulateTrackChange(event) {
   advanceSessionTrack($("#session-view"));
   button.textContent = "Crossfaded to next track";
   setTimeout(() => {
-    if (button.isConnected) button.textContent = state.sessionIsSelf ? "Play next track" : "Simulate track change";
+    if (button.isConnected) button.textContent = state.sessionIsSelf ? "Play next track" : "Change host’s track";
   }, 1800);
 }
 
@@ -1917,7 +2059,7 @@ function renderExploreGrid() {
       <span class="explore-cover">${coverArt(track.name, track.artist)}</span>
       <span class="explore-scrim"></span>
       ${live ? `<span class="explore-live">● live</span>` : ""}
-      <span class="explore-info">${avatarSpan(profile, "avatar micro")}<span class="explore-copy"><strong>${escapeHtml(profile.name.split(" ")[0])}</strong><small>${compatibility(profile)}% · ${escapeHtml(track.artist)}</small></span></span>
+      <span class="explore-info">${avatarSpan(profile, "avatar micro")}<span class="explore-copy"><strong>${escapeHtml(profile.name)}</strong><small>${compatibility(profile)}% · ${escapeHtml(track.artist)}</small></span></span>
     </button>`;
   }).join("");
   $$("[data-grid-profile]", host).forEach(tile => tile.addEventListener("click", () => openProfile(tile.dataset.gridProfile)));
@@ -1933,7 +2075,7 @@ function toast(message) {
 
 async function init() {
   try {
-    const response = await fetch("data/profiles.json?v=10");
+    const response = await fetch("data/profiles.json?v=11");
     if (!response.ok) throw new Error(`Profile data request failed: ${response.status}`);
     const data = await response.json();
     state.profiles = data.profiles;
@@ -1963,6 +2105,7 @@ async function init() {
     renderProfileTopFive();
     renderAnchors();
     renderCapsules();
+    renderSharedIdentities();
     renderSwipeDeck();
     renderConversations();
   } catch (error) {
@@ -2041,6 +2184,11 @@ $$("[data-user-privacy]").forEach((button) => button.addEventListener("click", (
   const currentPrivacy = $("#current-privacy-value");
   if (currentPrivacy) currentPrivacy.textContent = titleCase(state.userPrivacy);
   toast(`John is now in ${titleCase(state.userPrivacy)} mode.`);
+}));
+$("[data-demo-menu]").addEventListener("click", openDemoMenu);
+$$("[data-you-memory-tab]").forEach(button => button.addEventListener("click", () => {
+  $$("[data-you-memory-tab]").forEach(item => item.classList.toggle("active", item === button));
+  $$("[data-you-memory-panel]").forEach(panel => panel.classList.toggle("active", panel.dataset.youMemoryPanel === button.dataset.youMemoryTab));
 }));
 $("[data-open-spark]")?.addEventListener("click", openSparkDemo);
 $("[data-service-picker]").addEventListener("click", chooseMusicService);

@@ -12,7 +12,7 @@
   <meta name="twitter:card" content="summary">
   <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 64 64%22><rect width=%2264%22 height=%2264%22 rx=%2216%22 fill=%22%230b0d14%22/><circle cx=%2218%22 cy=%2232%22 r=%226%22 fill=%22%239ba0fa%22/><circle cx=%2246%22 cy=%2232%22 r=%226%22 fill=%22%234cd3a5%22/><path d=%22M24 32h16%22 stroke=%22white%22 stroke-width=%224%22 stroke-linecap=%22round%22/></svg>">
   <title>Tether — Philadelphia Live Demo</title>
-  <link rel="stylesheet" href="styles.css?v=10">
+  <link rel="stylesheet" href="styles.css?v=11">
 </head>
 <body>
   <main class="phone" aria-label="Tether Philadelphia interactive demo">
@@ -22,7 +22,7 @@
     </div>
     <header class="topbar">
       <div class="brand-lockup">
-        <span class="demo-badge">Demo</span>
+        <button class="demo-badge" data-demo-menu aria-label="Open demo menu">Demo</button>
         <div class="tether-wordmark" aria-label="Tether">tether</div>
       </div>
       <button class="self-avatar header-profile" aria-label="Open John Roastpork's profile">JR</button>
@@ -66,11 +66,9 @@
         </div>
       </div>
 
-      <div class="discover-switch four" role="group" aria-label="Discover view">
+      <div class="discover-switch two" role="group" aria-label="Discover view">
         <button class="mode-button active" data-discover-mode="swipe">Profiles</button>
         <button class="mode-button" data-discover-mode="radar">Signal map</button>
-        <button class="mode-button" data-discover-mode="list">Browse</button>
-        <button class="mode-button" data-discover-mode="grid">Explore</button>
       </div>
 
       <div id="grid-panel" class="discover-panel"><div id="explore-grid" class="explore-grid"></div></div>
@@ -184,10 +182,10 @@
         <p class="handle">@john.roastpork · Pennsport</p>
         <p class="bio">Finding Philadelphia one shared song at a time.</p>
         <div class="metric-grid">
-          <div><strong>24</strong><span>friends</span></div>
-          <div><strong>48</strong><span>anchors</span></div>
-          <div><strong>19</strong><span>capsules</span></div>
-          <div><strong>86h</strong><span>tethered</span></div>
+          <div><strong>24</strong><span>friends</span><em>6 active now</em></div>
+          <div><strong>48</strong><span>anchors</span><em>+5 this month</em></div>
+          <div><strong>19</strong><span>capsules</span><em>3 waiting</em></div>
+          <div><strong>86h</strong><span>tethered</span><em>top 18%</em></div>
         </div>
       </div>
       <div class="recap-card top-five-card">
@@ -201,10 +199,34 @@
         <article class="profile-showcase violet"><span>12</span><strong>reviews</strong><small>worth revisiting</small></article>
         <article class="profile-showcase teal"><span>48</span><strong>memory anchors</strong><small>shared moments</small></article>
       </div>
-      <div class="recap-card">
-        <p class="eyebrow">Shared history</p>
-        <h3>Memory Anchors</h3>
-        <div id="anchor-feed" class="anchor-feed"></div>
+      <div class="you-memory-tabs" role="tablist" aria-label="Your shared music life">
+        <button class="active" data-you-memory-tab="shared">Shared identities</button>
+        <button data-you-memory-tab="anchors">Anchors</button>
+        <button data-you-memory-tab="capsules">Capsules</button>
+      </div>
+      <div class="you-memory-panel active" data-you-memory-panel="shared">
+        <div class="shared-identity-intro">
+          <p class="eyebrow">Made between two people</p>
+          <h3>Your shared identities</h3>
+          <p>Every Tether leaves a trace: overlapping artists, shared hours, and the songs that became yours together.</p>
+        </div>
+        <div id="shared-identity-feed" class="shared-identity-feed"></div>
+      </div>
+      <div class="you-memory-panel" data-you-memory-panel="anchors">
+        <div class="recap-card">
+          <p class="eyebrow">Shared history</p>
+          <h3>Memory Anchors</h3>
+          <p class="concept-note"><strong>Anchor</strong> — a listening moment saved with the person, song, and feeling attached.</p>
+          <div id="anchor-feed" class="anchor-feed"></div>
+        </div>
+      </div>
+      <div class="you-memory-panel" data-you-memory-panel="capsules">
+        <div class="recap-card">
+          <p class="eyebrow">Saved for later</p>
+          <h3>Time Capsules</h3>
+          <p class="concept-note"><strong>Capsule</strong> — a song from someone you care about, waiting for the right moment.</p>
+          <div id="capsule-feed" class="capsule-feed profile-capsules"></div>
+        </div>
       </div>
       <div class="recap-card">
         <p class="eyebrow">Presence settings</p>
@@ -215,11 +237,6 @@
           <button data-user-privacy="ghost">Ghost</button>
         </div>
         <p id="privacy-description" class="setting-note">Friends can join without waiting. You’ll always see who arrived.</p>
-      </div>
-      <div class="recap-card">
-        <p class="eyebrow">Saved for later</p>
-        <h3>Time Capsules</h3>
-        <div id="capsule-feed" class="capsule-feed profile-capsules"></div>
       </div>
     </section>
 
@@ -248,6 +265,6 @@
 
     <div id="toast" class="toast" role="status"></div>
   </main>
-  <script src="app.js?v=10" defer></script>
+  <script src="app.js?v=11" defer></script>
 </body>
 </html>
