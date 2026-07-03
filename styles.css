@@ -1321,7 +1321,7 @@ h3{font-size:19px}
 .mode-button,.filter,.radius-controls button,.listener-count,.track-artist{font-size:12px}
 input,select,textarea,.thread-compose input,.chat-compose input{font-size:16px}
 .mode-button,.filter,.radius-controls button,.review-actions button,.join-chip,.service-pill{min-height:44px}
-.header-profile{width:42px;height:42px;border:1px solid rgba(255,255,255,.14);border-radius:50%;background:linear-gradient(145deg,#9ba0fa,#3e45a8);color:#fff;font-weight:800;cursor:pointer}
+.header-profile{position:relative;overflow:hidden;width:42px;height:42px;border:1px solid rgba(255,255,255,.14);border-radius:50%;background:linear-gradient(145deg,#9ba0fa,#3e45a8);color:#fff;font-weight:800;cursor:pointer}
 .session-stage .sync-status,.session-time{font-size:13px}
 .discover-switch.four{gap:5px}
 .discover-switch.four .mode-button{padding-inline:5px}
