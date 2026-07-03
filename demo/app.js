@@ -737,7 +737,7 @@ function renderHome() {
   const storyRail = $("#signal-story-rail");
   if (storyRail) {
     storyRail.innerHTML = `<button class="presence-person presence-self" data-story-start aria-label="Start your listening session">
-      <span class="presence-avatar"><span class="avatar" style="${paletteStyle(SELF_LITE)}"><b class="avatar-fallback">JR</b></span><b aria-hidden="true">+</b></span>
+      <span class="presence-avatar">${avatarSpan(SELF_LITE)}<b aria-hidden="true">+</b></span>
       <small>You</small><em>start</em>
     </button>` + live.slice(0,8).map(profile => presencePerson(profile, "home")).join("");
     $("[data-story-start]", storyRail)?.addEventListener("click", chooseOwnTrack);
