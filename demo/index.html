@@ -3,163 +3,22 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-  <meta name="theme-color" content="#090a0f">
-  <meta name="description" content="Tether is the fastest, most intimate way to share the exact moment you are hearing.">
-  <meta property="og:title" content="Tether — be there in the song">
-  <meta property="og:description" content="See someone listening, enter their music, and feel present together.">
-  <meta property="og:type" content="website">
-  <meta property="og:url" content="https://dmdtague.github.io/tether/">
-  <meta name="twitter:card" content="summary">
-  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 64 64%22><rect width=%2264%22 height=%2264%22 rx=%2218%22 fill=%22%23090a0f%22/><circle cx=%2218%22 cy=%2232%22 r=%226%22 fill=%22%23a6a0ff%22/><circle cx=%2246%22 cy=%2232%22 r=%226%22 fill=%22%235fe0b1%22/><path d=%22M24 32h16%22 stroke=%22white%22 stroke-width=%224%22 stroke-linecap=%22round%22/></svg>">
-  <title>Tether — be there in the song</title>
-  <link rel="stylesheet" href="styles.css?v=20">
+  <meta name="theme-color" content="#070811">
+  <meta name="description" content="Tether turns shared music into presence, intimacy, and memory.">
+  <meta property="og:title" content="Tether — enter their musical weather">
+  <meta property="og:description" content="See someone listening, enter the same moment, and feel the signal change around you.">
+  <title>Tether — enter their musical weather</title>
+  <link rel="stylesheet" href="aesthetic/core.css?v=31">
+  <link rel="stylesheet" href="aesthetic/people.css?v=31">
+  <link rel="stylesheet" href="aesthetic/worlds.css?v=31">
 </head>
-<body>
-  <main class="app-shell" aria-label="Tether product demo">
-    <div class="ambient-field" aria-hidden="true"><i></i><i></i><i></i></div>
-
-    <header class="topbar">
-      <button class="wordmark" data-go="listen" aria-label="Go to Listen"><span class="mark"><b></b><b></b></span>tether</button>
-      <div class="top-actions">
-        <button class="icon-button" data-open-data aria-label="Open data controls">
-          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 5 6v5c0 4.4 2.8 8.2 7 10 4.2-1.8 7-5.6 7-10V6l-7-3Z"/><path d="m9 12 2 2 4-5"/></svg>
-        </button>
-        <button class="avatar-button" data-go="you" aria-label="Open your profile"><span>DT</span></button>
-      </div>
-    </header>
-
-    <section id="listen-view" class="view active" aria-labelledby="listen-title">
-      <div class="screen-heading">
-        <div><p class="eyebrow" id="listen-time">Tonight</p><h1 id="listen-title">Be there in the song.</h1></div>
-        <button class="presence-chip" data-presence-menu><i></i><span>Open Door</span><svg viewBox="0 0 16 16"><path d="m4 6 4 4 4-4"/></svg></button>
-      </div>
-
-      <article class="now-card" data-now-card>
-        <div class="cover cover-main" data-art="Midnight City|M83"><span>M83</span></div>
-        <div class="now-copy">
-          <p class="live-kicker"><i></i> Playing from Spotify</p>
-          <h2>Midnight City</h2>
-          <p>M83 · Hurry Up, We’re Dreaming</p>
-          <div class="track-progress" aria-label="Track progress"><span style="width:42%"></span></div>
-          <div class="track-times"><span>1:45</span><span>4:03</span></div>
-        </div>
-        <button class="primary-action" data-open-listening>
-          <span><small>Use what is already playing</small><strong>Open your listening</strong></span>
-          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
-        </button>
-      </article>
-
-      <section class="section-block" aria-labelledby="available-title">
-        <div class="section-title-row"><div><p class="eyebrow">Right now</p><h2 id="available-title">Available to you</h2></div><button class="text-button" data-go="people">See everyone</button></div>
-        <div id="available-rail" class="available-rail" aria-live="polite"></div>
-      </section>
-
-      <section class="section-block" aria-labelledby="continue-title">
-        <div class="section-title-row"><div><p class="eyebrow">Relationships, not reach</p><h2 id="continue-title">Continue a connection</h2></div></div>
-        <div id="relationship-list" class="relationship-list"></div>
-      </section>
-
-      <details class="explore-more">
-        <summary><span>Explore more</span><svg viewBox="0 0 16 16"><path d="m4 6 4 4 4-4"/></svg></summary>
-        <div class="explore-grid">
-          <button data-open-capsule><span class="mini-orb capsule-orb"></span><strong>Leave a capsule</strong><small>A song for later</small></button>
-          <button data-go="people" data-explore><span class="mini-orb signal-orb"></span><strong>Explore signals</strong><small>Optional discovery</small></button>
-        </div>
-      </details>
-    </section>
-
-    <section id="people-view" class="view" aria-labelledby="people-title">
-      <div class="screen-heading compact">
-        <div><p class="eyebrow">People</p><h1 id="people-title">Who can hear this with you?</h1></div>
-        <button class="icon-button filled" data-compose aria-label="New message"><svg viewBox="0 0 24 24"><path d="M4 5h16v12H8l-4 3V5Z"/><path d="M8 9h8M8 13h5"/></svg></button>
-      </div>
-      <label class="search-field"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="6"/><path d="m16 16 4 4"/></svg><input id="people-search" type="search" autocomplete="off" placeholder="Search people or artists"><button type="button" data-clear-search aria-label="Clear search">×</button></label>
-
-      <div class="people-filter" role="tablist" aria-label="People filters">
-        <button class="active" data-people-filter="close">Close</button>
-        <button data-people-filter="available">Available</button>
-        <button data-people-filter="explore">Explore</button>
-      </div>
-
-      <div id="people-list" class="people-list"></div>
-
-      <section class="message-section">
-        <div class="section-title-row"><div><p class="eyebrow">Conversations</p><h2>Messages</h2></div><span class="quiet-label">Context follows the person</span></div>
-        <div id="conversation-list" class="conversation-list"></div>
-      </section>
-    </section>
-
-    <section id="you-view" class="view" aria-labelledby="you-title">
-      <article class="identity-card">
-        <div class="identity-top">
-          <div class="avatar avatar-xl"><span>DT</span></div>
-          <div><p class="eyebrow">Your sound</p><h1 id="you-title">Dylan</h1><p class="muted">@dylan · Philadelphia</p></div>
-          <button class="icon-button" data-profile-edit aria-label="Edit profile"><svg viewBox="0 0 24 24"><path d="m4 16-1 5 5-1L19 9l-4-4L4 16Z"/><path d="m13 7 4 4"/></svg></button>
-        </div>
-        <p class="identity-line">Late-night maximalism, aching synths, and songs that feel like someone left the door open.</p>
-        <div class="sound-tags"><span>M83</span><span>Juno</span><span>Arthur Russell</span><span>Jellyfish</span><span>Mavi</span></div>
-      </article>
-
-      <section class="privacy-card">
-        <div><p class="eyebrow">Presence</p><h2>How friends find you</h2><p>Your exact location is never shown or stored by the demo.</p></div>
-        <div class="privacy-options" role="radiogroup" aria-label="Presence mode">
-          <button class="active" data-privacy="open"><i></i><span><strong>Open Door</strong><small>Friends join instantly</small></span></button>
-          <button data-privacy="knock"><i></i><span><strong>Knock First</strong><small>You approve each join</small></span></button>
-          <button data-privacy="ghost"><i></i><span><strong>Ghost</strong><small>Listening stays private</small></span></button>
-        </div>
-      </section>
-
-      <section class="section-block memories-block">
-        <div class="section-title-row"><div><p class="eyebrow">Memory Anchors</p><h2>What stayed with you</h2></div><button class="text-button" data-all-memories>All memories</button></div>
-        <div id="anchor-list" class="anchor-list"></div>
-      </section>
-
-      <section class="section-block capsule-block">
-        <div class="section-title-row"><div><p class="eyebrow">Time Capsules</p><h2>Waiting for the right moment</h2></div><button class="text-button" data-open-capsule>Leave one</button></div>
-        <div id="capsule-list" class="capsule-list"></div>
-      </section>
-
-      <section class="settings-list">
-        <button data-open-data><span><strong>Data & personalization</strong><small>What Tether learns and why</small></span><b>›</b></button>
-        <button data-notifications><span><strong>Notifications</strong><small>Only meaningful listening moments</small></span><b>›</b></button>
-        <button data-provider><span><strong>Music provider</strong><small>Spotify connected</small></span><b>›</b></button>
-      </section>
-    </section>
-
-    <nav class="bottom-nav" aria-label="Primary">
-      <button class="active" data-nav="listen"><svg viewBox="0 0 24 24"><path d="M5 10v4M9 7v10M13 4v16M17 8v8M21 10v4"/></svg><span>Listen</span></button>
-      <button data-nav="people"><svg viewBox="0 0 24 24"><circle cx="8" cy="8" r="3"/><circle cx="17" cy="9" r="2.5"/><path d="M2.5 20c.4-4 2.5-6 5.5-6s5.1 2 5.5 6M13 15c3.8-.8 6.7 1 7.5 5"/></svg><span>People</span><i id="people-badge">3</i></button>
-      <button data-nav="you"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c.7-5 3.5-7 8-7s7.3 2 8 7"/></svg><span>You</span></button>
-    </nav>
-
-    <section id="stage" class="stage" aria-hidden="true">
-      <div class="stage-ambient" aria-hidden="true"><i></i><i></i></div>
-      <header class="stage-header"><button class="icon-button" data-close-stage aria-label="Minimize session"><svg viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg></button><div><p class="eyebrow">Listening together</p><strong id="stage-status">Live with Maya</strong></div><button class="icon-button" data-stage-menu aria-label="Session menu"><svg viewBox="0 0 24 24"><circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/></svg></button></header>
-      <div class="participant-stack" id="participant-stack"></div>
-      <div class="stage-art-wrap"><div class="stage-rings"><i></i><i></i><i></i></div><div class="cover stage-cover" data-art="Midnight City|M83"><span>M83</span></div></div>
-      <div class="stage-track"><p class="eyebrow">Now playing</p><h2 id="stage-track-title">Midnight City</h2><p id="stage-track-artist">M83</p></div>
-      <div class="stage-progress"><div><span id="stage-progress-fill"></span></div><p><span id="stage-elapsed">1:45</span><span id="stage-remaining">−2:18</span></p></div>
-      <div class="sync-state"><span class="sync-dot"></span><strong>In sync</strong><small id="sync-detail">42 ms drift · corrected quietly</small></div>
-      <div class="stage-actions">
-        <button data-invite><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3"/><path d="M3 20c.4-4 2.4-6 6-6 1.3 0 2.4.3 3.3.8M18 8v8M14 12h8"/></svg><span>Invite</span></button>
-        <button class="pulse-button" data-pulse><span class="pulse-core"></span><strong>Pulse</strong><small>Tap · hold to amplify</small></button>
-        <button data-queue><svg viewBox="0 0 24 24"><path d="M4 6h10M4 11h10M4 16h7M18 12v8M14 16h8"/></svg><span>Queue</span></button>
-      </div>
-      <button class="end-session" data-end-session>End listening session</button>
-    </section>
-
-    <dialog id="presence-dialog" class="sheet-dialog">
-      <form method="dialog"><div class="sheet-handle"></div><div class="sheet-heading"><div><p class="eyebrow">Presence</p><h2>How should this moment open?</h2></div><button value="cancel" aria-label="Close">×</button></div><div class="sheet-options"><button type="button" data-set-presence="open"><i></i><span><strong>Open Door</strong><small>Friends can enter instantly</small></span></button><button type="button" data-set-presence="knock"><i></i><span><strong>Knock First</strong><small>You approve each person</small></span></button><button type="button" data-set-presence="ghost"><i></i><span><strong>Ghost</strong><small>Keep this listening private</small></span></button></div></form>
-    </dialog>
-
-    <dialog id="person-dialog" class="profile-dialog"><form method="dialog"><button class="dialog-close" value="cancel" aria-label="Close">×</button><div id="person-dialog-content"></div></form></dialog>
-
-    <dialog id="data-dialog" class="sheet-dialog data-dialog"><form method="dialog"><div class="sheet-handle"></div><div class="sheet-heading"><div><p class="eyebrow">Data & personalization</p><h2>Observation without intrusion</h2></div><button value="cancel" aria-label="Close">×</button></div><p class="dialog-intro">Tether measures whether people reach shared audio quickly and reliably. It does not record message bodies, exact coordinates, passwords, provider tokens, or private search text.</p><div class="data-controls"><label><span><strong>Product analytics</strong><small>Join speed, failures, sync quality</small></span><input type="checkbox" checked data-analytics-toggle></label><label><span><strong>Personalized ranking</strong><small>Prioritize people you actually listen with</small></span><input type="checkbox" checked data-personalization-toggle></label><label><span><strong>Masked diagnostics</strong><small>Small sample, sensitive surfaces excluded</small></span><input type="checkbox" data-replay-toggle></label></div><button class="secondary-action" type="button" data-export-data>Export my Tether data</button><button class="danger-link" type="button" data-delete-data>Delete personalization history</button></form></dialog>
-
-    <dialog id="capsule-dialog" class="sheet-dialog"><form method="dialog"><div class="sheet-handle"></div><div class="sheet-heading"><div><p class="eyebrow">Time Capsule</p><h2>Leave a song for later.</h2></div><button value="cancel" aria-label="Close">×</button></div><label class="field-label">For<select id="capsule-person"><option>Maya</option><option>Zuri</option><option>Jordan</option></select></label><label class="field-label">Song<input id="capsule-track" value="Pictures of You — The Cure"></label><label class="field-label">Open when<input id="capsule-when" value="you need to miss something safely"></label><button class="primary-solid" type="button" data-send-capsule>Leave capsule</button></form></dialog>
-
-    <div id="toast" class="toast" role="status" aria-live="polite"></div>
-  </main>
-  <script src="app.js?v=20" defer></script>
+<body data-atmosphere="home">
+  <div class="world" aria-hidden="true"><i></i><i></i><i></i><b></b></div>
+  <main id="app" class="app" aria-label="Tether interactive demo"></main>
+  <section id="profile-portal" class="portal" aria-hidden="true"></section>
+  <section id="stage" class="stage" aria-hidden="true"></section>
+  <dialog id="sheet" class="sheet"></dialog>
+  <div id="toast" class="toast" role="status"></div>
+  <script type="module" src="aesthetic/main.js?v=31"></script>
 </body>
 </html>

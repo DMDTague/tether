@@ -2,7 +2,7 @@ name: Tether CI
 
 on:
   push:
-    branches: [master, "overhaul/**"]
+    branches: [master, "overhaul/**", "design/**"]
   pull_request:
 
 permissions:
@@ -17,12 +17,21 @@ jobs:
         with:
           node-version: 22
       - name: Check demo JavaScript
-        run: node --check demo/app.js
-      - name: Check removed product surfaces
         run: |
-          ! grep -R "Platinum 6.0" demo/index.html demo/app.js
-          ! grep -R "John Roastpork" demo/index.html demo/app.js
-          ! grep -R 'data-nav="activity"' demo/index.html
+          node --check demo/app.js
+          node --check demo/aesthetic/data.js
+          node --check demo/aesthetic/templates.js
+          node --check demo/aesthetic/main.js
+      - name: Check streamlined product boundaries
+        run: |
+          ! grep -R "Platinum 6.0" demo --exclude-dir=fonts
+          ! grep -R "John Roastpork" demo --exclude-dir=fonts
+          ! grep -R 'data-nav="activity"' demo --exclude-dir=fonts
+      - name: Check aesthetic destinations
+        run: |
+          grep -q 'data-intent="dating"' demo/aesthetic/templates.js
+          grep -q 'class="portal"' demo/index.html
+          grep -q 'philosophically streamlined' docs/VISUAL_SYSTEM.md
 
   backend:
     runs-on: ubuntu-latest
@@ -37,17 +46,32 @@ jobs:
           cache: pip
           cache-dependency-path: backend/requirements.txt
       - name: Install backend
-        run: pip install -r requirements.txt
+        run: pip install --disable-pip-version-check --quiet -r requirements.txt
       - name: Compile Python
         run: python -m compileall -q .
       - name: Run tests
         env:
           ENVIRONMENT: development
           SECRET_KEY: local-development-only-change-me
-        run: pytest -q
+        run: |
+          set +e
+          pytest -q --tb=short > pytest.log 2>&1
+          status=$?
+          cat pytest.log
+          exit $status
+      - name: Upload pytest failure log
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pytest-failure
+          path: backend/pytest.log
+          if-no-files-found: error
+          retention-days: 3
       - name: Reject known unsafe defaults
         working-directory: ${{ github.workspace }}
         run: |
           ! grep -R "tether-dev-secret-key-change-in-production" backend --exclude-dir=__pycache__
           ! grep -R 'allow_origins=\["\*"\]' backend --exclude-dir=__pycache__
           ! grep -R 'phoneNumber.*phone_number' backend/routes/discovery.py
+          grep -q 'orientation' backend/routes/telemetry.py
+          grep -q 'include_dating=False' backend/routes/profile_signal.py
