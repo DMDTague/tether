@@ -11,7 +11,21 @@ def test_known_event_is_accepted():
 
 @pytest.mark.parametrize(
     "property_name",
-    ["messageBody", "searchQuery", "latitude", "phoneNumber", "accessToken", "orientation", "identity"],
+    [
+        "messageBody",
+        "searchQuery",
+        "latitude",
+        "phoneNumber",
+        "accessToken",
+        "orientation",
+        "identity",
+        "reviewTitle",
+        "artistName",
+        "privateNote",
+        "promptAnswer",
+        "height",
+        "relationshipStructure",
+    ],
 )
 def test_sensitive_properties_are_rejected(property_name):
     with pytest.raises(ValidationError):
@@ -21,6 +35,11 @@ def test_sensitive_properties_are_rejected(property_name):
 def test_dating_events_record_behavior_not_identity():
     event = TelemetryEvent(event="dating_mode_opened", properties={"surface": "wavelength"})
     assert event.event == "dating_mode_opened"
+
+
+def test_exchange_events_record_structure_not_content():
+    event = TelemetryEvent(event="review_created", properties={"subjectType": "album", "scoreBucket": "4.5-5", "visibility": "public"})
+    assert event.event == "review_created"
 
 
 def test_unknown_event_is_rejected():
