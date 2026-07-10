@@ -1,94 +1,45 @@
-from routes.auth import get_current_user_id
-"""
-Tether Ad Pass Routes
+"""Legacy compatibility routes after removing ads from core listening access.
 
-Handles the "Tollbooth" rewarded ad model:
-- Check if a user's 4-hour ad pass is active
-- Refresh the pass after watching an ad
-- Voluntary "Support the Servers" ad grants
+Joining, starting, and participating in a Tether session are always free. These
+routes remain temporarily so old clients do not fail while the tollbooth UI is
+removed.
 """
 
-from datetime import datetime, timedelta, timezone
-from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, update
+from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
 
-from db.database import get_db
-from models.models import User
+from routes.auth import get_current_user_id
 
-router = APIRouter(prefix="/api/ad-pass", tags=["ad-pass"])
-
-AD_PASS_DURATION_HOURS = 4
+router = APIRouter(prefix="/api/ad-pass", tags=["legacy-ad-pass"])
 
 
 class AdPassStatus(BaseModel):
-    active: bool
-    expires_at: str | None
-    remaining_seconds: int
+    active: bool = True
+    expires_at: str | None = None
+    remaining_seconds: int = 0
+    core_access_gated: bool = False
 
 
-class AdPassRefresh(BaseModel):
-    ad_unit_id: str  # The ad unit ID that was watched (for verification)
+class SupportRequest(BaseModel):
+    verification_token: str | None = None
 
 
-@router.get("/status")
-async def check_pass(user_id: str = Depends(get_current_user_id), db: AsyncSession = Depends(get_db)) -> AdPassStatus:
-    """Check if the user's ad pass is currently active."""
-    result = await db.execute(select(User).where(User.id == user_id))
-    user = result.scalar_one_or_none()
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
-
-    now = datetime.now(timezone.utc)
-    ad_free_until = user.ad_free_until
-
-    if ad_free_until and ad_free_until > now:
-        remaining = int((ad_free_until - now).total_seconds())
-        return AdPassStatus(
-            active=True,
-            expires_at=ad_free_until.isoformat(),
-            remaining_seconds=remaining,
-        )
-
-    return AdPassStatus(active=False, expires_at=None, remaining_seconds=0)
+@router.get("/status", response_model=AdPassStatus)
+async def check_pass(_: str = Depends(get_current_user_id)) -> AdPassStatus:
+    return AdPassStatus()
 
 
-@router.post("/refresh")
-async def refresh_pass(req: AdPassRefresh, user_id: str = Depends(get_current_user_id), db: AsyncSession = Depends(get_db)):
-    """
-    Refresh the user's ad pass after they watch a rewarded ad.
-    
-    In production, this would verify the ad completion with the
-    Google AdMob server-side verification callback. For now,
-    we trust the client's report.
-    """
-    result = await db.execute(select(User).where(User.id == user_id))
-    user = result.scalar_one_or_none()
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
-
-    now = datetime.now(timezone.utc)
-    new_expiry = now + timedelta(hours=AD_PASS_DURATION_HOURS)
-
-    # If they still have time left, extend from the current expiry
-    if user.ad_free_until and user.ad_free_until > now:
-        new_expiry = user.ad_free_until + timedelta(hours=AD_PASS_DURATION_HOURS)
-
-    user.ad_free_until = new_expiry
-
-    return {
-        "active": True,
-        "expiresAt": new_expiry.isoformat(),
-        "remainingSeconds": int((new_expiry - now).total_seconds()),
-        "message": "Thank you for supporting Tether.",
-    }
+@router.post("/refresh", status_code=status.HTTP_410_GONE)
+async def refresh_pass(_: SupportRequest, __: str = Depends(get_current_user_id)):
+    raise HTTPException(
+        status_code=status.HTTP_410_GONE,
+        detail="Core listening is no longer gated by rewarded ads.",
+    )
 
 
-@router.post("/support")
-async def support_servers(req: AdPassRefresh, user_id: str = Depends(get_current_user_id), db: AsyncSession = Depends(get_db)):
-    """
-    Voluntary 'Support the Servers' ad watch.
-    Same as refresh, but can be triggered from settings at any time.
-    """
-    return await refresh_pass(req, user_id, db)
+@router.post("/support", status_code=status.HTTP_501_NOT_IMPLEMENTED)
+async def support_servers(_: SupportRequest, __: str = Depends(get_current_user_id)):
+    raise HTTPException(
+        status_code=status.HTTP_501_NOT_IMPLEMENTED,
+        detail="Voluntary support requires provider-side receipt verification before launch.",
+    )

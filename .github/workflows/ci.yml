@@ -1,0 +1,53 @@
+name: Tether CI
+
+on:
+  push:
+    branches: [master, "overhaul/**"]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  demo:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Check demo JavaScript
+        run: node --check demo/app.js
+      - name: Check removed product surfaces
+        run: |
+          ! grep -R "Platinum 6.0" demo/index.html demo/app.js
+          ! grep -R "John Roastpork" demo/index.html demo/app.js
+          ! grep -R 'data-nav="activity"' demo/index.html
+
+  backend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: backend/requirements.txt
+      - name: Install backend
+        run: pip install -r requirements.txt
+      - name: Compile Python
+        run: python -m compileall -q .
+      - name: Run tests
+        env:
+          ENVIRONMENT: development
+          SECRET_KEY: local-development-only-change-me
+        run: pytest -q
+      - name: Reject known unsafe defaults
+        working-directory: ${{ github.workspace }}
+        run: |
+          ! grep -R "tether-dev-secret-key-change-in-production" backend --exclude-dir=__pycache__
+          ! grep -R 'allow_origins=\["\*"\]' backend --exclude-dir=__pycache__
+          ! grep -R 'phoneNumber.*phone_number' backend/routes/discovery.py
