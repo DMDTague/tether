@@ -1,129 +1,114 @@
-from fastapi import APIRouter, Depends, Query
-from sqlalchemy.ext.asyncio import AsyncSession
+"""Evidence-based, privacy-preserving people discovery."""
+
+from typing import List
+
+from fastapi import APIRouter, Depends
+from pydantic import BaseModel, Field
 from sqlalchemy import select
-from typing import List, Optional
-import random
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from db.database import get_db
-from models.models import User, Block
+from models.models import Block, User
 from routes.auth import get_current_user_id, user_to_dict
 from services.presence import presence_store
 from services.vibe_engine import cosine_similarity
-from services.spotify import search_track
-from services.geo import haversine_miles
 
 router = APIRouter(prefix="/api/discovery", tags=["discovery"])
 
-RADIUS_MILES = 50.0
+
+class LocationUpdate(BaseModel):
+    latitude: float = Field(ge=-90, le=90)
+    longitude: float = Field(ge=-180, le=180)
+
+
+def _artist_names(user: User) -> list[str]:
+    names: list[str] = []
+    for artist in getattr(user, "top_artists", None) or []:
+        value = artist.get("name") if isinstance(artist, dict) else str(artist)
+        if value:
+            names.append(value.strip())
+    return names
 
 
 def _enrich_user_dict(user: User, extra: dict | None = None) -> dict:
     data = user_to_dict(user)
     data["topArtists"] = getattr(user, "top_artists", None) or []
-    if user.phone_number:
-        data["phoneNumber"] = user.phone_number
+    data.pop("adFreeUntil", None)
     if extra:
         data.update(extra)
     return data
 
 
+def _confidence_label(similarity: float, evidence_count: int) -> str:
+    if similarity >= 0.82 and evidence_count >= 2:
+        return "high"
+    if similarity >= 0.62 or evidence_count >= 2:
+        return "medium"
+    return "early"
+
+
+@router.post("/location", status_code=204)
+async def update_discovery_location(location: LocationUpdate, user_id: str = Depends(get_current_user_id)):
+    await presence_store.set_user_location(user_id, location.latitude, location.longitude)
+    return None
+
+
 @router.get("/match")
-async def match_vibes(
-    user_id: str = Depends(get_current_user_id),
-    db: AsyncSession = Depends(get_db),
-    lat: Optional[float] = Query(default=None),
-    lon: Optional[float] = Query(default=None),
-):
-    """
-    Randomized discovery feed within 50 miles, ranked by musical compatibility.
-    Filters blocked users. Stores caller location when lat/lon provided.
-    """
+async def match_vibes(user_id: str = Depends(get_current_user_id), db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(User).where(User.id == user_id))
     current_user = result.scalar_one_or_none()
-    if not current_user:
+    if not current_user or getattr(current_user, "privacy_mode", None) == "ghost":
         return []
 
-    if getattr(current_user, "privacy_mode", None) == "ghost":
-        return []
-
-    if lat is not None and lon is not None:
-        await presence_store.set_user_location(user_id, lat, lon)
-
-    blocked_result = await db.execute(
-        select(Block.blocked_phone_number).where(Block.blocker_id == user_id)
-    )
-    blocked_phones = [r for r in blocked_result.scalars().all() if r]
-
+    blocked_result = await db.execute(select(Block.blocked_phone_number).where(Block.blocker_id == user_id))
+    blocked_phones = {value for value in blocked_result.scalars().all() if value}
+    blocked_by_ids: set[str] = set()
     if current_user.phone_number:
-        blockers_result = await db.execute(
-            select(Block.blocker_id).where(
-                Block.blocked_phone_number == current_user.phone_number
-            )
-        )
-        blocked_by_ids = [r for r in blockers_result.scalars().all()]
-    else:
-        blocked_by_ids = []
+        blockers_result = await db.execute(select(Block.blocker_id).where(Block.blocked_phone_number == current_user.phone_number))
+        blocked_by_ids = set(blockers_result.scalars().all())
 
     all_users_result = await db.execute(select(User).where(User.id != user_id))
-    all_users = all_users_result.scalars().all()
-
-    caller_loc = await presence_store.get_user_location(user_id)
-    if lat is not None and lon is not None:
-        caller_loc = {"lat": lat, "lon": lon}
-
-    all_locs = await presence_store.get_all_user_locations()
     current_vector = getattr(current_user, "vibe_vector", None) or []
+    current_artists = {name.casefold(): name for name in _artist_names(current_user)}
+    candidates: list[tuple[float, User, dict]] = []
 
-    scored: list[tuple[float, User]] = []
-    for u in all_users:
-        if u.id in blocked_by_ids:
+    for candidate in all_users_result.scalars().all():
+        if candidate.id in blocked_by_ids or (candidate.phone_number and candidate.phone_number in blocked_phones):
             continue
-        if u.phone_number and u.phone_number in blocked_phones:
+        if getattr(candidate, "privacy_mode", None) == "ghost":
             continue
-        if getattr(u, "privacy_mode", None) == "ghost":
+        distance_band = await presence_store.distance_band_between(user_id, candidate.id)
+        if distance_band == "over_50_miles":
             continue
-
-        if caller_loc:
-            other_loc = all_locs.get(u.id)
-            if other_loc:
-                dist = haversine_miles(
-                    caller_loc["lat"],
-                    caller_loc["lon"],
-                    other_loc["lat"],
-                    other_loc["lon"],
-                )
-                if dist > RADIUS_MILES:
-                    continue
-
-        similarity = 0.5
-        other_vector = getattr(u, "vibe_vector", None)
+        similarity = 0.0
+        other_vector = getattr(candidate, "vibe_vector", None) or []
         if current_vector and other_vector and len(current_vector) == len(other_vector):
-            similarity = cosine_similarity(current_vector, other_vector)
+            similarity = max(0.0, min(1.0, float(cosine_similarity(current_vector, other_vector))))
+        shared = [name for name in _artist_names(candidate) if name.casefold() in current_artists][:3]
+        presence = await presence_store.get_presence(candidate.id)
+        evidence: list[dict] = []
+        if shared:
+            evidence.append({"type": "shared_artists", "label": f"{len(shared)} shared artist{'s' if len(shared) != 1 else ''}", "artists": shared})
+        if presence:
+            evidence.append({"type": "available_now", "label": "Listening now"})
+        if distance_band:
+            labels = {"under_5_miles": "Same broad area", "5_to_15_miles": "Nearby in the city", "15_to_50_miles": "Within the region"}
+            evidence.append({"type": "distance_band", "label": labels.get(distance_band, "Region available")})
+        if similarity >= 0.7:
+            evidence.append({"type": "listening_pattern", "label": "Similar listening pattern"})
+        if not evidence:
+            evidence.append({"type": "early_signal", "label": "New musical signal"})
+        rank = similarity + min(len(shared), 3) * 0.08 + (0.07 if presence else 0.0) + (0.03 if distance_band == "under_5_miles" else 0.0)
+        payload = {
+            "matchEvidence": evidence,
+            "matchConfidence": _confidence_label(similarity, len(evidence)),
+            "distanceBand": distance_band,
+            "vibePreview": {"trackName": presence.get("track", ""), "artistName": presence.get("artist", ""), "artUrl": presence.get("albumArt", ""), "provider": presence.get("provider", "")} if presence else None,
+        }
+        candidates.append((rank, candidate, payload))
 
-        scored.append((similarity + random.random() * 0.15, u))
-
-    scored.sort(key=lambda x: x[0], reverse=True)
-    pool = scored[:40]
-    random.shuffle(pool)
-    candidates = [(s, u) for s, u in pool[:20]]
-
+    candidates.sort(key=lambda item: (-item[0], item[1].display_name.casefold()))
     out: List[dict] = []
-    for score, u in candidates:
-        vibe_preview = None
-        artists = getattr(u, "top_artists", None) or []
-        if artists:
-            first = artists[0]
-            name = first.get("name") if isinstance(first, dict) else str(first)
-            spotify = await search_track(name, name)
-            if spotify:
-                vibe_preview = {
-                    "trackName": spotify.get("name", name),
-                    "artistName": spotify.get("artist", name),
-                    "previewUrl": spotify.get("previewUrl") or "",
-                    "artUrl": spotify.get("artUrl") or "",
-                    "uri": spotify.get("uri") or "",
-                }
-        compat = min(99, max(50, int(score * 100)))
-        out.append(_enrich_user_dict(u, {"vibePreview": vibe_preview, "compatibility": compat}))
-
+    for _, candidate, payload in candidates[:20]:
+        out.append(_enrich_user_dict(candidate, payload))
     return out
