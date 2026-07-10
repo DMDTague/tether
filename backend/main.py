@@ -22,6 +22,7 @@ from routes import (
     charts,
     discovery,
     friends,
+    music_culture,
     playback,
     profile_signal,
     recommendations,
@@ -33,6 +34,7 @@ from routes import (
     vibe,
 )
 from routes.auth import decode_ws_ticket
+from services.music_culture import music_culture_store
 from services.presence import presence_store
 from services.profile_signal import profile_signal_store
 from worker import setup_scheduler
@@ -49,14 +51,15 @@ async def lifespan(app: FastAPI):
     await init_db()
     await presence_store.connect_redis(settings.REDIS_URL)
     await profile_signal_store.connect_redis(settings.REDIS_URL)
+    await music_culture_store.connect_redis(settings.REDIS_URL)
     setup_scheduler()
     yield
 
 
 app = FastAPI(
     title="Tether API",
-    description="Real-time shared listening, presence, aesthetic profiles, explicit dating signals, memories, and cross-provider coordination.",
-    version="0.3.0",
+    description="A complete social music platform centered on real-time shared listening, with reviews, diary, lists, discovery, dating, profiles, and memories.",
+    version="0.4.0",
     lifespan=lifespan,
     docs_url=None if settings.is_production else "/docs",
     redoc_url=None if settings.is_production else "/redoc",
@@ -84,6 +87,7 @@ for route in (
     sesh.router,
     discovery.router,
     profile_signal.router,
+    music_culture.router,
     blocks.router,
     tethers.router,
     telemetry.router,
@@ -95,7 +99,7 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 
 @app.get("/")
 async def root():
-    return {"app": "Tether", "version": "0.3.0", "status": "running"}
+    return {"app": "Tether", "version": "0.4.0", "status": "running"}
 
 
 @app.get("/health")
