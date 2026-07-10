@@ -1,0 +1,232 @@
+(() => {
+  "use strict";
+
+  const CUSTOMER_STATE_KEY = "tether:customer-journeys:v1";
+  const journey = loadJourney();
+  let observer;
+
+  function loadJourney() {
+    try {
+      return { lastView: "home", lastExchangeMode: "feed", savedDraft: "", ...(JSON.parse(localStorage.getItem(CUSTOMER_STATE_KEY) || "null") || {}) };
+    } catch (_) {
+      return { lastView: "home", lastExchangeMode: "feed", savedDraft: "" };
+    }
+  }
+
+  function persist() {
+    localStorage.setItem(CUSTOMER_STATE_KEY, JSON.stringify(journey));
+  }
+
+  function ready(attempt = 0) {
+    if (document.body.classList.contains("music-everything") && document.querySelector(".bottom-nav")) return install();
+    if (attempt < 100) setTimeout(() => ready(attempt + 1), 80);
+  }
+
+  function install() {
+    if (document.body.classList.contains("customer-optimized")) return;
+    document.body.classList.add("customer-optimized");
+    installQuickCreate();
+    installJourneyContinuity();
+    optimizeExchange();
+    optimizeDating();
+    optimizeProfiles();
+    optimizeTetherStart();
+    observer = new MutationObserver(() => {
+      optimizeExchange();
+      optimizeDating();
+      optimizeProfiles();
+      optimizeTetherStart();
+    });
+    observer.observe(document.querySelector(".phone"), { childList: true, subtree: true, attributes: true });
+  }
+
+  function installQuickCreate() {
+    const topbar = document.querySelector(".topbar");
+    if (!topbar || topbar.querySelector(".customer-create-button")) return;
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "customer-create-button";
+    button.setAttribute("aria-label", "Create a review, diary entry, or list");
+    button.innerHTML = `<span>＋</span>`;
+    button.addEventListener("click", openCreateMenu);
+    const messages = topbar.querySelector(".platform-message-button");
+    topbar.insertBefore(button, messages || topbar.lastElementChild);
+  }
+
+  function openCreateMenu() {
+    const dialog = document.querySelector("#platform-dialog");
+    if (!dialog) return;
+    dialog.innerHTML = `<form method="dialog" class="platform-dialog-shell customer-create-sheet">
+      <button class="platform-close" value="cancel" aria-label="Close">×</button>
+      <header><p class="eyebrow">Create</p><h2>What do you want to preserve?</h2><p>Start from the outcome—not from a maze of posting options.</p></header>
+      <button type="button" data-customer-create="review"><b>Write a review</b><span>Make a public argument about something you heard.</span></button>
+      <button type="button" data-customer-create="diary"><b>Log a listen</b><span>Save a private memory, with or without a rating.</span></button>
+      <button type="button" data-customer-create="list"><b>Build a list</b><span>Turn taste into a collection people can save and follow.</span></button>
+      <button type="button" data-customer-create="tether"><b>Open your listening</b><span>Start the product's central experience immediately.</span></button>
+    </form>`;
+    dialog.showModal();
+    dialog.querySelectorAll("[data-customer-create]").forEach(button => button.addEventListener("click", () => {
+      const action = button.dataset.customerCreate;
+      dialog.close();
+      if (action === "review") {
+        document.querySelector('.bottom-nav [data-view="activity"]')?.click();
+        setTimeout(() => document.querySelector("[data-open-exchange-composer]")?.click(), 80);
+      }
+      if (action === "diary") openCultureAction("diary", "[data-log-listen]");
+      if (action === "list") openCultureAction("lists", "[data-create-list]");
+      if (action === "tether") document.querySelector("[data-start-own-session]")?.click();
+    }));
+  }
+
+  function openCultureAction(mode, selector) {
+    document.querySelector('.bottom-nav [data-view="activity"]')?.click();
+    setTimeout(() => {
+      document.querySelector(`[data-culture-mode="${mode}"]`)?.click();
+      setTimeout(() => document.querySelector(selector)?.click(), 50);
+    }, 60);
+  }
+
+  function installJourneyContinuity() {
+    document.querySelectorAll(".bottom-nav [data-view]").forEach(button => {
+      if (button.dataset.customerTracked) return;
+      button.dataset.customerTracked = "true";
+      button.addEventListener("click", () => {
+        journey.lastView = button.dataset.view;
+        persist();
+      });
+    });
+    document.querySelectorAll("[data-culture-mode]").forEach(button => {
+      if (button.dataset.customerTracked) return;
+      button.dataset.customerTracked = "true";
+      button.addEventListener("click", () => {
+        journey.lastExchangeMode = button.dataset.cultureMode;
+        persist();
+      });
+    });
+  }
+
+  function optimizeExchange() {
+    const view = document.querySelector("#activity-view");
+    if (!view) return;
+    if (!view.querySelector(".customer-exchange-actions")) {
+      const switcher = view.querySelector(".culture-switch");
+      const actions = document.createElement("div");
+      actions.className = "customer-exchange-actions";
+      actions.innerHTML = `<button data-customer-review><i>✦</i><span><b>Review</b><small>Publish criticism</small></span></button><button data-customer-diary><i>◷</i><span><b>Diary</b><small>Log privately</small></span></button><button data-customer-list><i>≡</i><span><b>List</b><small>Curate publicly</small></span></button>`;
+      switcher?.insertAdjacentElement("afterend", actions);
+      actions.querySelector("[data-customer-review]")?.addEventListener("click", () => document.querySelector("[data-open-exchange-composer]")?.click());
+      actions.querySelector("[data-customer-diary]")?.addEventListener("click", () => openCultureAction("diary", "[data-log-listen]"));
+      actions.querySelector("[data-customer-list]")?.addEventListener("click", () => openCultureAction("lists", "[data-create-list]"));
+    }
+
+    view.querySelectorAll(".review-card").forEach(card => {
+      if (card.querySelector(".customer-review-next")) return;
+      const footer = card.querySelector(".review-actions");
+      if (!footer) return;
+      const next = document.createElement("button");
+      next.type = "button";
+      next.className = "customer-review-next";
+      next.textContent = "Add to diary";
+      next.addEventListener("click", event => {
+        event.stopPropagation();
+        openCultureAction("diary", "[data-log-listen]");
+      });
+      footer.appendChild(next);
+    });
+
+    view.querySelectorAll(".diary-timeline article").forEach(entry => {
+      if (entry.querySelector(".customer-diary-actions")) return;
+      const actions = document.createElement("div");
+      actions.className = "customer-diary-actions";
+      actions.innerHTML = `<button data-turn-review>Review</button><button data-add-list>Add to list</button><button data-tether-entry>Tether</button>`;
+      entry.appendChild(actions);
+      actions.querySelector("[data-turn-review]")?.addEventListener("click", () => {
+        document.querySelector('[data-culture-mode="feed"]')?.click();
+        setTimeout(() => document.querySelector("[data-open-exchange-composer]")?.click(), 60);
+      });
+      actions.querySelector("[data-add-list]")?.addEventListener("click", () => openCultureAction("lists", "[data-create-list]"));
+      actions.querySelector("[data-tether-entry]")?.addEventListener("click", () => document.querySelector("[data-start-own-session]")?.click());
+    });
+
+    view.querySelectorAll(".music-list-card").forEach(card => {
+      if (card.querySelector(".customer-list-actions")) return;
+      const footer = card.querySelector("footer");
+      if (!footer) return;
+      const actions = document.createElement("span");
+      actions.className = "customer-list-actions";
+      actions.innerHTML = `<button data-play-list>Play</button><button data-tether-list>Tether</button>`;
+      footer.insertBefore(actions, footer.lastElementChild);
+      actions.querySelector("[data-play-list]")?.addEventListener("click", event => { event.stopPropagation(); document.querySelector("[data-service-picker]")?.click(); });
+      actions.querySelector("[data-tether-list]")?.addEventListener("click", event => { event.stopPropagation(); document.querySelector("[data-start-own-session]")?.click(); });
+    });
+  }
+
+  function optimizeDating() {
+    if (!document.body.classList.contains("dating-world")) return;
+    const card = document.querySelector("#swipe-deck [data-swipe-card]");
+    if (card && !card.querySelector(".customer-dating-decision")) {
+      const context = card.querySelector(".platform-dating-context") || card.querySelector(".swipe-copy");
+      const decision = document.createElement("div");
+      decision.className = "customer-dating-decision";
+      decision.innerHTML = `<p><strong>Why this is worth your time</strong><span>Music evidence is shown before appearance-based details. You can act through a song, a prompt, or a Tether.</span></p><button data-preview-profile>Full profile</button>`;
+      context?.appendChild(decision);
+      decision.querySelector("[data-preview-profile]")?.addEventListener("click", () => document.querySelector('[data-swipe-action="profile"]')?.click());
+    }
+
+    const controls = document.querySelector(".swipe-controls");
+    if (controls && !controls.querySelector(".customer-pass-reason")) {
+      const pass = controls.querySelector('[data-swipe-action="pass"]');
+      pass?.addEventListener("click", () => showPassFeedback(), { capture: true });
+      const note = document.createElement("span");
+      note.className = "customer-pass-reason";
+      note.textContent = "Passes stay private and improve your next recommendations.";
+      controls.insertAdjacentElement("afterend", note);
+    }
+  }
+
+  function showPassFeedback() {
+    const host = document.querySelector("#swipe-panel");
+    if (!host || host.querySelector(".customer-feedback-toast")) return;
+    const feedback = document.createElement("div");
+    feedback.className = "customer-feedback-toast";
+    feedback.innerHTML = `<span>Quietly passed.</span><button data-undo-pass>Undo</button><button data-tune-matches>Tune matches</button>`;
+    host.appendChild(feedback);
+    feedback.querySelector("[data-undo-pass]")?.addEventListener("click", () => {
+      try { state.swipeIndex = Math.max(0, state.swipeIndex - 1); renderSwipeDeck(); } catch (_) {}
+      feedback.remove();
+    });
+    feedback.querySelector("[data-tune-matches]")?.addEventListener("click", () => {
+      feedback.remove();
+      document.querySelector("[data-edit-dating]")?.click() || document.querySelector("[data-wavelength-settings]")?.click();
+    });
+    setTimeout(() => feedback.remove(), 5000);
+  }
+
+  function optimizeProfiles() {
+    const view = document.querySelector("#profile-view");
+    if (!view || !view.innerHTML.trim() || view.querySelector(".customer-profile-actions")) return;
+    const actions = document.createElement("div");
+    actions.className = "customer-profile-actions";
+    actions.innerHTML = `<button data-profile-message>Message</button><button data-profile-song>Leave a song</button><button class="primary" data-profile-tether>Tether</button>`;
+    view.appendChild(actions);
+    actions.querySelector("[data-profile-message]")?.addEventListener("click", () => document.querySelector(".platform-message-button")?.click());
+    actions.querySelector("[data-profile-song]")?.addEventListener("click", () => document.querySelector("[data-open-exchange-composer]")?.click());
+    actions.querySelector("[data-profile-tether]")?.addEventListener("click", () => {
+      const primary = view.querySelector("[data-profile-action], .profile-primary-action, [data-primary-action]");
+      if (primary) primary.click();
+      else document.querySelector("[data-start-own-session]")?.click();
+    });
+  }
+
+  function optimizeTetherStart() {
+    const modal = document.querySelector("#feature-modal");
+    if (!modal || !modal.innerHTML.includes("Start your stage") || modal.querySelector(".customer-tether-promise")) return;
+    const promise = document.createElement("aside");
+    promise.className = "customer-tether-promise";
+    promise.innerHTML = `<strong>Ten-second Tether</strong><span>Choose a track now. Privacy, provider, and invitation details remain editable after the Stage opens.</span>`;
+    const copy = modal.querySelector(".modal-copy");
+    copy?.insertAdjacentElement("afterend", promise);
+  }
+
+  ready();
+})();
