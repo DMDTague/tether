@@ -1,8 +1,8 @@
-"""Persist the aesthetic profile and explicit opt-in dating signal.
+"""Persist aesthetic profiles and explicit opt-in dating signals.
 
-The store uses Redis when available and a process-local fallback for development.
-Sensitive dating fields are never returned by ``public_profile`` unless the owner
-has explicitly enabled and exposed their dating signal.
+Redis is used when available with a process-local fallback for development.
+Ordinary public profiles never include dating fields. Dating discovery can ask
+for the dating projection only after the owner has enabled and exposed it.
 """
 
 from __future__ import annotations
@@ -27,11 +27,21 @@ DEFAULT_PROFILE: dict[str, Any] = {
         "identity": "",
         "orientation": "",
         "intent": "Open to the signal",
+        "relationshipStructure": "",
+        "ageMin": 18,
+        "ageMax": 99,
+        "distanceMiles": 15,
         "height": "",
         "bodyDescription": "",
+        "showHeight": False,
+        "showBodyDescription": False,
         "priorityArtist": "",
         "dealbreakerArtist": "",
+        "priorityAlbum": "",
+        "genres": "",
+        "concertLife": "",
         "prompt": "",
+        "promptAnswer": "",
     },
 }
 
@@ -68,6 +78,8 @@ class ProfileSignalStore:
         normalized = deepcopy(DEFAULT_PROFILE)
         normalized["atmosphere"].update(profile.get("atmosphere") or {})
         normalized["dating"].update(profile.get("dating") or {})
+        if not normalized["dating"].get("enabled"):
+            normalized["dating"]["visible"] = False
         if self._redis:
             await self._redis.set(self._key(user_id), json.dumps(normalized, separators=(",", ":")))
         else:
@@ -79,19 +91,26 @@ class ProfileSignalStore:
         public: dict[str, Any] = {"atmosphere": profile["atmosphere"]}
         dating = profile["dating"]
         if include_dating and dating.get("enabled") and dating.get("visible"):
-            public["dating"] = {
+            public_dating = {
                 key: dating.get(key)
                 for key in (
                     "identity",
                     "orientation",
                     "intent",
-                    "height",
-                    "bodyDescription",
+                    "relationshipStructure",
                     "priorityArtist",
-                    "dealbreakerArtist",
+                    "priorityAlbum",
+                    "genres",
+                    "concertLife",
                     "prompt",
+                    "promptAnswer",
                 )
             }
+            if dating.get("showHeight"):
+                public_dating["height"] = dating.get("height")
+            if dating.get("showBodyDescription"):
+                public_dating["bodyDescription"] = dating.get("bodyDescription")
+            public["dating"] = public_dating
         return public
 
 
