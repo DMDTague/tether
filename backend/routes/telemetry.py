@@ -39,11 +39,22 @@ ALLOWED_EVENTS = {
     "dating_mode_opened",
     "dating_signal_sent",
     "dating_preferences_changed",
+    "exchange_opened",
+    "review_created",
+    "review_rated",
+    "diary_entry_created",
+    "music_list_created",
+    "music_list_saved",
     "error_shown",
 }
 FORBIDDEN_PROPERTY_PARTS = {
     "message",
     "body",
+    "note",
+    "title",
+    "artist",
+    "prompt",
+    "answer",
     "query",
     "search",
     "latitude",
@@ -57,6 +68,8 @@ FORBIDDEN_PROPERTY_PARTS = {
     "displayname",
     "orientation",
     "identity",
+    "height",
+    "relationship",
 }
 
 
