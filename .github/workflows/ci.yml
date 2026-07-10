@@ -46,14 +46,20 @@ jobs:
           cache: pip
           cache-dependency-path: backend/requirements.txt
       - name: Install backend
-        run: pip install -r requirements.txt
+        run: pip install --disable-pip-version-check --quiet -r requirements.txt
       - name: Compile Python
         run: python -m compileall -q .
       - name: Run tests
         env:
           ENVIRONMENT: development
           SECRET_KEY: local-development-only-change-me
-        run: pytest -q
+        run: |
+          pytest -q --tb=short > /tmp/tether-pytest.log 2>&1 || {
+            echo "Backend tests failed:"
+            tail -n 90 /tmp/tether-pytest.log
+            exit 1
+          }
+          cat /tmp/tether-pytest.log
       - name: Reject known unsafe defaults
         working-directory: ${{ github.workspace }}
         run: |
