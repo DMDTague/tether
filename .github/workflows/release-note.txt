@@ -1,0 +1,1 @@
+GitHub Pages publishes demo/. GitHub Actions publishes the backend container.
