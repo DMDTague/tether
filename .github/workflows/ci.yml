@@ -22,6 +22,7 @@ jobs:
           node --check demo/v14.js
           node --check demo/platform.js
           node --check demo/optimization.js
+          node --check demo/continuity.js
       - name: Check the music-everything architecture
         run: |
           grep -q 'The Exchange' demo/index.html
@@ -48,6 +49,10 @@ jobs:
           grep -q 'data-tether-entry' demo/optimization.js
           grep -q 'data-undo-pass' demo/optimization.js
           grep -q 'Ten-second Tether' demo/optimization.js
+          grep -q 'exchangeDraft' demo/continuity.js
+          grep -q 'diaryDraft' demo/continuity.js
+          grep -q 'listDraft' demo/continuity.js
+          grep -q 'datingDraft' demo/continuity.js
           grep -q 'Discover → understand → act → continue' docs/CUSTOMER_OPTIMIZATION.md
 
   backend:
