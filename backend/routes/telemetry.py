@@ -36,6 +36,9 @@ ALLOWED_EVENTS = {
     "privacy_mode_changed",
     "match_explanation_opened",
     "match_feedback_given",
+    "dating_mode_opened",
+    "dating_signal_sent",
+    "dating_preferences_changed",
     "error_shown",
 }
 FORBIDDEN_PROPERTY_PARTS = {
@@ -52,6 +55,8 @@ FORBIDDEN_PROPERTY_PARTS = {
     "handle",
     "username",
     "displayname",
+    "orientation",
+    "identity",
 }
 
 
