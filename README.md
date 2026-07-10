@@ -1,144 +1,79 @@
 # Tether
 
-> A social music platform that transforms passive streaming into an immersive, shared experience — with real-time synchronized sessions and vibe-based discovery.
+> The fastest, most intimate way to share the exact moment you are hearing.
 
-Tether bridges the gap between isolated listening and human connection by creating a living social graph of musical presence, perfectly synced playback, and an adaptive UI that responds to your social context in real time.
+Tether is a shared-listening product prototype and backend for real-time musical presence. It is centered on one loop: notice someone listening, enter the same moment, communicate presence through Pulse, and preserve the relationship afterward as a Memory Anchor.
 
-🔗 **Live Demo:** [dmdtague.github.io/tether](https://dmdtague.github.io/tether)
-🔗 **Repository:** [github.com/DMDTague/tether](https://github.com/DMDTague/tether)
+## What is in this repository
 
----
+- `demo/` — the directly usable, responsive browser product prototype.
+- `backend/` — a FastAPI service for authentication, sessions, presence, discovery, memories, provider coordination, and WebSockets.
+- `docs/` — product principles and the privacy-safe event contract.
 
-## Table of Contents
+This repository does **not** currently contain a complete deployable React Native application. Earlier documentation overstated that status. The backend and interactive web prototype are real; mobile-client work should be evaluated only when its source is committed.
 
-- [Overview](#overview)
-- [Technologies](#technologies)
-- [Features](#features)
-- [Architecture](#architecture)
-- [How I Built It](#how-i-built-it)
-- [What I Learned](#what-i-learned)
-- [Future Work](#future-work)
-- [Why This Matters](#why-this-matters)
+## Product structure
 
----
+The prototype has three primary destinations:
 
-## Overview
+- **Listen** — current playback, one-tap “Open your listening,” available people, and relationship continuations.
+- **People** — close connections, live availability, contextual conversations, and optional evidence-based exploration.
+- **You** — music identity, Open Door / Knock First / Ghost, Memory Anchors, Time Capsules, and data controls.
 
-Tether solves the isolation of modern music consumption by making listening a shared, synchronized social ritual.
+The shared Stage is the flagship surface. Pulse is a tap for a normal signal and an 800 ms hold for an amplified one. Sessions create Memory Anchors automatically.
 
-The goal was to turn a user's phone into a **social barometer** — displaying real-time musical presence, matching users based on *vibe vectors* (mathematical representations of musical energy), and allowing friends to listen together in perfect sync like a shared digital AUX cord. The result is a production-ready mobile application that makes digital connection feel tangible, ambient, and deeply personal.
+## Trust model
 
----
+- Raw coordinates are reduced to short-lived coarse cells before storage.
+- Discovery returns broad distance bands, never exact coordinates or phone numbers.
+- Discovery explains shared artists, availability, and listening patterns instead of inventing percentage precision.
+- WebSockets use one-minute scoped tickets rather than primary access tokens in URLs.
+- Production refuses default secrets, wildcard CORS, or anonymous WebSocket access.
+- Access tokens are short-lived; refresh tokens rotate and can be revoked.
+- Core listening, invitations, joining, and Pulse are never ad-gated.
+- Telemetry uses a typed allowlist and rejects message text, search text, coordinates, contact details, credentials, and provider tokens.
 
-## Technologies
+See [`docs/EVENTS.md`](docs/EVENTS.md) and [`docs/PRODUCT_PRINCIPLES.md`](docs/PRODUCT_PRINCIPLES.md).
 
-### Backend
-- **Python / FastAPI** — core API and WebSocket architecture
-- **PostgreSQL + SQLAlchemy ORM** — persistent data storage
-- **Redis** — ephemeral presence, caching, and real-time state
-- **WebSockets** — bidirectional real-time sync engine
-- **Spotify Web API** — audio features, playback metadata, and control
-- **OpenWeatherMap API** — environmental data for Time Capsule lock conditions
+## Run the browser prototype
 
-### Frontend
-- **React Native (Expo SDK 51)** — cross-platform mobile development
-- **TypeScript** — type safety throughout
-- **Expo Router** — file-based navigation
-- **React Native Reanimated 3** — UI-thread animations at 60fps
-- **Shopify React Native Skia** — GPU-accelerated SKSL fragment shaders
+The demo uses static files and does not require a build step.
 
-### Infrastructure
-- **Docker** — containerized backend deployment
-- **Render / Railway** — scalable cloud hosting with auto-reconnect
-- **Expo EAS** — managed iOS/Android builds and App Store submission
+```bash
+python -m http.server 4173 --directory demo
+```
 
----
+Then open `http://localhost:4173`.
 
-## Features
+## Run the backend
 
-| Feature | Description |
-|---|---|
-| 🎧 **Real-Time Sessions** | Listen with friends in perfect millisecond sync — host-controlled playback with automatic drift correction |
-| 🌊 **Vibe-Based Discovery** | Cosine similarity matching on 4-dimensional audio vectors (valence, energy, danceability, acousticness) |
-| 🎨 **Adaptive Backdrop** | GPU-rendered Perlin noise aurora that responds live to your current vibe vector and session colors |
-| ✨ **Haptic Pulses** | Send physical vibrations and visual sparks to friends anywhere in the world during a shared session |
-| 📳 **NFC Tap to Tether** | Instantly connect with someone in person by tapping phones via iOS Core NFC |
-| 🧱 **Memory Anchors** | Completed sessions become persistent social artifacts with mood tags, health bars, and geographic metadata |
-| ⏳ **Time Capsules** | Send a locked track to a friend — sealed until midnight, rainfall, a specific date, or a geofence is triggered |
-| 👻 **Ghost Mode** | Listen privately without broadcasting presence or track data to your social graph |
+```bash
+cd backend
+python -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+cp .env.example .env  # when available, then set a real SECRET_KEY
+uvicorn main:app --reload
+```
 
----
+Development defaults are intentionally local. Production requires an explicit secret and CORS allowlist.
 
-## Architecture
+## Test
 
-### 1. Data & Real-Time Layer
-- **PostgreSQL** manages user profiles, social graphs, sessions, anchors, and capsules
-- **Redis** handles high-frequency ephemeral data — who is online, current vibe vectors, presence state
-- A typed **WebSocket protocol** (`WSClientMessage` / `WSServerMessage`) broadcasts playback state, knock requests, pulse events, and presence updates globally across all connected clients
+```bash
+node --check demo/app.js
+cd backend
+pytest -q
+```
 
-### 2. Mobile Client
-- Interfaces with the **Spotify Web API** (PKCE OAuth) to fetch playback metadata and control sync
-- A custom **Vibe Engine** translates raw Spotify audio features into 4-dimensional vectors, outputting color palettes and SKSL shader parameters
-- The **BackdropGenerator** renders a live 4-octave FBM Perlin noise shader with uniforms driven directly by the active vibe vector — all on the GPU thread
-- Local audio position is calculated against a **server-side epoch timestamp** to detect and correct network drift automatically
+GitHub Actions compiles the backend, runs the test suite, checks the demo JavaScript, and rejects several known unsafe patterns.
 
-### 3. Deployment
-- Backend deployed via **Docker on Render** with exponential backoff reconnection
-- Mobile distributed via **Expo EAS** for streamlined iOS builds and App Store submission
-- **OTA updates** via `expo-updates` for post-launch hotfixes without App Store review cycles
+## Product metric
 
----
+The North Star is **Meaningful Shared Listens per Weekly Active User**: two real users remain synchronized for at least five minutes, perform a relational action, and do not immediately use a safety action.
 
-## How I Built It
+The operating promise is the **Ten-second Tether**: from opening the product to hearing synchronized music with another person in under ten seconds.
 
-- Designed a **WebSocket synchronization engine** that measures server vs. client clock drift and corrects playback position to maintain sub-500ms accuracy across all listeners
-- Engineered a **Vibe Engine** (`vibe_engine.py`) that maps Spotify audio features to cosine similarity vectors, HSL color palettes, and SKSL shader uniforms
-- Wrote custom **SKSL fragment shaders** (4-octave simplex noise FBM + film grain overlay) compiled at runtime via `Skia.RuntimeEffect.Make()`
-- Built a **Billboard chart scraper** to hydrate track data without hitting Spotify API rate limits
-- Implemented layered **React Contexts** (`AuthContext`, `WSContext`, `VibeContext`) to distribute real-time state cleanly across the entire component tree
-- Integrated **iOS Core NFC** for the physical "Tap to Tether" onboarding ritual and **Android NDEF** equivalent
-- Designed an **ad-gate tollbooth model** (`useAdPass` + Google Mobile Ads SDK) to gate session access while preserving a premium user path
+## Status
 
----
-
-## What I Learned
-
-- Managing **network latency and clock drift** in real-time streaming environments — and building self-correcting sync logic that degrades gracefully
-- Translating **mathematical audio vectors** into GPU-accelerated visual graphics that respond to social context, not just user input
-- Building an architecture that **survives mobile backgrounding** — WebSocket drop-offs, Spotify token expiry, and automatic reconnection without session loss
-- Balancing **Spotify API rate limits** with aggressive Redis caching, background workers, and local clock interpolation
-- Designing a mobile UI where the **visual layer is ambient communication** — reducing cognitive load while increasing emotional resonance
-
----
-
-## Future Work
-
-- **Wavelength** — proximity-based discovery matching users by musical taste within an adjustable radius (up to 100 miles)
-- **Group Sessions** — 3+ user synchronized listening with collaborative real-time queueing
-- **Vibe Rooms** — public, mood-tagged listening spaces (chill / hype / study / late-night)
-- **Apple Music + YouTube Music** integration to expand beyond Spotify
-- **iOS Live Activities** — Dynamic Island widget for session tracking outside the app
-
----
-
-## Why This Matters
-
-Tether proves that technology can **enhance rather than replace** genuine human connection.
-
-It transforms the isolated, algorithmic nature of modern streaming back into a **social ritual** — where what you're hearing is a signal, and who you're hearing it with matters. The invisible features (matching energy instead of demographics, ambient presence instead of notifications) create the kind of serendipitous discovery that platforms optimized purely for engagement have trained out of us.
-
-End-to-end, it merges **complex backend synchronization** with **fluid, GPU-accelerated mobile engineering** into something that feels less like software and more like a shared space.
-
----
-
-## Summary
-
-Tether is a complete, production-ready mobile application — converting raw streaming metadata and real-time WebSocket events into a seamless, highly visual social experience.
-
-**Core skills demonstrated:**
-
-- Full-stack mobile development (React Native / Python / FastAPI)
-- Real-time WebSocket engineering and drift-corrected sync logic
-- GPU-accelerated UI design (Skia SKSL shaders / Reanimated 3)
-- System architecture and distributed state management
-- Third-party API integration with rate limit mitigation strategies
+Tether is a serious product prototype, not yet a production release. Provider credentials, deployment monitoring, database migrations, mobile packaging, store compliance, abuse operations, and real-device cross-provider testing still need to be completed before public launch.
