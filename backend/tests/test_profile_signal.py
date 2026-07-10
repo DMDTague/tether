@@ -35,15 +35,32 @@ async def test_visible_dating_signal_is_returned_only_in_dating_context():
                 "visible": True,
                 "identity": "Man",
                 "orientation": "Queer",
+                "relationshipStructure": "Monogamous",
+                "height": "5′7″",
+                "bodyDescription": "Compact and built",
+                "showHeight": True,
+                "showBodyDescription": False,
+                "priorityAlbum": "Blonde",
+                "dealbreakerArtist": "Private preference",
                 "prompt": "Play me something impossible",
+                "promptAnswer": "Start with the bridge.",
             }
         },
     )
     assert "dating" not in await store.public_profile("user-2", include_dating=False)
     dating = (await store.public_profile("user-2", include_dating=True))["dating"]
     assert dating["orientation"] == "Queer"
+    assert dating["height"] == "5′7″"
+    assert "bodyDescription" not in dating
+    assert "dealbreakerArtist" not in dating
+    assert dating["priorityAlbum"] == "Blonde"
 
 
 def test_visibility_requires_dating_opt_in():
     with pytest.raises(ValueError):
         DatingSignal(enabled=False, visible=True)
+
+
+def test_dating_age_range_must_be_ordered():
+    with pytest.raises(ValueError):
+        DatingSignal(enabled=True, visible=True, ageMin=30, ageMax=21)
