@@ -23,6 +23,7 @@ from routes import (
     discovery,
     friends,
     playback,
+    profile_signal,
     recommendations,
     sesh,
     sessions,
@@ -33,6 +34,7 @@ from routes import (
 )
 from routes.auth import decode_ws_ticket
 from services.presence import presence_store
+from services.profile_signal import profile_signal_store
 from worker import setup_scheduler
 from ws.handlers import handle_message
 from ws.manager import manager
@@ -46,14 +48,15 @@ async def lifespan(app: FastAPI):
     settings.validate_runtime()
     await init_db()
     await presence_store.connect_redis(settings.REDIS_URL)
+    await profile_signal_store.connect_redis(settings.REDIS_URL)
     setup_scheduler()
     yield
 
 
 app = FastAPI(
     title="Tether API",
-    description="Real-time shared listening, presence, memories, and cross-provider coordination.",
-    version="0.2.0",
+    description="Real-time shared listening, presence, aesthetic profiles, explicit dating signals, memories, and cross-provider coordination.",
+    version="0.3.0",
     lifespan=lifespan,
     docs_url=None if settings.is_production else "/docs",
     redoc_url=None if settings.is_production else "/redoc",
@@ -80,6 +83,7 @@ for route in (
     vibe.router,
     sesh.router,
     discovery.router,
+    profile_signal.router,
     blocks.router,
     tethers.router,
     telemetry.router,
@@ -91,7 +95,7 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 
 @app.get("/")
 async def root():
-    return {"app": "Tether", "version": "0.2.0", "status": "running"}
+    return {"app": "Tether", "version": "0.3.0", "status": "running"}
 
 
 @app.get("/health")
