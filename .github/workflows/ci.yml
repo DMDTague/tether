@@ -21,6 +21,7 @@ jobs:
           node --check demo/app.js
           node --check demo/v14.js
           node --check demo/platform.js
+          node --check demo/optimization.js
       - name: Check the music-everything architecture
         run: |
           grep -q 'The Exchange' demo/index.html
@@ -36,6 +37,18 @@ jobs:
           grep -q 'renderSwipeDeck' demo/v14.js
           grep -q 'renderReviews' demo/v14.js
           grep -q 'openProfile' demo/v14.js
+      - name: Check customer-optimized journeys
+        run: |
+          grep -q 'data-customer-create="review"' demo/optimization.js
+          grep -q 'data-customer-create="diary"' demo/optimization.js
+          grep -q 'data-customer-create="list"' demo/optimization.js
+          grep -q 'data-customer-create="tether"' demo/optimization.js
+          grep -q 'data-turn-review' demo/optimization.js
+          grep -q 'data-add-list' demo/optimization.js
+          grep -q 'data-tether-entry' demo/optimization.js
+          grep -q 'data-undo-pass' demo/optimization.js
+          grep -q 'Ten-second Tether' demo/optimization.js
+          grep -q 'Discover → understand → act → continue' docs/CUSTOMER_OPTIMIZATION.md
 
   backend:
     runs-on: ubuntu-latest
