@@ -1,34 +1,25 @@
 (() => {
-  const stylesheet = document.createElement("link");
-  stylesheet.rel = "stylesheet";
-  stylesheet.href = "platform.css?v=16";
-  document.head.appendChild(stylesheet);
+  const styles = ["platform.css?v=17", "optimization.css?v=17", "continuity.css?v=17"];
+  styles.forEach(href => {
+    const stylesheet = document.createElement("link");
+    stylesheet.rel = "stylesheet";
+    stylesheet.href = href;
+    document.head.appendChild(stylesheet);
+  });
 
-  const optimizationStyles = document.createElement("link");
-  optimizationStyles.rel = "stylesheet";
-  optimizationStyles.href = "optimization.css?v=16";
-  document.head.appendChild(optimizationStyles);
+  const loadScript = (src, onload) => {
+    const script = document.createElement("script");
+    script.src = src;
+    script.async = false;
+    script.onload = onload;
+    document.body.appendChild(script);
+  };
 
-  const legacy = document.createElement("script");
-  legacy.src = "v14.js?v=16";
-  legacy.async = false;
-  legacy.onload = () => {
-    const platform = document.createElement("script");
-    platform.src = "platform.js?v=16";
-    platform.async = false;
-    platform.onload = () => {
-      const optimization = document.createElement("script");
-      optimization.src = "optimization.js?v=16";
-      optimization.async = false;
-      document.body.appendChild(optimization);
-    };
-    document.body.appendChild(platform);
-  };
-  legacy.onerror = () => {
-    const notice = document.createElement("p");
-    notice.className = "platform-load-error";
-    notice.textContent = "Tether could not load the recovered interaction engine.";
-    document.body.appendChild(notice);
-  };
-  document.body.appendChild(legacy);
+  loadScript("v14.js?v=17", () => {
+    loadScript("platform.js?v=17", () => {
+      loadScript("optimization.js?v=17", () => {
+        loadScript("continuity.js?v=17");
+      });
+    });
+  });
 })();
