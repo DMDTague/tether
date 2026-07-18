@@ -1,3 +1,9 @@
+const DEMO_TRACKS = [
+  {name:"Night Transit",artist:"Tether Demo Library",album:"Signal Studies",durationSeconds:247,progressPercent:18,provider:"spotify"},
+  {name:"Soft Current",artist:"Tether Demo Library",album:"Signal Studies",durationSeconds:214,progressPercent:9,provider:"spotify"},
+  {name:"Afterglow Loop",artist:"Tether Demo Library",album:"Signal Studies",durationSeconds:337,progressPercent:31,provider:"spotify"}
+];
+
 const state = {
   profiles: [],
   filter: "all",
@@ -45,6 +51,7 @@ const state = {
   ,seenViews: new Set(["home"])
   ,threads: null
   ,sessionPrivacy: "open-door"
+  ,currentTrack: { ...DEMO_TRACKS[0] }
 };
 
 const CURRENT_USER = {
@@ -722,50 +729,147 @@ function renderProfiles() {
   });
 }
 
-function renderHome() {
-  const eyebrow = $("#home-eyebrow");
-  if (eyebrow) {
-    const now = new Date();
-    const weekday = now.toLocaleDateString("en-US", { weekday: "long" });
-    const hour = now.getHours();
-    const part = hour < 5 ? "late night" : hour < 12 ? "morning" : hour < 17 ? "afternoon" : "evening";
-    eyebrow.textContent = `${weekday} ${part}`;
+function currentUserSessionProfile(track = state.currentTrack) {
+  return {
+    name: CURRENT_USER.name,
+    first: "John",
+    username: CURRENT_USER.username,
+    initials: CURRENT_USER.initials,
+    palette: ["#9BA0FA", "#333B61", "#77B7F0"],
+    privacyMode: state.userPrivacy,
+    status: "listening",
+    location: { neighborhood: CURRENT_USER.neighborhood },
+    currentTrack: track
+  };
+}
+
+function relationshipStrength(profile) {
+  const familiar = state.following.has(profile.username) ? 18 : 0;
+  const memories = Math.min(profile.metrics?.memoryAnchors || 0, 12);
+  const sharedTime = Math.min(Math.floor((profile.metrics?.sessionsJoined || 0) / 8), 6);
+  return compatibility(profile) + familiar + memories + sharedTime;
+}
+
+function openCurrentListening() {
+  if (!state.currentTrack) {
+    switchView("home");
+    $("#listen-hero")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    toast("Pick something to play first.");
+    return;
   }
+  startSession(currentUserSessionProfile(state.currentTrack));
+}
+
+function renderListenHero() {
+  const hero = $("#listen-hero");
+  if (!hero) return;
+  hero.classList.remove("is-loading");
+
+  if (!state.currentTrack) {
+    hero.classList.add("is-empty");
+    hero.innerHTML = `
+      <div class="listen-hero-top">
+        <span class="playback-source"><i></i>No active playback</span>
+        <button class="hero-service" data-service-picker><span class="service-dot ${state.musicService === "Spotify" ? "spotify" : state.musicService === "Apple Music" ? "apple" : "youtube"}"></span>${escapeHtml(state.musicService)}<b>⌄</b></button>
+      </div>
+      <div class="empty-listening-mark" aria-hidden="true"><i></i><i></i><span>♫</span></div>
+      <div class="empty-listening-copy"><p class="eyebrow">The door is quiet</p><h2>Start something together.</h2><p>Choose a recent track. Tether will hold the door open from the first beat.</p></div>
+      <div class="quick-pick-list" aria-label="Recent tracks">
+        ${DEMO_TRACKS.map((track, index) => `<button data-quick-pick="${index}"><span>${coverArt(track.name, track.artist)}</span><b>${escapeHtml(track.name)}</b><small>${escapeHtml(track.artist)}</small></button>`).join("")}
+      </div>`;
+    $$("[data-quick-pick]", hero).forEach(button => button.addEventListener("click", () => {
+      state.currentTrack = { ...DEMO_TRACKS[Number(button.dataset.quickPick)] };
+      renderHome();
+      toast(`${state.currentTrack.name} is ready.`);
+    }));
+    $("[data-service-picker]", hero)?.addEventListener("click", chooseMusicService);
+    return;
+  }
+
+  hero.classList.remove("is-empty");
+  const track = state.currentTrack;
+  hero.innerHTML = `
+    <div class="listen-hero-top">
+      <span class="playback-source"><i></i>Playing on ${escapeHtml(state.musicService)}</span>
+      <button class="hero-service" data-service-picker><span class="service-dot ${state.musicService === "Spotify" ? "spotify" : state.musicService === "Apple Music" ? "apple" : "youtube"}"></span>Source<b>⌄</b></button>
+    </div>
+    <div class="now-playing-art">${coverArt(track.name, track.artist)}<span class="now-playing-live"><i></i>Now playing</span></div>
+    <div class="now-playing-copy">
+      <div><p class="eyebrow">${escapeHtml(track.album || "Now playing")}</p><h2>${escapeHtml(track.name)}</h2><p>${escapeHtml(track.artist)}</p></div>
+      <button class="clear-playback" data-clear-current-track aria-label="Show the no-music state">Demo: end track</button>
+    </div>
+    <div class="listen-hero-actions">
+      <button class="open-listening-button" data-start-own-session data-open-listening><span>Open your listening</span><small>Friends join at this exact moment</small></button>
+      <label class="inline-privacy"><span>Door</span><select data-listen-privacy aria-label="Listening privacy">
+        <option value="open-door" ${state.userPrivacy === "open-door" ? "selected" : ""}>Open Door</option>
+        <option value="knock-first" ${state.userPrivacy === "knock-first" ? "selected" : ""}>Knock</option>
+        <option value="ghost" ${state.userPrivacy === "ghost" ? "selected" : ""}>Ghost</option>
+      </select></label>
+    </div>`;
+  $("[data-open-listening]", hero)?.addEventListener("click", openCurrentListening);
+  $("[data-service-picker]", hero)?.addEventListener("click", chooseMusicService);
+  $("[data-clear-current-track]", hero)?.addEventListener("click", () => {
+    state.currentTrack = null;
+    renderHome();
+  });
+  $("[data-listen-privacy]", hero)?.addEventListener("change", event => setUserPrivacy(event.target.value));
+}
+
+function renderHome() {
+  renderListenHero();
   const live = state.profiles
     .filter(profile => ["listening","in-session"].includes(profile.status) && profile.currentTrack)
-    .filter(profile => !state.severed.has(profile.username) && !state.muted.has(profile.username))
-    .sort((a,b) => compatibility(b) - compatibility(a));
-  const storyRail = $("#signal-story-rail");
-  if (storyRail) {
-    storyRail.innerHTML = `<button class="presence-person presence-self" data-story-start aria-label="Start your listening session">
-      <span class="presence-avatar">${avatarSpan(SELF_LITE)}<b aria-hidden="true">+</b></span>
-      <small>You</small><em>start</em>
-    </button>` + live.slice(0,4).map(profile => presencePerson(profile, "home")).join("")
-      + (live.length > 4 ? `<button class="presence-see-all" data-presence-see-all><span>+${live.length - 4}</span><strong>See all</strong></button>` : "");
-    $("[data-story-start]", storyRail)?.addEventListener("click", chooseOwnTrack);
-    $("[data-presence-see-all]", storyRail)?.addEventListener("click", () => switchView("messages"));
+    .filter(profile => profile.privacyMode !== "ghost" && !state.severed.has(profile.username) && !state.muted.has(profile.username))
+    .sort((a,b) => relationshipStrength(b) - relationshipStrength(a));
+  const available = live.slice(0,5);
+  const availableList = $("#available-now-list");
+  const availableCount = $("#available-now-count");
+  if (availableCount) availableCount.textContent = `${available.length} close ${available.length === 1 ? "friend" : "friends"} live`;
+  if (availableList) {
+    availableList.innerHTML = available.length ? available.map(profile => `
+      <button class="available-friend" data-home-session="${escapeHtml(profile.username)}" aria-label="${profile.privacyMode === "open-door" ? "Join" : "Knock to join"} ${escapeHtml(profile.name)} listening to ${escapeHtml(profile.currentTrack.name)}">
+        <span class="available-friend-art">${coverArt(profile.currentTrack.name, profile.currentTrack.artist)}${avatarSpan(profile, "avatar small")}</span>
+        <span class="available-friend-copy"><strong>${escapeHtml(profile.name)}</strong><small>${escapeHtml(profile.currentTrack.name)}</small><em>${escapeHtml(profile.currentTrack.artist)}</em></span>
+        <span class="availability-action ${profile.privacyMode === "open-door" ? "join" : "knock"}">${profile.privacyMode === "open-door" ? "Join" : "Knock"}</span>
+      </button>`).join("") : `<p class="empty-listening-list">No close friends are live right now. Your door can still be the first one open.</p>`;
   }
-  $("#live-session-rail").innerHTML = live.slice(0,6).map(profile => `
-    <article class="live-session-card" data-home-session="${escapeHtml(profile.username)}">
-      <div class="live-session-top">
-        ${avatarSpan(profile, "avatar small")}
-        <div><strong>${escapeHtml(profile.name)}</strong><p>${escapeHtml(profile.location.neighborhood)} · ${titleCase(profile.privacyMode)}</p></div>
-        <button class="session-cta ${profile.privacyMode === "open-door" ? "join" : "knock"}">${profile.privacyMode === "open-door" ? "Join" : "Knock"}</button>
-      </div>
-      <div class="mini-track"><span class="mini-art">${coverArt(profile.currentTrack.name, profile.currentTrack.artist)}</span><div><strong>${escapeHtml(profile.currentTrack.name)}</strong><p>${escapeHtml(profile.currentTrack.artist)} · synced live</p></div></div>
-    </article>`).join("");
-  $("#trending-session-list").innerHTML = live
-    .sort((a,b) => b.metrics.sessionsHosted - a.metrics.sessionsHosted).slice(0,4)
-    .map((profile,index) => `<article class="trending-session" data-home-session="${escapeHtml(profile.username)}">
-      <span class="trend-rank">${index + 1}</span>
-      <span class="mini-art">${coverArt(profile.currentTrack.name, profile.currentTrack.artist)}</span>
-      <div><strong>${escapeHtml(profile.currentTrack.name)}</strong><p>${escapeHtml(profile.currentTrack.artist)} · session started by ${escapeHtml(profile.name)}</p></div>
-      <span class="listener-count">${23 + (artHash(profile.username) % 470)} listening</span>
-    </article>`).join("");
-  $$("[data-home-session]").forEach(card => card.addEventListener("click", () => {
+
+  const relationship = profileByUsername("zuri1188") || available[0];
+  const relationshipCard = $("#continue-relationship-card");
+  if (relationshipCard && relationship) {
+    relationshipCard.innerHTML = `<button class="relationship-card" data-home-session="${escapeHtml(relationship.username)}">
+      <span class="relationship-art">${coverArt("Germantown Sessions", relationship.name)}<i style="width:68%"></i></span>
+      <span class="relationship-copy"><small>You and ${escapeHtml(relationship.first || relationship.name.split(" ")[0])}</small><strong>Finish the album you started together</strong><em>Germantown Sessions · 3 tracks left</em></span>
+      <span class="relationship-arrow">›</span>
+    </button>`;
+  }
+
+  const suggestions = state.profiles
+    .filter(profile => profile.privacyMode !== "ghost" && !state.severed.has(profile.username) && !live.includes(profile))
+    .sort((a,b) => compatibility(b) - compatibility(a))
+    .slice(0,3);
+  const suggestionList = $("#wavelength-suggestion-list");
+  if (suggestionList) {
+    suggestionList.innerHTML = suggestions.map(profile => `<button data-wavelength-profile="${escapeHtml(profile.username)}">${avatarSpan(profile, "avatar small")}<span><strong>${escapeHtml(profile.name)}</strong><small>${escapeHtml(wavelengthReason(profile))}</small></span><b>›</b></button>`).join("");
+  }
+
+  const trending = $("#trending-session-list");
+  if (trending) {
+    trending.innerHTML = [...live]
+      .sort((a,b) => b.metrics.sessionsHosted - a.metrics.sessionsHosted).slice(0,4)
+      .map((profile,index) => `<article class="trending-session" data-home-session="${escapeHtml(profile.username)}">
+        <span class="trend-rank">${index + 1}</span>
+        <span class="mini-art">${coverArt(profile.currentTrack.name, profile.currentTrack.artist)}</span>
+        <div><strong>${escapeHtml(profile.currentTrack.name)}</strong><p>${escapeHtml(profile.currentTrack.artist)} · session started by ${escapeHtml(profile.name)}</p></div>
+        <span class="listener-count">${23 + (artHash(profile.username) % 470)} listening</span>
+      </article>`).join("");
+  }
+
+  $$("[data-home-session]", $("#home-view")).forEach(card => card.addEventListener("click", () => {
     const profile = profileByUsername(card.dataset.homeSession);
     if (profile) handlePrimaryAction(profile);
   }));
+  $$("[data-wavelength-profile]", $("#home-view")).forEach(card => card.addEventListener("click", () => openProfile(card.dataset.wavelengthProfile)));
 }
 
 
@@ -1042,26 +1146,22 @@ function chooseMusicService() {
     </div>`);
   $$("[data-music-service]",$("#feature-modal")).forEach(button => button.addEventListener("click", () => {
     state.musicService = button.dataset.musicService;
-    const pill = $("[data-service-picker]"); $("strong",pill).textContent = state.musicService;
-    $(".service-dot",pill).className = `service-dot ${state.musicService==="Spotify"?"spotify":state.musicService==="Apple Music"?"apple":"youtube"}`;
-    closeFeatureModal(); toast(`${state.musicService} connected.`);
+    closeFeatureModal();
+    renderListenHero();
+    toast(`${state.musicService} connected.`);
   }));
 }
 
 function chooseOwnTrack() {
-  const tracks = [
-    {name:"Night Transit",artist:"Tether Demo Library",album:"Signal Studies",durationSeconds:247,progressPercent:18},
-    {name:"Soft Current",artist:"Tether Demo Library",album:"Signal Studies",durationSeconds:214,progressPercent:9},
-    {name:"Afterglow Loop",artist:"Tether Demo Library",album:"Signal Studies",durationSeconds:337,progressPercent:31}
-  ];
   openFeatureModal(`<div class="modal-head"><div><p class="eyebrow">${state.musicService}</p><h3>Open your listening</h3></div><button class="icon-button" data-close-modal>×</button></div>
     <p class="modal-copy">Automatically starts a Tether. These original demo instrumentals stand in for playback from ${state.musicService}; the live app detects playback from your linked account.</p>
-    <div class="demo-track-list">${tracks.map((track,index)=>`<article class="demo-track-row"><span class="demo-track-note">${coverArt(track.name, track.artist)}</span><div><strong>${track.name}</strong><small>${track.artist}</small></div><button data-track-preview="${index}">Preview</button><button class="start-demo-track" data-own-track="${index}">Start</button></article>`).join("")}</div>`);
+    <div class="demo-track-list">${DEMO_TRACKS.map((track,index)=>`<article class="demo-track-row"><span class="demo-track-note">${coverArt(track.name, track.artist)}</span><div><strong>${track.name}</strong><small>${track.artist}</small></div><button data-track-preview="${index}">Preview</button><button class="start-demo-track" data-own-track="${index}">Start</button></article>`).join("")}</div>`);
   $$("[data-track-preview]",$("#feature-modal")).forEach(button => button.addEventListener("click", () => playRoyaltyFreePreview(Number(button.dataset.trackPreview), button)));
   $$("[data-own-track]",$("#feature-modal")).forEach(button => button.addEventListener("click", () => {
-    const track = tracks[Number(button.dataset.ownTrack)];
+    const track = { ...DEMO_TRACKS[Number(button.dataset.ownTrack)] };
+    state.currentTrack = track;
     closeFeatureModal();
-    startSession({name:"John Roastpork",first:"John",username:"john.roastpork",initials:"JR",palette:["#9BA0FA","#333B61","#77B7F0"],privacyMode:state.userPrivacy,status:"listening",location:{neighborhood:"Pennsport"},currentTrack:track});
+    startSession(currentUserSessionProfile(track));
   }));
 }
 
@@ -1726,6 +1826,8 @@ function setUserPrivacy(mode) {
     quick.className = `presence-quick ${mode}`;
     $("span", quick).textContent = titleCase(mode);
   }
+  const inline = $("[data-listen-privacy]");
+  if (inline) inline.value = mode;
   toast(`John is now in ${titleCase(mode)} mode.`);
 }
 
@@ -2252,7 +2354,7 @@ async function init() {
   } catch (error) {
     console.error(error);
     const message = `<div class="load-error"><strong>The Philadelphia network is unreachable.</strong>Profile data failed to load. Refresh to try again — the demo needs data/profiles.json to be served alongside it.</div>`;
-    $("#live-session-rail").innerHTML = message;
+    $("#available-now-list").innerHTML = message;
     $("#trending-session-list").innerHTML = "";
     $("#profile-list").innerHTML = message;
   }
@@ -2316,7 +2418,7 @@ $$(".memory-tab").forEach((button) => button.addEventListener("click", () => {
 $$("[data-user-privacy]").forEach((button) => button.addEventListener("click", () => {
   setUserPrivacy(button.dataset.userPrivacy);
 }));
-$("[data-presence-quick]").addEventListener("click", openPresenceQuick);
+$("[data-presence-quick]")?.addEventListener("click", openPresenceQuick);
 $("[data-demo-menu]").addEventListener("click", openDemoMenu);
 $("[data-radar-help]")?.addEventListener("click", openRadarHelp);
 $$("[data-you-memory-tab]").forEach(button => button.addEventListener("click", () => {
@@ -2324,9 +2426,10 @@ $$("[data-you-memory-tab]").forEach(button => button.addEventListener("click", (
   $$("[data-you-memory-panel]").forEach(panel => panel.classList.toggle("active", panel.dataset.youMemoryPanel === button.dataset.youMemoryTab));
 }));
 $("[data-open-spark]")?.addEventListener("click", openSparkDemo);
-$("[data-service-picker]").addEventListener("click", chooseMusicService);
-$("[data-start-own-session]").addEventListener("click", chooseOwnTrack);
-$("[data-tether-action]").addEventListener("click", chooseOwnTrack);
+$("[data-service-picker]")?.addEventListener("click", chooseMusicService);
+$("[data-start-own-session]")?.addEventListener("click", openCurrentListening);
+$("[data-tether-action]").addEventListener("click", openCurrentListening);
+$("[data-explore-wavelength]")?.addEventListener("click", () => switchView("discover"));
 $("[data-wavelength-settings]").addEventListener("click", () => openWavelengthOnboarding(1));
 $("[data-open-exchange-composer]").addEventListener("click", () => {
   $$(".memory-tab").forEach(tab => tab.classList.toggle("active", tab.dataset.memoryTab === "drafts"));

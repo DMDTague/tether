@@ -136,7 +136,8 @@
   function installHomeCulture() {
     const home = document.querySelector("#home-view");
     const anchor = document.querySelector("#trending-session-list");
-    if (!home || !anchor || home.querySelector(".platform-home-culture")) return;
+    const secondary = home?.querySelector(".explore-more-content");
+    if (!home || (!secondary && !anchor) || home.querySelector(".platform-home-culture")) return;
     const section = document.createElement("section");
     section.className = "platform-home-culture";
     section.innerHTML = `
@@ -151,7 +152,8 @@
         <button data-platform-jump="feed">Open feed</button>
         <div class="platform-preview-review"><b>4.5</b><span><strong>Imaginal Disk</strong><small>“Every synth choice feels like another doorway.” · 18m</small></span></div>
       </article>`;
-    anchor.insertAdjacentElement("afterend", section);
+    if (secondary) secondary.append(section);
+    else anchor.insertAdjacentElement("afterend", section);
     section.querySelectorAll("[data-platform-jump]").forEach(button => button.addEventListener("click", () => openExchange(button.dataset.platformJump)));
   }
 

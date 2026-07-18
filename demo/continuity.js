@@ -154,13 +154,13 @@
 
   function addResumeCard() {
     const home = document.querySelector("#home-view");
-    const welcome = home?.querySelector(".home-welcome");
-    if (!home || !welcome || home.querySelector(".customer-resume-card")) return;
+    const secondary = home?.querySelector(".explore-more-content");
+    if (!home || !secondary || home.querySelector(".customer-resume-card")) return;
     const card = document.createElement("button");
     card.type = "button";
     card.className = "customer-resume-card";
     card.addEventListener("click", resumeJourney);
-    welcome.insertAdjacentElement("afterend", card);
+    secondary.prepend(card);
     refreshResumeCard();
   }
 

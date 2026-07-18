@@ -27,7 +27,8 @@ test("the persistent Tether action opens the listening flow", () => {
 
   assert.match(navigation, /data-tether-action/);
   assert.match(navigation, /aria-label="Open your listening"/);
-  assert.match(app, /\$\("\[data-tether-action\]"\)\.addEventListener\("click", chooseOwnTrack\)/);
+  assert.match(app, /\$\("\[data-tether-action\]"\)\.addEventListener\("click", openCurrentListening\)/);
+  assert.match(app, /function openCurrentListening\(\)/);
   assert.match(app, /<h3>Open your listening<\/h3>/);
 });
 

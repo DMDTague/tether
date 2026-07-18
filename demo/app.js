@@ -1,5 +1,5 @@
 (() => {
-  const styles = ["platform.css?v=17", "optimization.css?v=17", "continuity.css?v=17"];
+  const styles = ["platform.css?v=18", "optimization.css?v=18", "continuity.css?v=18"];
   styles.forEach(href => {
     const stylesheet = document.createElement("link");
     stylesheet.rel = "stylesheet";
@@ -15,10 +15,10 @@
     document.body.appendChild(script);
   };
 
-  loadScript("v14.js?v=17", () => {
-    loadScript("platform.js?v=17", () => {
-      loadScript("optimization.js?v=17", () => {
-        loadScript("continuity.js?v=17");
+  loadScript("v14.js?v=18", () => {
+    loadScript("platform.js?v=18", () => {
+      loadScript("optimization.js?v=18", () => {
+        loadScript("continuity.js?v=18");
       });
     });
   });

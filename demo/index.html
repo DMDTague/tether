@@ -12,7 +12,7 @@
   <meta name="twitter:card" content="summary">
   <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 64 64%22><rect width=%2264%22 height=%2264%22 rx=%2216%22 fill=%22%230b0d14%22/><circle cx=%2218%22 cy=%2232%22 r=%226%22 fill=%22%239ba0fa%22/><circle cx=%2246%22 cy=%2232%22 r=%226%22 fill=%22%234cd3a5%22/><path d=%22M24 32h16%22 stroke=%22white%22 stroke-width=%224%22 stroke-linecap=%22round%22/></svg>">
   <title>Tether — Philadelphia Live Demo</title>
-  <link rel="stylesheet" href="styles.css?v=14">
+  <link rel="stylesheet" href="styles.css?v=18">
 </head>
 <body>
   <main class="phone" aria-label="Tether Philadelphia interactive demo">
@@ -29,31 +29,45 @@
     </header>
 
     <section id="home-view" class="view active" aria-labelledby="home-title">
-      <div class="home-welcome">
-        <div>
-          <p class="eyebrow" id="home-eyebrow">This evening</p>
-          <h2 id="home-title">Listen together.</h2>
+      <h1 id="home-title" class="sr-only">Listen</h1>
+
+      <section id="listen-hero" class="listen-hero is-loading" data-listen-hero aria-label="Now playing" aria-live="polite">
+        <div class="listen-hero-skeleton"><span></span><i></i><b></b></div>
+      </section>
+
+      <section class="listen-section available-now" aria-labelledby="available-now-title">
+        <div class="listen-section-head">
+          <div><p class="eyebrow">People you know</p><h2 id="available-now-title">Available Now</h2></div>
+          <span id="available-now-count">Finding friends…</span>
         </div>
-        <div class="home-tools">
-          <button class="presence-quick open-door" data-presence-quick><i></i><span>Open Door</span><b>⌄</b></button>
-          <button class="service-pill" data-service-picker><span class="service-dot spotify"></span><span class="service-copy"><small>Music source</small><strong>Spotify</strong></span><span>⌄</span></button>
+        <div id="available-now-list" class="available-now-list" aria-label="Friends listening now"><div class="skeleton"></div></div>
+      </section>
+
+      <section class="listen-section continue-relationship" aria-labelledby="continue-relationship-title">
+        <div class="listen-section-head">
+          <div><p class="eyebrow">Pick up the thread</p><h2 id="continue-relationship-title">Continue a Relationship</h2></div>
         </div>
-      </div>
-      <div class="signal-stories-head"><strong>Friends listening</strong><span>Philadelphia now</span></div>
-      <div id="signal-story-rail" class="signal-story-rail" aria-label="Live listening sessions"></div>
-      <button class="start-session-card" data-start-own-session>
-        <span class="session-orbit"><i></i><i></i><b><span class="avatar-fallback">JR</span><img class="avatar-photo" src="avatars/john.roastpork.svg" alt=""></b></span>
-        <span class="start-copy"><small>Start a listening session</small><strong>Choose a song to listen together</strong><em>Your friends can join at the same point in the track.</em></span>
-        <span class="start-arrow">›</span>
-      </button>
-      <div class="home-section-head">
-        <div><p class="eyebrow">Live now</p><h3>Join a session</h3></div>
-      </div>
-      <div id="live-session-rail" class="live-session-rail"><div class="skeleton"></div><div class="skeleton"></div></div>
-      <div class="home-section-head">
-        <div><p class="eyebrow">Local listening</p><h3>Trending in Philadelphia</h3></div>
-      </div>
-      <div id="trending-session-list" class="trending-session-list"><div class="skeleton"></div><div class="skeleton"></div></div>
+        <div id="continue-relationship-card"></div>
+      </section>
+
+      <details id="explore-more" class="explore-more">
+        <summary><span><small>Discovery and culture</small><strong>Explore More</strong></span><b aria-hidden="true">＋</b></summary>
+        <div class="explore-more-content">
+          <section class="wavelength-teaser" aria-labelledby="wavelength-teaser-title">
+            <div class="listen-section-head">
+              <div><p class="eyebrow">Wavelength</p><h2 id="wavelength-teaser-title">People beyond your circle</h2></div>
+              <button data-explore-wavelength>Open</button>
+            </div>
+            <div id="wavelength-suggestion-list" class="wavelength-suggestion-list"></div>
+          </section>
+          <section aria-labelledby="trending-title">
+            <div class="listen-section-head">
+              <div><p class="eyebrow">Local listening</p><h2 id="trending-title">Trending in Philadelphia</h2></div>
+            </div>
+            <div id="trending-session-list" class="trending-session-list"><div class="skeleton"></div></div>
+          </section>
+        </div>
+      </details>
     </section>
 
     <section id="discover-view" class="view" aria-labelledby="discover-title">
@@ -269,6 +283,6 @@
 
     <div id="toast" class="toast" role="status"></div>
   </main>
-  <script src="app.js?v=14" defer></script>
+  <script src="app.js?v=18" defer></script>
 </body>
 </html>
