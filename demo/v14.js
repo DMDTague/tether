@@ -140,6 +140,11 @@ function titleCase(value) {
   return value.split("-").map((word) => word[0].toUpperCase() + word.slice(1)).join(" ");
 }
 
+function consequentialHaptic(pattern) {
+  if (!navigator.vibrate || !matchMedia("(pointer: coarse)").matches) return;
+  navigator.vibrate(pattern);
+}
+
 function formatApproxCount(value) {
   if (value >= 1000) return `${Math.floor(value / 1000)}K+`;
   if (value >= 100) return `${Math.floor(value / 100) * 100}+`;
@@ -997,7 +1002,6 @@ function renderReviews() {
     state.openThreads.add(index);
     state.popKeys.add(`replies-${index}`);
     renderReviews();
-    if (navigator.vibrate) navigator.vibrate(6);
   }));
   $$("[data-bookmark]").forEach(button => button.addEventListener("click", () => {
     const index = Number(button.dataset.bookmark);
@@ -1049,7 +1053,6 @@ function openReviewSlider(review, triggerButton) {
     const rect = slider.getBoundingClientRect();
     const ratio = Math.max(0, Math.min(1.12, (clientX - rect.left) / rect.width));
     const next = ratio > 1.01 ? 6 : 1 + Math.round(Math.min(1, ratio) * 8) / 2;
-    const becamePlatinum = next === 6 && state.reviewScore !== 6;
     state.reviewScore = next;
     slider.classList.toggle("platinum", next === 6);
     slider.setAttribute("aria-valuenow", String(next));
@@ -1060,7 +1063,6 @@ function openReviewSlider(review, triggerButton) {
       star.classList.toggle("filled", next >= value || (next === 6 && value === 6));
       star.classList.toggle("half", next === value - .5);
     });
-    if (becamePlatinum && navigator.vibrate) navigator.vibrate(90);
   };
   slider.addEventListener("pointerdown", event => { slider.setPointerCapture(event.pointerId); update(event.clientX); });
   slider.addEventListener("pointermove", event => { if (slider.hasPointerCapture(event.pointerId)) update(event.clientX); });
@@ -1750,6 +1752,7 @@ function startSession(profile) {
   state.pulseReady = false;
   state.pulsesThisSession = 0;
   const isSelf = profile.username === CURRENT_USER.username;
+  if (!isSelf) consequentialHaptic([18, 34, 24]);
   state.sessionIsSelf = isSelf;
   state.sessionGuestJoined = false;
   closeProfile();
@@ -1802,6 +1805,10 @@ function startSession(profile) {
       </div>
     </div>`;
   view.classList.add("open");
+  view.classList.remove("connection-celebration");
+  void view.offsetWidth;
+  view.classList.add("connection-celebration");
+  setTimeout(() => view.classList.remove("connection-celebration"), 760);
   $("[data-exit-session]", view).addEventListener("click", endSession);
   $("[data-host-pause]", view)?.addEventListener("click", toggleHostPause);
   $("[data-track-change]", view)?.addEventListener("click", simulateTrackChange);
@@ -1842,6 +1849,7 @@ function startSession(profile) {
       }
       const note = $("[data-session-note]", view);
       if (note) note.textContent = "";
+      consequentialHaptic([16, 28, 22]);
       toast(`${guest.name} joined your Stage ✦`);
     }, 5500);
   }
@@ -1969,6 +1977,9 @@ function endSession() {
   state.sessionTrack = null;
   state.sessionIsSelf = false;
   state.sessionPaused = false;
+  consequentialHaptic([14, 24, 14]);
+  $(".phone").classList.add("session-complete");
+  setTimeout(() => $(".phone")?.classList.remove("session-complete"), 620);
   toast(isSelf ? "Your Stage went quiet." : "Session saved as a private Memory Anchor.");
 }
 
@@ -2037,6 +2048,7 @@ function firePulse() {
   stage.appendChild(spark);
   spark.addEventListener("animationend", () => spark.remove());
   $("[data-session-note]").textContent = `Pulse sent to ${state.session.name} ✦`;
+  consequentialHaptic([20, 36, 26]);
   state.pulsesThisSession += 1;
   state.pulseCooldownUntil = Date.now() + PULSE_COOLDOWN_MS;
   beginPulseCooldownDisplay();
@@ -2140,8 +2152,6 @@ function switchView(viewName, bypassOnboarding = false) {
   phone.scrollTop = 0;
   const activeView = $(`#${viewName}-view`);
   if (activeView) activeView.scrollTop = 0;
-  activeView?.classList.remove("view-arriving");
-  requestAnimationFrame(() => activeView?.classList.add("view-arriving"));
   if (!state.seenViews.has(viewName)) {
     state.seenViews.add(viewName);
     showViewSkeleton(viewName);
@@ -2317,32 +2327,7 @@ $("#feature-modal").addEventListener("click", (event) => {
 $$(".nav-item").forEach((button) => button.addEventListener("click", () => switchView(button.dataset.view)));
 $$(".self-avatar").forEach((button) => button.addEventListener("click", () => switchView("you")));
 
-// Make the atmosphere and controls answer the user's touch instead of looping independently.
 const phone = $(".phone");
 phone.dataset.scene = "home";
-let touchFrame = 0;
-let pendingTouch = null;
-phone.addEventListener("pointermove", (event) => {
-  pendingTouch = { x: event.clientX, y: event.clientY };
-  if (touchFrame) return;
-  touchFrame = requestAnimationFrame(() => {
-    const bounds = phone.getBoundingClientRect();
-    phone.style.setProperty("--touch-x", `${((pendingTouch.x - bounds.left) / bounds.width) * 100}%`);
-    phone.style.setProperty("--touch-y", `${((pendingTouch.y - bounds.top) / bounds.height) * 100}%`);
-    touchFrame = 0;
-  });
-});
-document.addEventListener("pointerdown", (event) => {
-  const button = event.target.closest("button");
-  if (!button || button.disabled) return;
-  const bounds = button.getBoundingClientRect();
-  const ripple = document.createElement("span");
-  ripple.className = "intent-ripple";
-  ripple.style.left = `${event.clientX - bounds.left}px`;
-  ripple.style.top = `${event.clientY - bounds.top}px`;
-  button.appendChild(ripple);
-  setTimeout(() => ripple.remove(), 650);
-  if (navigator.vibrate && matchMedia("(pointer: coarse)").matches) navigator.vibrate(7);
-});
 
 init();
