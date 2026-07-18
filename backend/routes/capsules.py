@@ -4,21 +4,84 @@ Tether Time Capsules Routes
 Create capsules with environmental locks, list, and check lock conditions.
 """
 
+import json
+import math
 from datetime import datetime, timezone
-from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
-from pydantic import BaseModel
 from typing import Optional
 
+from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from config import get_settings
 from db.database import get_db
 from models.models import TimeCapsule, User
 from routes.auth import get_current_user_id, user_to_dict
 from services.weather import check_if_raining, get_temperature
-import math
-import json
 
 router = APIRouter(prefix="/api/capsules", tags=["capsules"])
+settings = get_settings()
+
+
+def _coarsen_geofence_lock(lock_value: str) -> str:
+    """Replace an exact geofence target with a privacy-preserving cell."""
+    try:
+        params = json.loads(lock_value)
+        lat = float(params["lat"])
+        lon = float(params["lon"])
+        radius_m = int(params.get("radius_m", 500))
+    except (KeyError, TypeError, ValueError, json.JSONDecodeError) as exc:
+        raise ValueError("Geofence lock requires valid lat and lon coordinates") from exc
+
+    if not (-90 <= lat <= 90 and -180 <= lon <= 180):
+        raise ValueError("Geofence coordinates are out of range")
+
+    precision = settings.LOCATION_CELL_DEGREES
+    coarse = {
+        "cell": [math.floor(lat / precision), math.floor(lon / precision)],
+        "precision": precision,
+        "radiusM": max(radius_m, 0),
+    }
+    return json.dumps(coarse, separators=(",", ":"))
+
+
+def _safe_lock_value(lock_type: str | None, lock_value: str | None) -> str | None:
+    """Prevent legacy exact geofence coordinates from leaving the API."""
+    if lock_type != "geofence" or not lock_value:
+        return lock_value
+    try:
+        params = json.loads(lock_value)
+    except (TypeError, json.JSONDecodeError):
+        return None
+    if "lat" in params or "lon" in params:
+        try:
+            return _coarsen_geofence_lock(lock_value)
+        except ValueError:
+            return None
+    return lock_value
+
+
+def _geofence_target(lock_value: str) -> tuple[float, float, int] | None:
+    """Resolve coarse cells and legacy targets for lock evaluation."""
+    try:
+        params = json.loads(lock_value)
+        radius_m = max(int(params.get("radiusM", params.get("radius_m", 500))), 0)
+        if "cell" in params:
+            precision = float(params.get("precision", settings.LOCATION_CELL_DEGREES))
+            target_lat = (int(params["cell"][0]) + 0.5) * precision
+            target_lon = (int(params["cell"][1]) + 0.5) * precision
+            return target_lat, target_lon, radius_m
+        if "latCell" in params and "lonCell" in params:
+            precision = float(params.get("precisionDegrees", settings.LOCATION_CELL_DEGREES))
+            target_lat = (int(params["latCell"]) + 0.5) * precision
+            target_lon = (int(params["lonCell"]) + 0.5) * precision
+            return target_lat, target_lon, radius_m
+        if "lat" in params and "lon" in params:
+            return float(params["lat"]), float(params["lon"]), radius_m
+    except (TypeError, ValueError, json.JSONDecodeError):
+        pass
+    return None
 
 
 class CreateCapsuleRequest(BaseModel):
@@ -27,13 +90,20 @@ class CreateCapsuleRequest(BaseModel):
     artist_name: str
     track_id: Optional[str] = None
     start_position_ms: int
-    lock_type: Optional[str] = None  # midnight | rain | date
+    lock_type: Optional[str] = None  # midnight | rain | date | time_of_day | temperature | geofence
     lock_value: Optional[str] = None
 
 
 @router.post("")
 async def create_capsule(req: CreateCapsuleRequest, user_id: str = Depends(get_current_user_id), db: AsyncSession = Depends(get_db)):
     """Create a time capsule (async tether) with optional environmental lock."""
+    lock_value = req.lock_value
+    if req.lock_type == "geofence" and lock_value:
+        try:
+            lock_value = _coarsen_geofence_lock(lock_value)
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+
     capsule = TimeCapsule(
         sender_id=user_id,
         recipient_id=req.recipient_id,
@@ -42,7 +112,7 @@ async def create_capsule(req: CreateCapsuleRequest, user_id: str = Depends(get_c
         track_id=req.track_id,
         start_position_ms=req.start_position_ms,
         lock_type=req.lock_type,
-        lock_value=req.lock_value,
+        lock_value=lock_value,
     )
     db.add(capsule)
     await db.flush()
@@ -70,7 +140,7 @@ async def list_capsules(user_id: str = Depends(get_current_user_id), db: AsyncSe
             "artistName": c.artist_name,
             "startPositionMs": c.start_position_ms,
             "lockType": c.lock_type,
-            "lockValue": c.lock_value,
+            "lockValue": _safe_lock_value(c.lock_type, c.lock_value),
             "isOpened": c.is_opened,
             "createdAt": c.created_at.isoformat() if c.created_at else None,
         })
@@ -153,12 +223,10 @@ async def check_lock(
     elif capsule.lock_type == "geofence":
         if capsule.lock_value and lat is not None and lon is not None:
             try:
-                params = json.loads(capsule.lock_value)
-                target_lat = params.get("lat")
-                target_lon = params.get("lon")
-                radius_m = params.get("radius_m", 500)
-                
-                if target_lat is not None and target_lon is not None:
+                target = _geofence_target(capsule.lock_value)
+
+                if target:
+                    target_lat, target_lon, radius_m = target
                     # Haversine formula
                     R = 6371e3
                     phi1 = math.radians(lat)
