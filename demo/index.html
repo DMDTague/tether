@@ -27,7 +27,7 @@
       <button class="self-avatar header-profile" aria-label="Open John Roastpork's profile"><span class="avatar-fallback">JR</span><img class="avatar-photo" src="avatars/john.roastpork.svg" alt=""></button>
     </header>
 
-    <section id="home-view" class="view active" aria-labelledby="home-title">
+    <section id="home-view" class="view active" role="tabpanel" aria-labelledby="listen-tab" aria-hidden="false">
       <h1 id="home-title" class="sr-only">Listen</h1>
 
       <section id="listen-hero" class="listen-hero is-loading" data-listen-hero aria-label="Now playing" aria-live="polite">
@@ -179,7 +179,7 @@
       <div id="history-feed" class="memory-panel" data-memory-panel="history"></div>
     </section>
 
-    <section id="messages-view" class="view" aria-labelledby="messages-title">
+    <section id="messages-view" class="view" role="tabpanel" aria-labelledby="people-tab" aria-hidden="true">
       <div class="section-heading people-heading">
         <div><p class="eyebrow">Your circle</p><h2 id="messages-title">People</h2></div>
         <button class="dating-mode-toggle" data-dating-mode-toggle aria-pressed="false"><i></i><span>Dating Mode</span><small>Off</small></button>
@@ -202,7 +202,7 @@
       </section>
     </section>
 
-    <section id="you-view" class="view" aria-labelledby="you-title">
+    <section id="you-view" class="view" role="tabpanel" aria-labelledby="you-tab" aria-hidden="true">
       <div class="you-card">
         <div class="avatar xl self-avatar"><b class="avatar-fallback">JR</b><img class="avatar-photo" src="avatars/john.roastpork.svg" alt=""></div>
         <p class="eyebrow">Your demo identity</p>
@@ -220,11 +220,11 @@
       </div>
       <div class="profile-collection-head"><div><p class="eyebrow">Collected signal</p><h3>Your music life</h3></div><button data-view="activity" class="profile-exchange-link">Open Exchange</button></div>
       <div class="you-memory-tabs" role="tablist" aria-label="Your shared music life">
-        <button class="active" data-you-memory-tab="shared">Shared identities</button>
-        <button data-you-memory-tab="anchors">Anchors</button>
-        <button data-you-memory-tab="capsules">Capsules</button>
+        <button id="shared-identities-tab" class="active" role="tab" aria-selected="true" aria-controls="shared-identities-panel" data-you-memory-tab="shared">Shared identities</button>
+        <button id="anchors-tab" role="tab" aria-selected="false" aria-controls="anchors-panel" data-you-memory-tab="anchors">Anchors</button>
+        <button id="capsules-tab" role="tab" aria-selected="false" aria-controls="capsules-panel" data-you-memory-tab="capsules">Capsules</button>
       </div>
-      <div class="you-memory-panel active" data-you-memory-panel="shared">
+      <div id="shared-identities-panel" class="you-memory-panel active" role="tabpanel" aria-labelledby="shared-identities-tab" aria-hidden="false" data-you-memory-panel="shared">
         <div class="shared-identity-intro">
           <p class="eyebrow">Made between two people</p>
           <h3>Your shared identities</h3>
@@ -232,7 +232,7 @@
         </div>
         <div id="shared-identity-feed" class="shared-identity-feed"></div>
       </div>
-      <div class="you-memory-panel" data-you-memory-panel="anchors">
+      <div id="anchors-panel" class="you-memory-panel" role="tabpanel" aria-labelledby="anchors-tab" aria-hidden="true" data-you-memory-panel="anchors">
         <div class="recap-card">
           <p class="eyebrow">Shared history</p>
           <h3>Memory Anchors</h3>
@@ -240,7 +240,7 @@
           <div id="anchor-feed" class="anchor-feed"></div>
         </div>
       </div>
-      <div class="you-memory-panel" data-you-memory-panel="capsules">
+      <div id="capsules-panel" class="you-memory-panel" role="tabpanel" aria-labelledby="capsules-tab" aria-hidden="true" data-you-memory-panel="capsules">
         <div class="recap-card">
           <p class="eyebrow">Saved for later</p>
           <h3>Time Capsules</h3>
@@ -264,20 +264,37 @@
     <section id="session-view" class="overlay-view"></section>
     <section id="feature-modal" class="feature-modal"></section>
 
+    <aside id="anchor-prompt" class="anchor-prompt" role="dialog" aria-modal="false" aria-labelledby="anchor-prompt-title" aria-describedby="anchor-prompt-description" hidden>
+      <button class="anchor-prompt-dismiss" type="button" data-dismiss-anchor-prompt aria-label="Dismiss feeling prompt; Memory Anchor is already saved">×</button>
+      <p class="eyebrow">Memory Anchor saved</p>
+      <h2 id="anchor-prompt-title">What did this one feel like?</h2>
+      <p id="anchor-prompt-description">The song, person, date, and duration are already safe. Add a feeling only if you want to.</p>
+      <p class="anchor-prompt-session" data-anchor-prompt-session></p>
+      <form data-anchor-feeling-form>
+        <label for="anchor-feeling">Optional feeling</label>
+        <div class="anchor-prompt-entry">
+          <input id="anchor-feeling" name="feeling" type="text" maxlength="160" autocomplete="off" placeholder="Quiet, electric, like coming home…">
+          <button type="submit">Save</button>
+        </div>
+      </form>
+    </aside>
+
     <nav class="bottom-nav" aria-label="Main navigation">
-      <button class="nav-item active" data-view="home" aria-current="page">
-        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12h3l2.2-5 4.1 10 2.2-5H20"/></svg><small>Listen</small>
-      </button>
-      <button class="nav-item" data-view="messages">
-        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="9" r="3"/><circle cx="16.5" cy="10.5" r="2.5"/><path d="M3.5 19c.7-3.3 2.7-5 5.5-5s4.8 1.7 5.5 5M14 15c2.8-.5 4.8.8 5.8 3.5"/></svg><small>People</small>
-        <span class="nav-badge" data-unread-badge hidden>0</span>
-      </button>
+      <div class="bottom-nav-tablist" role="tablist" aria-label="Primary views">
+        <button id="listen-tab" class="nav-item active" role="tab" data-view="home" aria-controls="home-view" aria-selected="true" aria-current="page">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12h3l2.2-5 4.1 10 2.2-5H20"/></svg><small>Listen</small>
+        </button>
+        <button id="people-tab" class="nav-item" role="tab" data-view="messages" aria-controls="messages-view" aria-selected="false">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="9" r="3"/><circle cx="16.5" cy="10.5" r="2.5"/><path d="M3.5 19c.7-3.3 2.7-5 5.5-5s4.8 1.7 5.5 5M14 15c2.8-.5 4.8.8 5.8 3.5"/></svg><small>People</small>
+          <span class="nav-badge" data-unread-badge hidden>0</span>
+        </button>
+        <button id="you-tab" class="nav-item" role="tab" data-view="you" aria-controls="you-view" aria-selected="false">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8.5" r="3.4"/><path d="M5.5 19.5 C6.5 15.5, 9 14, 12 14 C15 14, 17.5 15.5, 18.5 19.5"/></svg><small>You</small>
+        </button>
+      </div>
       <button class="tether-action" type="button" data-tether-action aria-label="Open your listening">
         <span class="tether-action-signal" aria-hidden="true"><i></i><i></i><i></i></span>
         <span>Tether</span>
-      </button>
-      <button class="nav-item" data-view="you">
-        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8.5" r="3.4"/><path d="M5.5 19.5 C6.5 15.5, 9 14, 12 14 C15 14, 17.5 15.5, 18.5 19.5"/></svg><small>You</small>
       </button>
     </nav>
 

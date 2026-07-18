@@ -41,6 +41,7 @@ const state = {
   ,reviewScore: 0
   ,sessionPulseCount: 0
   ,sessionIsSelf: false
+  ,sessionGuestJoined: false
   ,sessionTrack: null
   ,sessionJoinTimerId: null
   ,ratedHistory: []
@@ -51,6 +52,8 @@ const state = {
   ,seenViews: new Set(["home"])
   ,threads: null
   ,sessionPrivacy: "open-door"
+  ,sessionCompanionUsername: null
+  ,pendingAnchorId: null
   ,currentTrack: { ...DEMO_TRACKS[0] }
 };
 
@@ -65,6 +68,7 @@ const CURRENT_USER = {
   topArtists: ["Japanese Breakfast", "Bon Iver", "Kaytranada", "Radiohead", "Frank Ocean"]
 };
 const MOODS = ["Calm", "Nostalgic", "Heavy", "Discovery", "Night drive"];
+const MIN_MEANINGFUL_SESSION_MS = 5 * 60 * 1000;
 const MUSIC_BIO_PATTERNS = [
   p => `I build playlists for late walks and always leave room for ${p.topArtists[0]}.`,
   p => `Album-order purist. Currently trying to convert everyone to ${p.topArtists[1]}.`,
@@ -1245,6 +1249,42 @@ function profileByUsername(username) {
   return state.profiles.find((profile) => profile.username === username);
 }
 
+function hideAnchorFeelingPrompt(returnFocus = false) {
+  const prompt = $("#anchor-prompt");
+  if (!prompt || prompt.hidden) return;
+  prompt.hidden = true;
+  prompt.removeAttribute("data-anchor-id");
+  state.pendingAnchorId = null;
+  if (returnFocus) {
+    const selectedTab = $('.nav-item[aria-selected="true"]');
+    selectedTab?.focus({ preventScroll: true });
+  }
+}
+
+function showAnchorFeelingPrompt(anchor, profile) {
+  const prompt = $("#anchor-prompt");
+  const input = $("#anchor-feeling");
+  const summary = $("[data-anchor-prompt-session]");
+  if (!prompt || !input || !summary) return;
+  state.pendingAnchorId = anchor.id;
+  prompt.dataset.anchorId = anchor.id;
+  summary.textContent = `${anchor.track} with ${profile.name} · ${anchor.minutes} min`;
+  input.value = "";
+  prompt.hidden = false;
+  requestAnimationFrame(() => input.focus({ preventScroll: true }));
+}
+
+function saveAnchorFeeling() {
+  const anchor = anchors.find((item) => item.id === state.pendingAnchorId);
+  const feeling = $("#anchor-feeling")?.value.trim() || "";
+  if (anchor) {
+    anchor.feeling = feeling;
+    renderAnchors();
+  }
+  hideAnchorFeelingPrompt(true);
+  toast(feeling ? "Feeling added to your Memory Anchor." : "Memory Anchor saved automatically.");
+}
+
 function renderAnchors() {
   $("#anchor-feed").innerHTML = anchors.map((anchor) => {
     const profile = profileByUsername(anchor.username);
@@ -1260,6 +1300,7 @@ function renderAnchors() {
         </div>
         <p class="anchor-track">${escapeHtml(anchor.track)}</p>
         <p class="anchor-meta">${escapeHtml(anchor.artist)} · ${anchor.minutes} min · ${escapeHtml(anchor.distance)}</p>
+        ${anchor.feeling ? `<p class="anchor-feeling">${escapeHtml(anchor.feeling)}</p>` : ""}
         <div class="health-bar"><span style="width:${anchor.health}%"></span></div>
         ${anchor.mood ? "" : `
           <div class="mood-picker">
@@ -1745,6 +1786,7 @@ function handlePrimaryAction(profile) {
 
 // Session implementation.
 function startSession(profile) {
+  hideAnchorFeelingPrompt();
   state.session = profile;
   state.sessionPrivacy = state.userPrivacy;
   state.sessionPaused = false;
@@ -1755,6 +1797,7 @@ function startSession(profile) {
   if (!isSelf) consequentialHaptic([18, 34, 24]);
   state.sessionIsSelf = isSelf;
   state.sessionGuestJoined = false;
+  state.sessionCompanionUsername = isSelf ? null : profile.username;
   closeProfile();
   const view = $("#session-view");
   const track = profile.currentTrack || {
@@ -1792,15 +1835,15 @@ function startSession(profile) {
       <p class="pause-notice" data-pause-notice></p>
       <div class="session-controls">
         ${isSelf
-          ? `<button data-host-pause>Pause your stage</button><button data-track-change>Play next track</button><button data-manage-session>Manage</button>`
-          : `<button class="demo-controls-trigger" data-session-demo-controls>Demo controls</button>`}
+          ? `<button data-host-pause aria-label="Pause your stage">Pause your stage</button><button data-track-change aria-label="Play next track">Play next track</button><button data-manage-session aria-label="Manage this listening session">Manage</button>`
+          : `<button class="demo-controls-trigger" data-session-demo-controls aria-label="Open session demo controls">Demo controls</button>`}
       </div>
       <div class="pulse-wrap">
-        <button class="pulse-button" data-pulse aria-label="Hold to send pulse" ${isSelf ? "disabled" : ""}>
+        <button class="pulse-button" data-pulse aria-label="Send a Pulse; press and hold for 1.5 seconds" aria-describedby="pulse-instruction" ${isSelf ? "disabled" : ""}>
           <span class="pulse-fill" data-pulse-fill></span>
-          <span class="pulse-symbol">✦</span>
+          <span class="pulse-symbol" aria-hidden="true">✦</span>
         </button>
-        <p class="pulse-label" data-pulse-label>${isSelf ? "Pulses unlock when a friend joins" : "Pulse — hold for 1.5 seconds to say “I’m here”"}</p>
+        <p id="pulse-instruction" class="pulse-label" data-pulse-label>${isSelf ? "Pulses unlock when a friend joins" : "Pulse — hold for 1.5 seconds to say “I’m here”"}</p>
         <p class="session-note" data-session-note>${isSelf ? "Friends in your Orbit can see your Stage is live." : ""}</p>
       </div>
     </div>`;
@@ -1836,6 +1879,7 @@ function startSession(profile) {
       const stack = $(".listener-stack", view);
       if (!stack || !view.classList.contains("open") || !state.sessionIsSelf) return;
       state.sessionGuestJoined = true;
+      state.sessionCompanionUsername = guest.username;
       stack.insertAdjacentHTML("afterbegin", avatarSpan(guest));
       const person = $(".session-person", view);
       if (person) person.innerHTML = `You + ${escapeHtml(guest.name.split(" ")[0])} · live · <span data-session-timer>${formatTime((Date.now() - state.sessionStartedAt) / 1000)}</span>`;
@@ -1948,22 +1992,32 @@ function advanceSessionTrack(view) {
 
 function endSession() {
   const profile = state.session;
-  const elapsed = Math.max(1, Math.round((Date.now() - state.sessionStartedAt) / 60000));
+  const durationMs = Math.max(0, Date.now() - state.sessionStartedAt);
+  const elapsed = Math.max(1, Math.round(durationMs / 60000));
   const isSelf = state.sessionIsSelf;
-  if (!isSelf && profile && state.sessionTrack) {
-    const miles = distanceMiles(profile);
-    anchors.unshift({
+  const companion = profileByUsername(state.sessionCompanionUsername) || (!isSelf ? profile : null);
+  const meaningful = Boolean(companion && (
+    durationMs >= MIN_MEANINGFUL_SESSION_MS ||
+    state.pulsesThisSession > 0
+  ));
+  let savedAnchor = null;
+  if (meaningful && companion && state.sessionTrack) {
+    const miles = distanceMiles(companion);
+    const endedAt = new Date();
+    savedAnchor = {
       id: `a${Date.now()}`,
-      username: profile.username,
+      username: companion.username,
       track: state.sessionTrack.name,
       artist: state.sessionTrack.artist,
       minutes: elapsed,
       pulses: state.pulsesThisSession,
-      date: "Just now",
+      date: `Today · ${endedAt.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}`,
       mood: null,
+      feeling: "",
       distance: Number.isFinite(miles) ? `${miles.toFixed(1)} miles` : "Philadelphia",
       health: 100
-    });
+    };
+    anchors.unshift(savedAnchor);
     renderAnchors();
   }
   clearInterval(state.sessionTimerId);
@@ -1976,11 +2030,19 @@ function endSession() {
   state.session = null;
   state.sessionTrack = null;
   state.sessionIsSelf = false;
+  state.sessionStartedAt = 0;
+  state.sessionGuestJoined = false;
+  state.sessionCompanionUsername = null;
   state.sessionPaused = false;
   consequentialHaptic([14, 24, 14]);
   $(".phone").classList.add("session-complete");
   setTimeout(() => $(".phone")?.classList.remove("session-complete"), 620);
-  toast(isSelf ? "Your Stage went quiet." : "Session saved as a private Memory Anchor.");
+  if (savedAnchor && companion) {
+    showAnchorFeelingPrompt(savedAnchor, companion);
+    toast("Memory Anchor saved automatically.");
+  } else {
+    toast(isSelf ? "Your Stage went quiet." : "Session ended. Longer listens become Memory Anchors.");
+  }
 }
 
 function startPulseCharge(event) {
@@ -2096,9 +2158,11 @@ function toggleHostPause(event) {
   const who = state.sessionIsSelf ? "You" : state.session.name;
   $("[data-pause-notice]").textContent = state.sessionPaused ? `${who} paused` : "";
   $("[data-sync-status]").textContent = state.sessionPaused ? "Ⅱ host paused · playback stopped" : `● re-synced within ${58 + Math.floor(Math.random() * 40)} ms`;
-  event.currentTarget.textContent = state.sessionIsSelf
+  const actionLabel = state.sessionIsSelf
     ? (state.sessionPaused ? "Resume your stage" : "Pause your stage")
-    : (state.sessionPaused ? "Resume host" : "Pause host");
+    : (state.sessionPaused ? "Resume host playback" : "Pause host playback");
+  event.currentTarget.textContent = actionLabel;
+  event.currentTarget.setAttribute("aria-label", actionLabel);
 }
 
 function simulateTrackChange(event) {
@@ -2106,8 +2170,12 @@ function simulateTrackChange(event) {
   const button = event.currentTarget;
   advanceSessionTrack($("#session-view"));
   button.textContent = "Crossfaded to next track";
+  button.setAttribute("aria-label", "Playing the next track");
   setTimeout(() => {
-    if (button.isConnected) button.textContent = state.sessionIsSelf ? "Play next track" : "Change host’s track";
+    if (!button.isConnected) return;
+    const label = state.sessionIsSelf ? "Play next track" : "Change host’s track";
+    button.textContent = label;
+    button.setAttribute("aria-label", label);
   }, 1800);
 }
 
@@ -2140,10 +2208,15 @@ function showViewSkeleton(viewName) {
 }
 
 function switchView(viewName, bypassOnboarding = false) {
-  $$(".view").forEach((view) => view.classList.toggle("active", view.id === `${viewName}-view`));
+  $$(".view").forEach((view) => {
+    const isActive = view.id === `${viewName}-view`;
+    view.classList.toggle("active", isActive);
+    view.setAttribute("aria-hidden", String(!isActive));
+  });
   $$(".nav-item").forEach((button) => {
     const isActive = button.dataset.view === viewName;
     button.classList.toggle("active", isActive);
+    button.setAttribute("aria-selected", String(isActive));
     if (isActive) button.setAttribute("aria-current", "page");
     else button.removeAttribute("aria-current");
   });
@@ -2156,6 +2229,34 @@ function switchView(viewName, bypassOnboarding = false) {
     state.seenViews.add(viewName);
     showViewSkeleton(viewName);
   }
+}
+
+function selectYouMemoryTab(button) {
+  $$("[data-you-memory-tab]").forEach((item) => {
+    const isActive = item === button;
+    item.classList.toggle("active", isActive);
+    item.setAttribute("aria-selected", String(isActive));
+  });
+  $$("[data-you-memory-panel]").forEach((panel) => {
+    const isActive = panel.dataset.youMemoryPanel === button.dataset.youMemoryTab;
+    panel.classList.toggle("active", isActive);
+    panel.setAttribute("aria-hidden", String(!isActive));
+  });
+}
+
+function handleTablistKeys(event, tabs, activate) {
+  const index = tabs.indexOf(event.currentTarget);
+  if (index < 0) return;
+  let targetIndex = null;
+  if (event.key === "ArrowRight") targetIndex = (index + 1) % tabs.length;
+  if (event.key === "ArrowLeft") targetIndex = (index - 1 + tabs.length) % tabs.length;
+  if (event.key === "Home") targetIndex = 0;
+  if (event.key === "End") targetIndex = tabs.length - 1;
+  if (targetIndex === null) return;
+  event.preventDefault();
+  const target = tabs[targetIndex];
+  target.focus({ preventScroll: true });
+  activate(target);
 }
 
 function switchDiscoverMode(mode) {
@@ -2303,14 +2404,29 @@ $$("[data-user-privacy]").forEach((button) => button.addEventListener("click", (
 $("[data-presence-quick]")?.addEventListener("click", openPresenceQuick);
 $("[data-demo-menu]").addEventListener("click", openDemoMenu);
 $("[data-radar-help]")?.addEventListener("click", openRadarHelp);
-$$("[data-you-memory-tab]").forEach(button => button.addEventListener("click", () => {
-  $$("[data-you-memory-tab]").forEach(item => item.classList.toggle("active", item === button));
-  $$("[data-you-memory-panel]").forEach(panel => panel.classList.toggle("active", panel.dataset.youMemoryPanel === button.dataset.youMemoryTab));
-}));
+const youMemoryTabs = $$("[data-you-memory-tab]");
+youMemoryTabs.forEach(button => {
+  button.addEventListener("click", () => selectYouMemoryTab(button));
+  button.addEventListener("keydown", event => handleTablistKeys(event, youMemoryTabs, selectYouMemoryTab));
+});
 $("[data-open-spark]")?.addEventListener("click", openSparkDemo);
 $("[data-service-picker]")?.addEventListener("click", chooseMusicService);
 $("[data-start-own-session]")?.addEventListener("click", openCurrentListening);
 $("[data-tether-action]").addEventListener("click", openCurrentListening);
+$("[data-anchor-feeling-form]").addEventListener("submit", event => {
+  event.preventDefault();
+  saveAnchorFeeling();
+});
+$("[data-dismiss-anchor-prompt]").addEventListener("click", () => {
+  hideAnchorFeelingPrompt(true);
+  toast("Memory Anchor saved automatically.");
+});
+$("#anchor-prompt").addEventListener("keydown", event => {
+  if (event.key !== "Escape") return;
+  event.preventDefault();
+  hideAnchorFeelingPrompt(true);
+  toast("Memory Anchor saved automatically.");
+});
 $("[data-explore-wavelength]")?.addEventListener("click", () => switchView("discover"));
 $$('[data-dating-mode-toggle]').forEach(button => button.addEventListener("click", () => setDatingMode(!state.datingMode)));
 $("[data-wavelength-settings]")?.addEventListener("click", () => setDatingMode(!state.datingMode));
@@ -2324,7 +2440,11 @@ $("[data-view='activity'].profile-exchange-link").addEventListener("click", () =
 $("#feature-modal").addEventListener("click", (event) => {
   if (event.target === event.currentTarget) closeFeatureModal();
 });
-$$(".nav-item").forEach((button) => button.addEventListener("click", () => switchView(button.dataset.view)));
+const primaryTabs = $$('.nav-item[role="tab"]');
+primaryTabs.forEach(button => {
+  button.addEventListener("click", () => switchView(button.dataset.view));
+  button.addEventListener("keydown", event => handleTablistKeys(event, primaryTabs, target => switchView(target.dataset.view)));
+});
 $$(".self-avatar").forEach((button) => button.addEventListener("click", () => switchView("you")));
 
 const phone = $(".phone");

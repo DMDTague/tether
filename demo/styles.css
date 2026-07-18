@@ -29,7 +29,7 @@
   --surface-3: #242A3E;
   --text: #EEEFF6;
   --muted: #A9AEC2;
-  --dim: #868EAB;
+  --dim: #8D95B2;
   --line: rgba(255,255,255,.08);
 
   --presence: #9BA0FA;
@@ -1499,4 +1499,18 @@ input,select,textarea,.thread-compose input,.chat-compose input{font-size:16px}
 .identity-chips{display:flex;flex-wrap:wrap;justify-content:center;gap:6px;margin-top:14px}.profile-primary-actions{display:grid;grid-template-columns:1.35fr 1fr;gap:8px;width:100%;margin-top:15px}.profile-primary-actions .btn{min-height:49px}.simplified-profile-content{display:grid;gap:12px}.why-connect-panel{display:grid;gap:15px}.shared-artist-proof{padding:13px;border:1px solid rgba(76,211,165,.16);border-radius:15px;background:rgba(76,211,165,.05)}.shared-artist-proof strong{font-size:13px}.shared-artist-proof p{margin:5px 0 0;color:var(--muted);font-size:13px;line-height:1.5}.dating-opt-in{width:100%;min-height:50px;margin-top:16px}
 #profile-view .customer-profile-actions,#profile-view .platform-profile-culture{display:none!important}
 .people-live-card:focus-visible,.introduction-person:focus-visible,.introduction-action:focus-visible,.dating-mode-toggle:focus-visible,.people-inbox>summary:focus-visible{outline:2px solid var(--sync);outline-offset:3px}
+
+/* v0.20 — accessible navigation and automatic Memory Anchor reflection */
+.bottom-nav-tablist{display:contents}
+.anchor-prompt[hidden]{display:none}
+.anchor-prompt{position:absolute;left:14px;right:14px;bottom:92px;z-index:58;padding:18px;border:1px solid rgba(155,160,250,.35);border-radius:24px;background:linear-gradient(150deg,rgba(31,35,54,.98),rgba(11,13,22,.99));box-shadow:0 24px 70px rgba(0,0,0,.55),inset 0 1px rgba(255,255,255,.1)}
+.anchor-prompt-dismiss{position:absolute;right:10px;top:10px;width:44px;height:44px;border:0;border-radius:50%;background:rgba(255,255,255,.06);color:var(--muted);font-size:22px;cursor:pointer}
+.anchor-prompt .eyebrow{padding-right:42px;color:var(--sync)}
+.anchor-prompt h2{margin:4px 42px 7px 0;font:700 23px/1.08 var(--display)}
+.anchor-prompt-description{max-width:330px;margin:0;color:var(--muted);font-size:13px;line-height:1.48}
+.anchor-prompt-session{margin:12px 0;padding:10px 12px;border:1px solid rgba(255,255,255,.08);border-radius:14px;background:rgba(255,255,255,.04);color:var(--text);font-size:13px}
+.anchor-prompt form{display:grid;gap:7px}.anchor-prompt label{color:var(--muted);font-size:13px;font-weight:700}.anchor-prompt-entry{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px}.anchor-prompt input{min-width:0;min-height:48px;border:1px solid rgba(255,255,255,.13);border-radius:14px;background:rgba(7,9,15,.7);color:var(--text);padding:10px 12px;font-size:16px}.anchor-prompt-entry button{min-width:72px;min-height:48px;border:0;border-radius:14px;background:linear-gradient(115deg,#a38cf5,#4cd3a5);color:#090b12;font-weight:800;cursor:pointer}
+.anchor-feeling{margin:10px 0 0;padding:10px 12px;border-left:2px solid var(--sync);border-radius:0 12px 12px 0;background:rgba(76,211,165,.06);color:var(--text);font-size:13px;line-height:1.5}
+:where(button,[href],input,select,textarea,summary,[tabindex]:not([tabindex="-1"])):focus-visible{outline:3px solid #9FE8D2!important;outline-offset:3px!important;box-shadow:0 0 0 2px var(--bg)!important}
+@media(max-width:370px){.anchor-prompt{left:10px;right:10px;bottom:88px;padding:15px}.anchor-prompt-entry{grid-template-columns:1fr}.anchor-prompt-entry button{width:100%}}
 @media(max-width:370px){#messages-view{padding-inline:12px}.friends-of-friends-list{grid-template-columns:1fr}.people-section-head>span{display:none}}
