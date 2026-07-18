@@ -1,3 +1,7 @@
+import os
+
+os.environ.setdefault("SECRET_KEY", "test-only-secret-key-that-is-longer-than-32-characters")
+
 import pytest
 import pytest_asyncio
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker

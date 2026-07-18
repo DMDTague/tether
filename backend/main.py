@@ -126,21 +126,18 @@ async def websocket_endpoint(
             return
 
     if not user_id:
-        if not (settings.ENVIRONMENT == "development" and settings.ALLOW_ANONYMOUS_WS):
-            await websocket.close(code=4003, reason="Authentication required")
-            return
-        user_id = f"anon-{id(websocket)}"
+        await websocket.close(code=4003, reason="Authentication required")
+        return
 
-    if not user_id.startswith("anon-"):
-        async with async_session() as db:
-            result = await db.execute(select(User).where(User.id == user_id))
-            user = result.scalar_one_or_none()
-            if not user:
-                await websocket.close(code=4003, reason="User not found")
-                return
-            user_name = user.display_name
-            user_initials = user.initials
-            manager._user_colors[user_id] = user.theme_colors
+    async with async_session() as db:
+        result = await db.execute(select(User).where(User.id == user_id))
+        user = result.scalar_one_or_none()
+        if not user:
+            await websocket.close(code=4003, reason="User not found")
+            return
+        user_name = user.display_name
+        user_initials = user.initials
+        manager._user_colors[user_id] = user.theme_colors
 
     await manager.connect(user_id, websocket)
     if region:
