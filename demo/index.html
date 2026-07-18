@@ -168,12 +168,12 @@
 
     <section id="messages-view" class="view" aria-labelledby="messages-title">
       <div class="section-heading messages-heading">
-        <div><p class="eyebrow">Private by design</p><h2 id="messages-title">Messages</h2></div>
+        <div><p class="eyebrow">Available now</p><h2 id="messages-title">People</h2></div>
         <button class="compose-button" data-compose aria-label="New message">＋</button>
       </div>
       <label class="search message-search">
         <span aria-hidden="true">⌕</span>
-        <input id="message-search" type="search" placeholder="Search conversations" autocomplete="off">
+        <input id="message-search" type="search" placeholder="Search people and conversations" autocomplete="off">
       </label>
       <div class="message-presence-head"><strong>Available now</strong><span>Start a private Tether</span></div>
       <div id="message-presence-rail" class="message-presence-rail"></div>
@@ -251,18 +251,16 @@
     <section id="feature-modal" class="feature-modal"></section>
 
     <nav class="bottom-nav" aria-label="Main navigation">
-      <button class="nav-item active" data-view="home">
-        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 11 L12 4 L20 11 M6 10 V19 H18 V10"/></svg><small>Home</small>
-      </button>
-      <button class="nav-item" data-view="discover">
-        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="2.4"/><path d="M6.5 6.5 A7.8 7.8 0 0 0 6.5 17.5 M17.5 6.5 A7.8 7.8 0 0 1 17.5 17.5"/></svg><small>Wavelength</small>
-      </button>
-      <button class="nav-item" data-view="activity">
-        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5.5h14v10H11l-4.5 3v-3H5z"/><path d="M9 9h6M9 12h4"/></svg><small>Exchange</small>
+      <button class="nav-item active" data-view="home" aria-current="page">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12h3l2.2-5 4.1 10 2.2-5H20"/></svg><small>Listen</small>
       </button>
       <button class="nav-item" data-view="messages">
-        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6.5 A2.5 2.5 0 0 1 6.5 4 H17.5 A2.5 2.5 0 0 1 20 6.5 V14 A2.5 2.5 0 0 1 17.5 16.5 H10 L5.5 20 V16.5 H6.5 A2.5 2.5 0 0 1 4 14 Z"/></svg><small>Messages</small>
+        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="9" r="3"/><circle cx="16.5" cy="10.5" r="2.5"/><path d="M3.5 19c.7-3.3 2.7-5 5.5-5s4.8 1.7 5.5 5M14 15c2.8-.5 4.8.8 5.8 3.5"/></svg><small>People</small>
         <span class="nav-badge" data-unread-badge hidden>0</span>
+      </button>
+      <button class="tether-action" type="button" data-tether-action aria-label="Open your listening">
+        <span class="tether-action-signal" aria-hidden="true"><i></i><i></i><i></i></span>
+        <span>Tether</span>
       </button>
       <button class="nav-item" data-view="you">
         <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8.5" r="3.4"/><path d="M5.5 19.5 C6.5 15.5, 9 14, 12 14 C15 14, 17.5 15.5, 18.5 19.5"/></svg><small>You</small>

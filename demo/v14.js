@@ -44,7 +44,6 @@ const state = {
   ,popKeys: new Set()
   ,seenViews: new Set(["home"])
   ,threads: null
-  ,presenceGuideSeen: false
   ,sessionPrivacy: "open-door"
 };
 
@@ -1055,7 +1054,7 @@ function chooseOwnTrack() {
     {name:"Soft Current",artist:"Tether Demo Library",album:"Signal Studies",durationSeconds:214,progressPercent:9},
     {name:"Afterglow Loop",artist:"Tether Demo Library",album:"Signal Studies",durationSeconds:337,progressPercent:31}
   ];
-  openFeatureModal(`<div class="modal-head"><div><p class="eyebrow">${state.musicService}</p><h3>Start your stage</h3></div><button class="icon-button" data-close-modal>×</button></div>
+  openFeatureModal(`<div class="modal-head"><div><p class="eyebrow">${state.musicService}</p><h3>Open your listening</h3></div><button class="icon-button" data-close-modal>×</button></div>
     <p class="modal-copy">Automatically starts a Tether. These original demo instrumentals stand in for playback from ${state.musicService}; the live app detects playback from your linked account.</p>
     <div class="demo-track-list">${tracks.map((track,index)=>`<article class="demo-track-row"><span class="demo-track-note">${coverArt(track.name, track.artist)}</span><div><strong>${track.name}</strong><small>${track.artist}</small></div><button data-track-preview="${index}">Preview</button><button class="start-demo-track" data-own-track="${index}">Start</button></article>`).join("")}</div>`);
   $$("[data-track-preview]",$("#feature-modal")).forEach(button => button.addEventListener("click", () => playRoyaltyFreePreview(Number(button.dataset.trackPreview), button)));
@@ -1712,22 +1711,6 @@ function toggleFollow(profile) {
   toast(state.following.has(profile.username) ? `Following ${profile.name}` : `Unfollowed ${profile.name}`);
 }
 
-function explainPresenceThen(profile) {
-  openFeatureModal(`<div class="modal-head"><div><p class="eyebrow">Before you enter</p><h3>Every listener chooses their door.</h3></div><button class="icon-button" data-close-modal aria-label="Close">×</button></div>
-    <div class="presence-guide">
-      <article class="join"><strong>Join</strong><p><b>Open Door</b> means friends can enter the session immediately.</p></article>
-      <article class="knock"><strong>Knock</strong><p><b>Knock First</b> asks the listener to approve you before playback syncs.</p></article>
-      <article class="ghost"><strong>Ghost</strong><p>The person’s listening activity is not visible at all.</p></article>
-    </div>
-    <p class="modal-copy">You control your own default from Home and can change it for each session.</p>
-    <button class="btn primary" data-presence-continue>Continue to ${profile.privacyMode === "knock-first" ? "Knock" : "Join"}</button>`);
-  $("[data-presence-continue]", $("#feature-modal")).addEventListener("click", () => {
-    state.presenceGuideSeen = true;
-    closeFeatureModal();
-    handlePrimaryAction(profile);
-  });
-}
-
 function setUserPrivacy(mode) {
   state.userPrivacy = mode;
   $$("[data-user-privacy]").forEach(item => item.classList.toggle("active", item.dataset.userPrivacy === mode));
@@ -1766,18 +1749,18 @@ function handlePrimaryAction(profile) {
     openCapsuleComposer(profile);
     return;
   }
-  if (!state.presenceGuideSeen) {
-    explainPresenceThen(profile);
-    return;
-  }
   if (profile.privacyMode === "knock-first") {
     const button = $("#profile-view").classList.contains("open") ? $("[data-session]", $("#profile-view")) : $("[data-radar-profile]", $("#radar-preview"));
     if (button) {
       button.disabled = true;
-      button.textContent = "Knocking…";
+      button.textContent = "Knock sent";
     }
     toast(`Knock sent to ${profile.name}`);
-    setTimeout(() => startSession(profile), 900);
+    setTimeout(() => {
+      if (!button?.isConnected) return;
+      button.disabled = false;
+      button.textContent = "Knock to join";
+    }, 1800);
   } else {
     startSession(profile);
   }
@@ -2171,7 +2154,12 @@ function showViewSkeleton(viewName) {
 
 function switchView(viewName, bypassOnboarding = false) {
   $$(".view").forEach((view) => view.classList.toggle("active", view.id === `${viewName}-view`));
-  $$(".nav-item").forEach((button) => button.classList.toggle("active", button.dataset.view === viewName));
+  $$(".nav-item").forEach((button) => {
+    const isActive = button.dataset.view === viewName;
+    button.classList.toggle("active", isActive);
+    if (isActive) button.setAttribute("aria-current", "page");
+    else button.removeAttribute("aria-current");
+  });
   const phone = $(".phone");
   phone.dataset.scene = viewName;
   phone.scrollTop = 0;
@@ -2338,6 +2326,7 @@ $$("[data-you-memory-tab]").forEach(button => button.addEventListener("click", (
 $("[data-open-spark]")?.addEventListener("click", openSparkDemo);
 $("[data-service-picker]").addEventListener("click", chooseMusicService);
 $("[data-start-own-session]").addEventListener("click", chooseOwnTrack);
+$("[data-tether-action]").addEventListener("click", chooseOwnTrack);
 $("[data-wavelength-settings]").addEventListener("click", () => openWavelengthOnboarding(1));
 $("[data-open-exchange-composer]").addEventListener("click", () => {
   $$(".memory-tab").forEach(tab => tab.classList.toggle("active", tab.dataset.memoryTab === "drafts"));

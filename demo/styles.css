@@ -1423,3 +1423,62 @@ input,select,textarea,.thread-compose input,.chat-compose input{font-size:16px}
 .icon-button.back{min-width:44px;min-height:44px}
 @media(max-width:370px){.home-tools{grid-template-columns:1fr}.host-controls{grid-template-columns:1fr!important}}
 @media(prefers-reduced-motion:reduce){.loading-state>span b{animation:none}}
+
+/* v0.14 — three-destination shell with one persistent listening action */
+.bottom-nav{
+  position:relative;
+  inset:auto;
+  z-index:10;
+  flex:0 0 auto;
+  display:grid;
+  grid-template-columns:repeat(3,minmax(0,1fr));
+  justify-content:normal;
+  height:calc(82px + env(safe-area-inset-bottom));
+  padding:28px 20px env(safe-area-inset-bottom);
+  overflow:visible;
+}
+.bottom-nav .nav-item{
+  width:auto;
+  min-width:0;
+  min-height:50px;
+}
+.bottom-nav .nav-item small{font-size:11px;font-weight:700}
+.tether-action{
+  position:absolute;
+  left:50%;
+  top:-24px;
+  z-index:3;
+  width:112px;
+  height:48px;
+  border:1px solid rgba(255,255,255,.2);
+  border-radius:999px;
+  background:linear-gradient(115deg,#8f78ec,#6571da 54%,#3bbf9f);
+  color:#fff;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:9px;
+  overflow:visible;
+  transform:translateX(-50%);
+  box-shadow:0 13px 35px rgba(8,9,18,.65),0 0 0 6px rgba(155,160,250,.08),0 0 28px rgba(121,111,226,.36);
+  cursor:pointer;
+  font:700 12px var(--display);
+  letter-spacing:.01em;
+}
+.tether-action::before{
+  content:"";
+  position:absolute;
+  inset:-6px;
+  z-index:-1;
+  border:1px solid rgba(155,160,250,.18);
+  border-radius:inherit;
+  animation:tetherAvailable 2.8s ease-out infinite;
+}
+.tether-action:hover{filter:brightness(1.08)}
+.tether-action:active{transform:translateX(-50%) scale(.97)}
+.tether-action-signal{display:flex;align-items:center;gap:2px;height:18px}
+.tether-action-signal i{display:block;width:3px;border-radius:99px;background:#fff;box-shadow:0 0 7px rgba(255,255,255,.75)}
+.tether-action-signal i:nth-child(1),.tether-action-signal i:nth-child(3){height:8px}
+.tether-action-signal i:nth-child(2){height:17px}
+@keyframes tetherAvailable{from{opacity:.7;transform:scale(.94)}to{opacity:0;transform:scale(1.13)}}
+@media(prefers-reduced-motion:reduce){.tether-action::before{animation:none}}

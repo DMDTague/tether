@@ -127,38 +127,9 @@
     const nav = document.querySelector(".bottom-nav");
     if (!nav || nav.dataset.platformReady) return;
     nav.dataset.platformReady = "true";
-    const home = nav.querySelector('[data-view="home"]');
-    const wavelength = nav.querySelector('[data-view="discover"]');
-    const exchange = nav.querySelector('[data-view="activity"]');
-    const messages = nav.querySelector('[data-view="messages"]');
-    const you = nav.querySelector('[data-view="you"]');
-    if (!home || !wavelength || !exchange || !messages || !you) return;
-
-    messages.classList.add("platform-hidden-message-nav");
-    const tether = document.createElement("button");
-    tether.className = "nav-item platform-tether-nav";
-    tether.type = "button";
-    tether.innerHTML = `<span class="platform-tether-orb"><i></i><i></i><b></b></span><small>Tether</small>`;
-    tether.addEventListener("click", () => document.querySelector("[data-start-own-session]")?.click());
-
-    nav.replaceChildren(home, exchange, tether, wavelength, you, messages);
-
-    const topbar = document.querySelector(".topbar");
-    const avatar = topbar?.querySelector(".header-profile");
-    if (topbar && avatar && !topbar.querySelector(".platform-message-button")) {
-      const button = document.createElement("button");
-      button.className = "platform-message-button";
-      button.type = "button";
-      button.setAttribute("aria-label", "Open messages");
-      button.innerHTML = `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6.5A2.5 2.5 0 0 1 6.5 4h11A2.5 2.5 0 0 1 20 6.5V14a2.5 2.5 0 0 1-2.5 2.5H10L5.5 20v-3.5h1A2.5 2.5 0 0 1 4 14Z"/></svg><span class="platform-message-count">3</span>`;
-      button.addEventListener("click", () => messages.click());
-      topbar.insertBefore(button, avatar);
-      const oldBadge = messages.querySelector("[data-unread-badge]");
-      if (oldBadge) new MutationObserver(() => {
-        const count = button.querySelector(".platform-message-count");
-        count.textContent = oldBadge.textContent || "";
-        count.hidden = oldBadge.hidden;
-      }).observe(oldBadge, { attributes: true, childList: true, subtree: true });
+    const destinations = [...nav.querySelectorAll(".nav-item[data-view]")].map(button => button.dataset.view);
+    if (destinations.join(",") !== "home,messages,you") {
+      console.error("Tether primary navigation must remain Listen, People, You.");
     }
   }
 
@@ -231,7 +202,7 @@
   }
 
   function openExchange(mode = "feed") {
-    document.querySelector('.bottom-nav [data-view="activity"]')?.click();
+    callLegacy("switchView", "activity");
     setTimeout(() => setExchangeMode(mode), 40);
   }
 

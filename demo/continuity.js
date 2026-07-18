@@ -25,6 +25,12 @@
     localStorage.setItem(KEY, JSON.stringify(state));
   }
 
+  function openView(view) {
+    const primary = document.querySelector(`.bottom-nav [data-view="${view}"]`);
+    if (primary) primary.click();
+    else if (typeof globalThis.switchView === "function") globalThis.switchView(view);
+  }
+
   function install(attempt = 0) {
     if (!document.body.classList.contains("customer-optimized")) {
       if (attempt < 100) setTimeout(() => install(attempt + 1), 80);
@@ -177,26 +183,26 @@
 
   function resumeJourney() {
     if (hasDraft(state.exchangeDraft)) {
-      document.querySelector('.bottom-nav [data-view="activity"]')?.click();
+      openView("activity");
       setTimeout(() => document.querySelector("[data-open-exchange-composer]")?.click(), 80);
       return;
     }
     if (hasDraft(state.diaryDraft)) return openCultureDraft("diary", "[data-log-listen]");
     if (hasDraft(state.listDraft)) return openCultureDraft("lists", "[data-create-list]");
     if (hasDraft(state.datingDraft)) {
-      document.querySelector('.bottom-nav [data-view="discover"]')?.click();
+      openView("discover");
       setTimeout(() => {
         document.querySelector('[data-world="dating"]')?.click();
         setTimeout(() => document.querySelector("[data-edit-dating]")?.click(), 70);
       }, 70);
       return;
     }
-    document.querySelector(`.bottom-nav [data-view="${state.lastView}"]`)?.click();
+    openView(state.lastView);
     if (state.lastView === "activity") setTimeout(() => document.querySelector(`[data-culture-mode="${state.lastCultureMode}"]`)?.click(), 50);
   }
 
   function openCultureDraft(mode, actionSelector) {
-    document.querySelector('.bottom-nav [data-view="activity"]')?.click();
+    openView("activity");
     setTimeout(() => {
       document.querySelector(`[data-culture-mode="${mode}"]`)?.click();
       setTimeout(() => document.querySelector(actionSelector)?.click(), 60);

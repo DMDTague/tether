@@ -49,8 +49,11 @@
     button.setAttribute("aria-label", "Create a review, diary entry, or list");
     button.innerHTML = `<span>＋</span>`;
     button.addEventListener("click", openCreateMenu);
-    const messages = topbar.querySelector(".platform-message-button");
-    topbar.insertBefore(button, messages || topbar.lastElementChild);
+    topbar.insertBefore(button, topbar.lastElementChild);
+  }
+
+  function openSecondaryView(view) {
+    if (typeof globalThis.switchView === "function") globalThis.switchView(view);
   }
 
   function openCreateMenu() {
@@ -69,7 +72,7 @@
       const action = button.dataset.customerCreate;
       dialog.close();
       if (action === "review") {
-        document.querySelector('.bottom-nav [data-view="activity"]')?.click();
+        openSecondaryView("activity");
         setTimeout(() => document.querySelector("[data-open-exchange-composer]")?.click(), 80);
       }
       if (action === "diary") openCultureAction("diary", "[data-log-listen]");
@@ -79,7 +82,7 @@
   }
 
   function openCultureAction(mode, selector) {
-    document.querySelector('.bottom-nav [data-view="activity"]')?.click();
+    openSecondaryView("activity");
     setTimeout(() => {
       document.querySelector(`[data-culture-mode="${mode}"]`)?.click();
       setTimeout(() => document.querySelector(selector)?.click(), 50);
@@ -209,7 +212,7 @@
     actions.className = "customer-profile-actions";
     actions.innerHTML = `<button data-profile-message>Message</button><button data-profile-song>Leave a song</button><button class="primary" data-profile-tether>Tether</button>`;
     view.appendChild(actions);
-    actions.querySelector("[data-profile-message]")?.addEventListener("click", () => document.querySelector(".platform-message-button")?.click());
+    actions.querySelector("[data-profile-message]")?.addEventListener("click", () => document.querySelector('.bottom-nav [data-view="messages"]')?.click());
     actions.querySelector("[data-profile-song]")?.addEventListener("click", () => document.querySelector("[data-open-exchange-composer]")?.click());
     actions.querySelector("[data-profile-tether]")?.addEventListener("click", () => {
       const primary = view.querySelector("[data-profile-action], .profile-primary-action, [data-primary-action]");
@@ -220,7 +223,7 @@
 
   function optimizeTetherStart() {
     const modal = document.querySelector("#feature-modal");
-    if (!modal || !modal.innerHTML.includes("Start your stage") || modal.querySelector(".customer-tether-promise")) return;
+    if (!modal || !modal.innerHTML.includes("Open your listening") || modal.querySelector(".customer-tether-promise")) return;
     const promise = document.createElement("aside");
     promise.className = "customer-tether-promise";
     promise.innerHTML = `<strong>Ten-second Tether</strong><span>Choose a track now. Privacy, provider, and invitation details remain editable after the Stage opens.</span>`;
