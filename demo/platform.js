@@ -16,26 +16,9 @@
     ],
     favorites: ["Blonde", "Vespertine", "Heaven or Las Vegas", "Dragon New Warm Mountain I Believe in You"],
     dating: {
-      enabled: true,
-      visible: true,
-      identity: "Man",
-      orientation: "Queer / open",
-      intent: "Long-term, but let the music introduce us",
-      relationship: "Monogamous",
-      ageMin: 20,
-      ageMax: 29,
-      distance: 15,
-      height: "5′7″",
-      body: "Compact, built, permanently carrying headphones",
-      priorityArtist: "Japanese Breakfast",
-      dealbreakerArtist: "",
-      priorityAlbum: "Blonde",
-      genres: "Art pop, indie rock, hip-hop, soul",
-      concerts: "Small rooms, standing room, weeknights welcome",
-      prompt: "The song that would tell you too much about me is…",
-      promptAnswer: "New Mistake by Jellyfish—bright enough to hide the damage.",
-      showHeight: true,
-      showBody: false
+      enabled: false,
+      visible: false,
+      intent: ""
     }
   };
 
@@ -101,8 +84,6 @@
     installHomeCulture();
     installExchange();
     installWavelength();
-    observeProfiles();
-    enhanceCurrentProfile();
   }
 
   function installDialog() {
@@ -292,38 +273,24 @@
     if (!view || !hero || view.querySelector(".wavelength-world-switch")) return;
     const switcher = document.createElement("div");
     switcher.className = "wavelength-world-switch";
-    switcher.innerHTML = `<button data-world="friends">Friends</button><button data-world="dating">Dating</button><button data-world="communities">Communities</button>`;
+    switcher.innerHTML = `<button data-world="friends">Friends</button><button data-world="dating">Dating Mode</button>`;
     hero.insertAdjacentElement("afterend", switcher);
     switcher.querySelectorAll("[data-world]").forEach(button => button.addEventListener("click", () => setWavelengthWorld(button.dataset.world)));
 
-    const preferences = view.querySelector("[data-wavelength-settings]");
-    preferences?.addEventListener("click", event => {
-      const current = getState();
-      if (current?.wavelengthProfile?.goal !== "dating") return;
-      event.preventDefault();
-      event.stopImmediatePropagation();
-      openDatingEditor();
-    }, true);
-
     const current = getState();
     setWavelengthWorld(current?.wavelengthProfile?.goal === "dating" ? "dating" : "friends", false);
-    deckObserver = new MutationObserver(enhanceDatingCard);
-    deckObserver.observe(document.querySelector("#swipe-deck"), { childList: true, subtree: true });
-    enhanceDatingCard();
   }
 
   function setWavelengthWorld(world, rebuild = true) {
     const s = getState();
     const normalized = world === "dating" ? "dating" : "friends";
-    document.querySelectorAll("[data-world]").forEach(button => button.classList.toggle("active", button.dataset.world === world));
-    document.body.classList.toggle("dating-world", world === "dating");
-    document.body.classList.toggle("communities-world", world === "communities");
+    if (rebuild) {
+      callLegacy("setDatingMode", normalized === "dating");
+      return;
+    }
+    document.querySelectorAll("[data-world]").forEach(button => button.classList.toggle("active", button.dataset.world === normalized));
     if (s?.wavelengthProfile) s.wavelengthProfile.goal = normalized;
     callLegacy("syncWavelengthHeader");
-    if (rebuild) callLegacy("rebuildWavelengthQueue");
-    renderDatingSummary(world);
-    setTimeout(enhanceDatingCard, 20);
-    if (world === "communities") notify("Communities use the friend graph for now; scene and venue groups are the next data layer.");
   }
 
   function renderDatingSummary(world) {
@@ -332,142 +299,25 @@
     const deck = document.querySelector("#swipe-panel");
     const summary = document.createElement("article");
     summary.className = "dating-profile-summary";
-    const complete = [culture.dating.identity, culture.dating.orientation, culture.dating.intent, culture.dating.promptAnswer].filter(Boolean).length;
-    summary.innerHTML = `<div><p class="eyebrow">Your dating signal</p><h3>${complete}/4 identity layers complete</h3><p>${esc(culture.dating.intent)}</p></div><button data-edit-dating>Edit profile</button>`;
+    summary.innerHTML = `<div><p class="eyebrow">Explicit mode</p><h3>Dating Mode is on</h3><p>${esc(culture.dating.intent || "Your intent is visible only in this mode.")}</p></div><button data-edit-dating>Turn off</button>`;
     deck?.insertBefore(summary, deck.firstChild);
-    summary.querySelector("[data-edit-dating]")?.addEventListener("click", openDatingEditor);
+    summary.querySelector("[data-edit-dating]")?.addEventListener("click", () => callLegacy("setDatingMode", false));
   }
 
   function openDatingEditor() {
-    const d = culture.dating;
-    openDialog(`
-      <header><p class="eyebrow">Wavelength Dating</p><h2>Build a profile around how you hear.</h2><p>Dating is opt-in and separate from your ordinary music profile. No field appears unless you choose to publish it.</p></header>
-      <div class="platform-consent-row"><label><input name="enabled" type="checkbox" ${d.enabled ? "checked" : ""}> Enable Dating</label><label><input name="visible" type="checkbox" ${d.visible ? "checked" : ""}> Show me in Dating</label></div>
-      <div class="platform-field-row"><label>Identity<input name="identity" value="${esc(d.identity)}" placeholder="Man, woman, nonbinary…"></label><label>Orientation<select name="orientation">${["Straight","Gay","Bisexual","Queer / open"].map(value => `<option ${d.orientation === value ? "selected" : ""}>${value}</option>`).join("")}</select></label></div>
-      <label>What are you open to?<input name="intent" value="${esc(d.intent)}"></label>
-      <div class="platform-field-row"><label>Relationship structure<select name="relationship">${["Monogamous","Non-monogamous","Open to either","Still figuring it out"].map(value => `<option ${d.relationship === value ? "selected" : ""}>${value}</option>`).join("")}</select></label><label>Distance<select name="distance">${[5,10,15,25,50].map(value => `<option value="${value}" ${Number(d.distance) === value ? "selected" : ""}>${value} miles</option>`).join("")}</select></label></div>
-      <div class="platform-field-row three"><label>Age min<input name="ageMin" type="number" min="18" max="99" value="${d.ageMin}"></label><label>Age max<input name="ageMax" type="number" min="18" max="99" value="${d.ageMax}"></label><label>Height<input name="height" value="${esc(d.height)}"></label></div>
-      <label>Body description<input name="body" value="${esc(d.body)}" placeholder="Optional, in your own language"></label>
-      <div class="platform-consent-row"><label><input name="showHeight" type="checkbox" ${d.showHeight ? "checked" : ""}> Show height</label><label><input name="showBody" type="checkbox" ${d.showBody ? "checked" : ""}> Show body description</label></div>
-      <div class="platform-divider"><span>Musical compatibility</span></div>
-      <div class="platform-field-row"><label>Priority artist<input name="priorityArtist" value="${esc(d.priorityArtist)}"></label><label>Dealbreaker artist<input name="dealbreakerArtist" value="${esc(d.dealbreakerArtist)}"></label></div>
-      <label>Priority album<input name="priorityAlbum" value="${esc(d.priorityAlbum)}"></label>
-      <label>Your musical territory<input name="genres" value="${esc(d.genres)}"></label>
-      <label>Concert life<input name="concerts" value="${esc(d.concerts)}"></label>
-      <div class="platform-divider"><span>Profile prompt</span></div>
-      <label>Prompt<input name="prompt" value="${esc(d.prompt)}"></label>
-      <label>Your answer<textarea name="promptAnswer" maxlength="240">${esc(d.promptAnswer)}</textarea></label>
-      <button type="button" class="platform-primary" data-save-dating>Save dating signal</button>`, dialog => {
-      dialog.querySelector("[data-save-dating]").addEventListener("click", () => {
-        const data = new FormData(dialog.querySelector("form"));
-        const enabled = data.get("enabled") === "on";
-        const visible = enabled && data.get("visible") === "on";
-        culture.dating = {
-          enabled, visible,
-          identity: String(data.get("identity") || "").trim(),
-          orientation: String(data.get("orientation") || "").trim(),
-          intent: String(data.get("intent") || "").trim(),
-          relationship: String(data.get("relationship") || "").trim(),
-          distance: Number(data.get("distance")),
-          ageMin: Number(data.get("ageMin")),
-          ageMax: Number(data.get("ageMax")),
-          height: String(data.get("height") || "").trim(),
-          body: String(data.get("body") || "").trim(),
-          showHeight: data.get("showHeight") === "on",
-          showBody: data.get("showBody") === "on",
-          priorityArtist: String(data.get("priorityArtist") || "").trim(),
-          dealbreakerArtist: String(data.get("dealbreakerArtist") || "").trim(),
-          priorityAlbum: String(data.get("priorityAlbum") || "").trim(),
-          genres: String(data.get("genres") || "").trim(),
-          concerts: String(data.get("concerts") || "").trim(),
-          prompt: String(data.get("prompt") || "").trim(),
-          promptAnswer: String(data.get("promptAnswer") || "").trim()
-        };
-        save();
-        const s = getState();
-        if (s?.wavelengthProfile) {
-          s.wavelengthProfile.goal = "dating";
-          s.wavelengthProfile.gender = culture.dating.identity;
-          s.wavelengthProfile.orientation = culture.dating.orientation;
-          s.wavelengthProfile.height = culture.dating.height;
-          s.wavelengthProfile.avoidArtist = culture.dating.dealbreakerArtist;
-          s.wavelengthProfile.priorityArtist = culture.dating.priorityArtist;
-        }
-        dialog.close();
-        callLegacy("syncWavelengthHeader");
-        callLegacy("rebuildWavelengthQueue");
-        renderDatingSummary("dating");
-        notify(visible ? "Your dating signal is live." : "Dating profile saved privately.");
-      });
-    });
+    callLegacy("setDatingMode", true);
   }
 
   function enhanceDatingCard() {
-    const s = getState();
-    if (s?.wavelengthProfile?.goal !== "dating") return;
-    const card = document.querySelector("#swipe-deck [data-swipe-card]");
-    if (!card || card.querySelector(".platform-dating-context")) return;
-    const username = card.dataset.username;
-    const profile = s?.profiles?.find(item => item.username === username);
-    const match = card.querySelector(".swipe-match");
-    if (match) {
-      match.innerHTML = `Why this match <small>musical evidence</small> ?`;
-      match.setAttribute("aria-label", "Explain the musical evidence for this recommendation");
-    }
-    const copy = card.querySelector(".swipe-copy");
-    const context = document.createElement("div");
-    context.className = "platform-dating-context";
-    const artist = profile?.topArtists?.[0] || "their top artist";
-    context.innerHTML = `
-      <div class="dating-evidence"><span>Shared nights</span><span>${esc(artist)} territory</span><span>${culture.dating.distance} mi range</span></div>
-      <blockquote><small>${esc(culture.dating.prompt)}</small><p>${esc(profile ? datingAnswerFor(profile) : "Ask me which record changed the way I hear people.")}</p></blockquote>
-      <div class="dating-actions"><button data-leave-song>Leave a song</button><button data-answer-prompt>Answer their prompt</button></div>`;
-    copy?.appendChild(context);
-    context.querySelector("[data-leave-song]")?.addEventListener("click", event => { event.stopPropagation(); notify(`Song gesture left for ${profile?.name || "this profile"}.`); });
-    context.querySelector("[data-answer-prompt]")?.addEventListener("click", event => { event.stopPropagation(); openPromptReply(profile); });
-  }
-
-  function datingAnswerFor(profile) {
-    const artist = profile.topArtists?.[0] || "this artist";
-    const options = [
-      `The record I would insist we hear front-to-back is the one that made ${artist} click for me.`,
-      `My most revealing music opinion is that a perfect bridge can redeem an entire song.`,
-      `I trust people who let the outro finish—even when the train arrives.`,
-      `Take me somewhere loud enough that we have to communicate by handing each other songs.`
-    ];
-    return options[Math.abs(profile.username.split("").reduce((sum, char) => sum + char.charCodeAt(0), 0)) % options.length];
-  }
-
-  function openPromptReply(profile) {
-    openDialog(`<header><p class="eyebrow">Dating gesture</p><h2>Respond through music</h2><p>${esc(profile?.name || "This person")} will see the song and your answer together.</p></header><label>Song<input name="song" placeholder="Track — Artist"></label><label>Your response<textarea name="response" maxlength="240" placeholder="Say enough to open the door."></textarea></label><button type="button" class="platform-primary" data-send-reply>Send signal</button>`, dialog => {
-      dialog.querySelector("[data-send-reply]").addEventListener("click", () => { dialog.close(); notify(`Signal sent to ${profile?.name || "their profile"}.`); });
-    });
+    // Base cards already carry evidence chips; Dating Mode adds no ranking layer.
   }
 
   function observeProfiles() {
-    const profile = document.querySelector("#profile-view");
-    if (!profile || profileObserver) return;
-    profileObserver = new MutationObserver(() => setTimeout(enhanceCurrentProfile, 0));
-    profileObserver.observe(profile, { childList: true, subtree: true, attributes: true });
+    // Profile presentation is intentionally owned by the simplified core view.
   }
 
   function enhanceCurrentProfile() {
-    const view = document.querySelector("#profile-view");
-    if (!view || !view.innerHTML.trim() || view.querySelector(".platform-profile-culture")) return;
-    const s = getState();
-    const profile = s?.selected;
-    const target = view.querySelector(".profile-content, .profile-sheet, .profile-body") || view.firstElementChild;
-    if (!target) return;
-    const section = document.createElement("section");
-    section.className = "platform-profile-culture";
-    const artists = profile?.topArtists || ["Japanese Breakfast", "Radiohead", "Frank Ocean"];
-    section.innerHTML = `
-      <div class="platform-profile-heading"><p class="eyebrow">Music identity</p><h3>A person, not a compatibility score.</h3></div>
-      <div class="profile-culture-grid"><article><strong>${artists.length}</strong><span>core artists</span><small>${esc(artists.slice(0,2).join(" · "))}</small></article><article><strong>18</strong><span>diary entries</span><small>6 this month</small></article><article><strong>7</strong><span>public reviews</span><small>4.6 average</small></article></div>
-      <div class="profile-album-shelf"><p class="eyebrow">Four records that explain them</p><div>${culture.favorites.map((album, index) => `<button><i>${index + 1}</i><span>${esc(album)}</span></button>`).join("")}</div></div>
-      <div class="profile-list-preview"><p class="eyebrow">Lists</p><h4>${esc(culture.lists[0].title)}</h4><p>${esc(culture.lists[0].description)}</p><button data-profile-open-list>Open list</button></div>`;
-    target.appendChild(section);
-    section.querySelector("[data-profile-open-list]")?.addEventListener("click", () => openList(culture.lists[0].id));
+    // No metric or cultural dashboard is injected into another person's profile.
   }
 
   waitForLegacy();

@@ -43,7 +43,6 @@
       bindNavigation();
       restoreDynamicForms();
       addResumeCard();
-      repairDatingFeedbackAction();
     });
     observer.observe(document.body, { childList: true, subtree: true, attributes: true });
   }
@@ -207,20 +206,6 @@
       document.querySelector(`[data-culture-mode="${mode}"]`)?.click();
       setTimeout(() => document.querySelector(actionSelector)?.click(), 60);
     }, 60);
-  }
-
-  function repairDatingFeedbackAction() {
-    const button = document.querySelector(".customer-feedback-toast [data-tune-matches]");
-    if (!button || button.dataset.repaired) return;
-    const replacement = button.cloneNode(true);
-    replacement.dataset.repaired = "true";
-    button.replaceWith(replacement);
-    replacement.addEventListener("click", () => {
-      replacement.closest(".customer-feedback-toast")?.remove();
-      const edit = document.querySelector("[data-edit-dating]");
-      if (edit) edit.click();
-      else document.querySelector("[data-wavelength-settings]")?.click();
-    });
   }
 
   install();

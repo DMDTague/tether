@@ -79,7 +79,7 @@
         </div>
         <div class="wavelength-intent">
           <span id="wavelength-goal">Friends</span>
-          <button data-wavelength-settings aria-label="Edit Wavelength preferences">Preferences</button>
+          <button data-wavelength-settings aria-label="Toggle Dating Mode">Dating Mode</button>
         </div>
       </div>
 
@@ -181,17 +181,26 @@
     </section>
 
     <section id="messages-view" class="view" aria-labelledby="messages-title">
-      <div class="section-heading messages-heading">
-        <div><p class="eyebrow">Available now</p><h2 id="messages-title">People</h2></div>
-        <button class="compose-button" data-compose aria-label="New message">＋</button>
+      <div class="section-heading people-heading">
+        <div><p class="eyebrow">Your circle</p><h2 id="messages-title">People</h2></div>
+        <button class="dating-mode-toggle" data-dating-mode-toggle aria-pressed="false"><i></i><span>Dating Mode</span><small>Off</small></button>
       </div>
-      <label class="search message-search">
-        <span aria-hidden="true">⌕</span>
-        <input id="message-search" type="search" placeholder="Search people and conversations" autocomplete="off">
-      </label>
-      <div class="message-presence-head"><strong>Available now</strong><span>Start a private Tether</span></div>
-      <div id="message-presence-rail" class="message-presence-rail"></div>
-      <div id="conversation-list" class="conversation-list"></div>
+      <details class="people-inbox">
+        <summary><span><b>Inbox</b><small>Messages stay close, not central</small></span><span class="inbox-summary-action"><i data-unread-badge hidden></i>Open</span></summary>
+        <div class="inbox-tools">
+          <label class="search message-search"><span aria-hidden="true">⌕</span><input id="message-search" type="search" placeholder="Search conversations" autocomplete="off"></label>
+          <button class="compose-button" data-compose aria-label="New message">＋</button>
+        </div>
+        <div id="conversation-list" class="conversation-list"></div>
+      </details>
+      <section class="people-section" aria-labelledby="available-people-title">
+        <div class="people-section-head"><div><p class="eyebrow">Live doors</p><h3 id="available-people-title">Friends Available Now</h3></div><span>Tap to join</span></div>
+        <div id="message-presence-rail" class="people-available-list"></div>
+      </section>
+      <section class="people-section" aria-labelledby="friends-of-friends-title">
+        <div class="people-section-head"><div><p class="eyebrow">A gentle introduction</p><h3 id="friends-of-friends-title">Friends of Friends</h3></div><span>Based on real overlap</span></div>
+        <div id="friends-of-friends-list" class="friends-of-friends-list"></div>
+      </section>
     </section>
 
     <section id="you-view" class="view" aria-labelledby="you-title">
@@ -201,11 +210,8 @@
         <h2 id="you-title">John Roastpork</h2>
         <p class="handle">@john.roastpork · Pennsport</p>
         <p class="bio">Finding Philadelphia one shared song at a time.</p>
-        <div class="metric-grid">
-          <div><strong>24</strong><span>friends</span><em>6 active now</em></div>
-          <div><strong>48</strong><span>anchors</span><em>+5 this month</em></div>
-          <div><strong>19</strong><span>capsules</span><em>3 waiting</em></div>
-          <div><strong>86h</strong><span>tethered</span><em>top 18%</em></div>
+        <div class="identity-chips" aria-label="Your listening identity">
+          <span>Night listener</span><span>Album-order loyalist</span><span>Open Door</span>
         </div>
       </div>
       <div class="recap-card top-five-card">
@@ -214,11 +220,6 @@
         <div id="profile-top-five" class="profile-top-five"></div>
       </div>
       <div class="profile-collection-head"><div><p class="eyebrow">Collected signal</p><h3>Your music life</h3></div><button data-view="activity" class="profile-exchange-link">Open Exchange</button></div>
-      <div class="profile-showcase-grid">
-        <article class="profile-showcase featured"><span>86h</span><strong>tethered together</strong><small>this season</small></article>
-        <article class="profile-showcase violet"><span>12</span><strong>reviews</strong><small>worth revisiting</small></article>
-        <article class="profile-showcase teal"><span>48</span><strong>memory anchors</strong><small>shared moments</small></article>
-      </div>
       <div class="you-memory-tabs" role="tablist" aria-label="Your shared music life">
         <button class="active" data-you-memory-tab="shared">Shared identities</button>
         <button data-you-memory-tab="anchors">Anchors</button>

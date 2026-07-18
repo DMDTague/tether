@@ -165,60 +165,11 @@
   }
 
   function optimizeDating() {
-    if (!document.body.classList.contains("dating-world")) return;
-    const card = document.querySelector("#swipe-deck [data-swipe-card]");
-    if (card && !card.querySelector(".customer-dating-decision")) {
-      const context = card.querySelector(".platform-dating-context") || card.querySelector(".swipe-copy");
-      const decision = document.createElement("div");
-      decision.className = "customer-dating-decision";
-      decision.innerHTML = `<p><strong>Why this is worth your time</strong><span>Music evidence is shown before appearance-based details. You can act through a song, a prompt, or a Tether.</span></p><button data-preview-profile>Full profile</button>`;
-      context?.appendChild(decision);
-      decision.querySelector("[data-preview-profile]")?.addEventListener("click", () => document.querySelector('[data-swipe-action="profile"]')?.click());
-    }
-
-    const controls = document.querySelector(".swipe-controls");
-    if (controls && !controls.querySelector(".customer-pass-reason")) {
-      const pass = controls.querySelector('[data-swipe-action="pass"]');
-      pass?.addEventListener("click", () => showPassFeedback(), { capture: true });
-      const note = document.createElement("span");
-      note.className = "customer-pass-reason";
-      note.textContent = "Passes stay private and improve your next recommendations.";
-      controls.insertAdjacentElement("afterend", note);
-    }
-  }
-
-  function showPassFeedback() {
-    const host = document.querySelector("#swipe-panel");
-    if (!host || host.querySelector(".customer-feedback-toast")) return;
-    const feedback = document.createElement("div");
-    feedback.className = "customer-feedback-toast";
-    feedback.innerHTML = `<span>Quietly passed.</span><button data-undo-pass>Undo</button><button data-tune-matches>Tune matches</button>`;
-    host.appendChild(feedback);
-    feedback.querySelector("[data-undo-pass]")?.addEventListener("click", () => {
-      try { state.swipeIndex = Math.max(0, state.swipeIndex - 1); renderSwipeDeck(); } catch (_) {}
-      feedback.remove();
-    });
-    feedback.querySelector("[data-tune-matches]")?.addEventListener("click", () => {
-      feedback.remove();
-      document.querySelector("[data-edit-dating]")?.click() || document.querySelector("[data-wavelength-settings]")?.click();
-    });
-    setTimeout(() => feedback.remove(), 5000);
+    // Evidence and actions are rendered by the core card without a ranking overlay.
   }
 
   function optimizeProfiles() {
-    const view = document.querySelector("#profile-view");
-    if (!view || !view.innerHTML.trim() || view.querySelector(".customer-profile-actions")) return;
-    const actions = document.createElement("div");
-    actions.className = "customer-profile-actions";
-    actions.innerHTML = `<button data-profile-message>Message</button><button data-profile-song>Leave a song</button><button class="primary" data-profile-tether>Tether</button>`;
-    view.appendChild(actions);
-    actions.querySelector("[data-profile-message]")?.addEventListener("click", () => document.querySelector('.bottom-nav [data-view="messages"]')?.click());
-    actions.querySelector("[data-profile-song]")?.addEventListener("click", () => document.querySelector("[data-open-exchange-composer]")?.click());
-    actions.querySelector("[data-profile-tether]")?.addEventListener("click", () => {
-      const primary = view.querySelector("[data-profile-action], .profile-primary-action, [data-primary-action]");
-      if (primary) primary.click();
-      else document.querySelector("[data-start-own-session]")?.click();
-    });
+    // Profiles now own a small native Join / Knock / Message action set.
   }
 
   function optimizeTetherStart() {
