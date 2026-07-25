@@ -79,7 +79,8 @@ async def get_billboard_charts():
 async def clear_billboard_cache(user_id: str = Depends(get_current_user_id)):
     """Clear the Billboard cache to force fresh data fetch."""
     now = time.monotonic()
-    if now - cache_clear_times.get(user_id, 0) < CACHE_CLEAR_COOLDOWN:
+    last_clear = cache_clear_times.get(user_id)
+    if last_clear is not None and now - last_clear < CACHE_CLEAR_COOLDOWN:
         raise HTTPException(status_code=429, detail="Chart refresh cooldown is active")
     cache_clear_times[user_id] = now
     global cache
