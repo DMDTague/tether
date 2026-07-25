@@ -6,20 +6,20 @@ const index = readFileSync(new URL("../index.html", import.meta.url), "utf8");
 const app = readFileSync(new URL("../v14.js", import.meta.url), "utf8");
 
 function primaryNavigation() {
-  const match = index.match(/<nav class="bottom-nav"[\s\S]*?<\/nav>/);
+  const match = index.match(/<nav class="bottom-nav[^\"]*"[\s\S]*?<\/nav>/);
   assert.ok(match, "bottom navigation should exist");
   return match[0];
 }
 
-test("primary navigation exposes exactly Listen, People, and You", () => {
+test("primary navigation exposes Listen, Exchange, Tether, Wavelength, and You", () => {
   const navigation = primaryNavigation();
   const labels = [...navigation.matchAll(/class="nav-item[^>]*"[\s\S]*?<small>([^<]+)<\/small>/g)].map(match => match[1]);
   const destinations = [...navigation.matchAll(/class="nav-item[^>]*data-view="([^"]+)"/g)].map(match => match[1]);
 
-  assert.deepEqual(labels, ["Listen", "People", "You"]);
-  assert.deepEqual(destinations, ["home", "messages", "you"]);
-  assert.doesNotMatch(navigation, />Wavelength</);
-  assert.doesNotMatch(navigation, />Exchange</);
+  assert.deepEqual(labels, ["Listen", "Exchange", "Wavelength", "You"]);
+  assert.deepEqual(destinations, ["home", "activity", "messages", "you"]);
+  assert.match(navigation, /class="tether-action"/);
+  assert.match(navigation, /<span>Tether<\/span>/);
 });
 
 test("the persistent Tether action opens the listening flow", () => {

@@ -18,10 +18,11 @@ function contrastRatio(foreground, background) {
 }
 
 test("primary navigation exposes linked, selected tab semantics", () => {
-  assert.match(index, /<nav class="bottom-nav" aria-label="Main navigation">/);
+  assert.match(index, /<nav class="bottom-nav[^"]*" aria-label="Main navigation">/);
   assert.match(index, /class="bottom-nav-tablist" role="tablist" aria-label="Primary views"/);
   assert.match(index, /id="listen-tab"[^>]*role="tab"[^>]*aria-controls="home-view"[^>]*aria-selected="true"/);
-  assert.match(index, /id="people-tab"[^>]*role="tab"[^>]*aria-controls="messages-view"[^>]*aria-selected="false"/);
+  assert.match(index, /id="exchange-tab"[^>]*role="tab"[^>]*aria-controls="activity-view"[^>]*aria-selected="false"/);
+  assert.match(index, /id="wavelength-tab"[^>]*role="tab"[^>]*aria-controls="messages-view"[^>]*aria-selected="false"/);
   assert.match(index, /id="you-tab"[^>]*role="tab"[^>]*aria-controls="you-view"[^>]*aria-selected="false"/);
   assert.match(index, /id="home-view"[^>]*role="tabpanel"[^>]*aria-labelledby="listen-tab"/);
   assert.match(app, /button\.setAttribute\("aria-selected", String\(isActive\)\)/);

@@ -33,7 +33,20 @@ jobs:
             node --check "$script"
           done
       - name: Run demo tests
-        run: npm test
+        run: |
+          set +e
+          timeout 45s npm test > demo-test.log 2>&1
+          status=$?
+          cat demo-test.log
+          exit $status
+      - name: Upload demo failure log
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: demo-test-failure
+          path: demo/demo-test.log
+          if-no-files-found: error
+          retention-days: 3
 
   backend:
     name: Backend service
