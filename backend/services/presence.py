@@ -1,8 +1,8 @@
-"""Privacy-preserving real-time presence storage.
+"""Privacy-preserving Redis-backed real-time coordination.
 
-Presence is intentionally short lived. Location is reduced to a coarse cell before
-it enters Redis or the in-memory fallback; raw latitude and longitude are never
-persisted by this service.
+Presence and coarse location are short lived. Raw coordinates are never stored.
+The in-memory fallback exists for local development only; production readiness
+reports failure whenever Redis is unavailable.
 """
 
 import json
@@ -24,18 +24,73 @@ class PresenceStore:
         self._locations: dict[str, dict] = {}
         self._redis = None
 
-    async def connect_redis(self, redis_url: str):
+    async def connect_redis(self, redis_url: str) -> bool:
         try:
             import redis.asyncio as aioredis
+
             self._redis = aioredis.from_url(redis_url, decode_responses=True)
             await self._redis.ping()
             logger.info("presence.redis_connected")
+            return True
         except Exception as exc:
             logger.warning("presence.redis_unavailable", extra={"reason": str(exc)})
             self._redis = None
+            return False
 
-    async def set_presence(self, user_id: str, status: str, track: str = "", artist: str = "", album_art: str = "", provider: str = "spotify"):
-        data = {"status": status, "track": track, "artist": artist, "albumArt": album_art, "provider": provider, "updatedAt": int(time.time() * 1000)}
+    async def health(self) -> dict:
+        if not self._redis:
+            return {
+                "available": False,
+                "mode": "development_memory_fallback",
+                "productionReady": False,
+            }
+        try:
+            latency_start = time.perf_counter()
+            await self._redis.ping()
+            return {
+                "available": True,
+                "mode": "redis",
+                "productionReady": True,
+                "latencyMs": round((time.perf_counter() - latency_start) * 1000, 2),
+            }
+        except Exception as exc:
+            return {
+                "available": False,
+                "mode": "redis_error",
+                "productionReady": False,
+                "error": type(exc).__name__,
+            }
+
+    async def consume_once(self, namespace: str, token_id: str, ttl_seconds: int) -> bool:
+        """Atomically accept an identifier once across all Redis-backed workers."""
+
+        key = f"once:{namespace}:{token_id}"
+        if self._redis:
+            return bool(await self._redis.set(key, "1", ex=ttl_seconds, nx=True))
+        now = time.time()
+        existing = self._store.get(key)
+        if isinstance(existing, (int, float)) and existing > now:
+            return False
+        self._store[key] = now + ttl_seconds
+        return True
+
+    async def set_presence(
+        self,
+        user_id: str,
+        status: str,
+        track: str = "",
+        artist: str = "",
+        album_art: str = "",
+        provider: str = "spotify",
+    ):
+        data = {
+            "status": status,
+            "track": track,
+            "artist": artist,
+            "albumArt": album_art,
+            "provider": provider,
+            "updatedAt": int(time.time() * 1000),
+        }
         if self._redis:
             await self._redis.set(f"presence:{user_id}", json.dumps(data), ex=300)
         else:
@@ -75,6 +130,7 @@ class PresenceStore:
     async def get_online_friends(self, user_id: str, friend_ids: list[str]) -> list[dict]:
         from db.database import async_session_maker
         from services.privacy import can_view_presence
+
         online = []
         async with async_session_maker() as db:
             for friend_id in friend_ids:
@@ -112,7 +168,7 @@ class PresenceStore:
                     break
         else:
             for key, value in self._store.items():
-                if not key.startswith(("session:", "vibe:", "pulse_cooldown:")) and isinstance(value, dict) and "status" in value:
+                if not key.startswith(("session:", "vibe:", "pulse_cooldown:", "once:")) and isinstance(value, dict) and "status" in value:
                     vector = self._store.get(f"vibe:{key}")
                     if isinstance(vector, list):
                         results.append({"userId": key, "vector": vector})
@@ -138,7 +194,11 @@ class PresenceStore:
             "expiresAt": int(time.time()) + settings.LOCATION_TTL_SECONDS,
         }
         if self._redis:
-            await self._redis.set(f"location-cell:{user_id}", json.dumps(data), ex=settings.LOCATION_TTL_SECONDS)
+            await self._redis.set(
+                f"location-cell:{user_id}",
+                json.dumps(data),
+                ex=settings.LOCATION_TTL_SECONDS,
+            )
         else:
             self._locations[user_id] = data
 

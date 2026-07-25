@@ -32,6 +32,7 @@ class Settings(BaseSettings):
     PULSE_COOLDOWN_SECONDS: int = 3
     MAX_WS_MESSAGE_BYTES: int = 16_384
     TELEMETRY_ENABLED: bool = True
+    TELEMETRY_ADMIN_USER_IDS: str = ""
     AD_SSV_SECRET: str = ""
 
     @property
@@ -41,6 +42,10 @@ class Settings(BaseSettings):
     @property
     def cors_origins(self) -> list[str]:
         return [origin.strip() for origin in self.CORS_ORIGINS.split(",") if origin.strip()]
+
+    @property
+    def telemetry_admin_user_ids(self) -> set[str]:
+        return {value.strip() for value in self.TELEMETRY_ADMIN_USER_IDS.split(",") if value.strip()}
 
     def validate_runtime(self) -> None:
         unsafe = {
@@ -55,7 +60,6 @@ class Settings(BaseSettings):
             raise RuntimeError("Tether requires an explicit CORS_ORIGINS allowlist.")
         if self.ALLOW_ANONYMOUS_WS:
             raise RuntimeError("Anonymous WebSocket connections are disabled.")
-
 
 
 @lru_cache()

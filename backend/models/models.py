@@ -180,6 +180,14 @@ class TetherJoinGrant(Base):
 
 class MemoryAnchor(Base):
     __tablename__ = "memory_anchors"
+    __table_args__ = (
+        UniqueConstraint(
+            "session_id",
+            "user_id",
+            "friend_id",
+            name="uq_memory_anchor_session_owner_friend",
+        ),
+    )
 
     id = Column(String(36), primary_key=True, default=gen_uuid)
     user_id = Column(String(36), ForeignKey("users.id"), nullable=False)

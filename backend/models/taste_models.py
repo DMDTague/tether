@@ -1,10 +1,9 @@
-"""Durable platform models extracted from the Tether architecture audit."""
+"""Durable taste, recommendation, and telemetry models."""
 
 from sqlalchemy import (
-    BigInteger, Boolean, Column, Date, DateTime, Float, ForeignKey, Index,
-    Integer, JSON, String, Text, UniqueConstraint,
+    Boolean, CheckConstraint, Column, DateTime, Float, ForeignKey, Index,
+    Integer, JSON, String, UniqueConstraint,
 )
-from sqlalchemy.orm import relationship
 
 from models.models import gen_uuid, utcnow
 from db.database import Base
@@ -25,6 +24,7 @@ class ListenEvent(Base):
     source = Column(String(24), default="observed", nullable=False)
     occurred_at = Column(DateTime(timezone=True), default=utcnow)
 
+
 class UserTrackAggregate(Base):
     __tablename__ = "user_track_aggregates"
     __table_args__ = (UniqueConstraint("user_id", "canonical_track_id"),)
@@ -39,6 +39,7 @@ class UserTrackAggregate(Base):
     last_played_at = Column(DateTime(timezone=True), nullable=True)
     updated_at = Column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
 
+
 class UserArtistAggregate(Base):
     __tablename__ = "user_artist_aggregates"
     __table_args__ = (UniqueConstraint("user_id", "artist_key"),)
@@ -52,6 +53,7 @@ class UserArtistAggregate(Base):
     tether_count = Column(Integer, default=0, nullable=False)
     updated_at = Column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
 
+
 class TasteEmbedding(Base):
     __tablename__ = "taste_embeddings"
 
@@ -60,6 +62,7 @@ class TasteEmbedding(Base):
     vector = Column(JSON, nullable=False)
     evidence_count = Column(Integer, default=0, nullable=False)
     generated_at = Column(DateTime(timezone=True), default=utcnow)
+
 
 class RecommendationExposure(Base):
     __tablename__ = "recommendation_exposures"
@@ -75,6 +78,7 @@ class RecommendationExposure(Base):
     no_observed_listen = Column(Boolean, default=False, nullable=False)
     shown_at = Column(DateTime(timezone=True), default=utcnow)
 
+
 class RecommendationOutcome(Base):
     __tablename__ = "recommendation_outcomes"
     __table_args__ = (UniqueConstraint("exposure_id", "outcome_type"),)
@@ -84,14 +88,24 @@ class RecommendationOutcome(Base):
     outcome_type = Column(String(24), nullable=False)
     created_at = Column(DateTime(timezone=True), default=utcnow)
 
+
 class ProductEvent(Base):
     __tablename__ = "product_events"
-    __table_args__ = (Index("ix_product_events_name_occurred", "event_name", "occurred_at"),)
+    __table_args__ = (
+        Index("ix_product_events_name_occurred", "event_name", "occurred_at"),
+        UniqueConstraint("event_id", name="uq_product_events_event_id"),
+        CheckConstraint("authority IN ('client_intent', 'server_outcome')", name="ck_product_events_authority"),
+    )
 
     id = Column(String(36), primary_key=True, default=gen_uuid)
+    event_id = Column(String(64), nullable=False, unique=True, index=True)
     user_id = Column(String(36), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
     event_name = Column(String(64), nullable=False, index=True)
+    authority = Column(String(20), nullable=False, default="client_intent")
     schema_version = Column(Integer, default=1, nullable=False)
+    journey_id = Column(String(64), nullable=True, index=True)
+    session_id = Column(String(36), ForeignKey("sessions.id", ondelete="SET NULL"), nullable=True, index=True)
+    exposure_id = Column(String(64), nullable=True, index=True)
     occurred_at = Column(DateTime(timezone=True), nullable=False)
     properties = Column(JSON, nullable=False, default=dict)
     received_at = Column(DateTime(timezone=True), default=utcnow)

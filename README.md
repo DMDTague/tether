@@ -6,17 +6,17 @@ Tether combines a Letterboxd-like cultural layer for music with real-time shared
 
 ## What is in this repository
 
-- `demo/` — the directly usable browser product prototype. The recovered v14 interface is preserved in `demo/v14.js`; `demo/platform.js` expands it into the broader music platform.
-- `backend/` — a FastAPI service for authentication, sessions, presence, reviews, diary, lists, profiles, dating discovery, memories, provider coordination, and WebSockets.
+- `demo/` — the directly usable browser product prototype. The recovered v14 interface is preserved in `demo/v14.js`; later modules broaden the product while explicitly labeling backend-connected, seeded, local-only, and designed-preview states.
+- `backend/` — a FastAPI service for authentication, sessions, presence, reviews, diary, lists, profiles, dating discovery, memories, provider coordination, safety, telemetry, and WebSockets.
 - `docs/` — product architecture, privacy boundaries, visual language, events, metrics, and release guidance.
 
-This repository does **not** currently contain a complete deployable React Native application. The backend and interactive web prototype are real; mobile-client claims should be evaluated only when native source is committed.
+This repository does **not** currently contain a complete deployable React Native application. The backend and interactive web prototype are real, but the static demo is not itself the native customer product required for provider SDKs, background playback, push notifications, NFC, private media, or device-level synchronization.
 
 ## Product architecture
 
-### Home
+### Listen
 
-The living overview: current playback, friends listening, open sessions, recent music discourse, diary continuity, lists, invitations, and memories.
+The living relationship dashboard: current playback, Knocks and invitations, available friends, relationship continuation, recommendations, resurfaced memories, and local scene activity.
 
 ### Exchange
 
@@ -38,7 +38,7 @@ The center action:
 - Cross-provider synchronization
 - Shared Stage and collaborative queue
 - Pulse
-- Automatic Memory Anchors and Time Capsules
+- Correctly qualified Memory Anchors and Time Capsules
 
 ### Wavelength
 
@@ -47,43 +47,50 @@ Relationship discovery through music:
 - Friendship discovery
 - Local scenes and communities
 - Explicitly opt-in Dating
-- Identity, orientation, intent, relationship structure, age and distance preferences
+- Identity, orientation, intent, relationship structure, age, and broad-proximity preferences
 - Priority artists/albums, taste boundaries, concert habits, prompts, and song-shaped gestures
 - Evidence-based explanations rather than fabricated compatibility precision
 
 ### You
 
-A complete music identity: top artists, favorite records, diary, reviews, lists, ratings, Tether history, Memory Anchors, Time Capsules, dating controls, and privacy settings.
+A complete music identity: top artists, favorite records, diary, reviews, lists, ratings, Tether history, Memory Anchors, Time Capsules, Dating controls, and privacy settings.
 
-### What the prototype actually ships
+### What the browser prototype actually ships
 
-The sections above describe the product design. The browser prototype currently
-implements a deliberately narrowed version of it, and the two should not be
-confused when reading this repository:
+The browser prototype now exposes the five-position product shell directly:
 
-- **Primary navigation is three destinations — Listen, People, You.** The
-  five-position navigation described above is a design target, not shipped code.
-- Exchange and Wavelength exist as surfaces reachable from within those three
-  destinations, not as their own tabs.
-- Messages are contextual, living in the header and person surfaces rather than
-  occupying a permanent primary destination.
+- **Listen**
+- **Exchange**
+- **Tether** as the persistent center action
+- **Wavelength**
+- **You**
 
-`demo/tests/shell.test.mjs` asserts the three-destination shell, so this section
-and the code cannot drift apart silently.
+`demo/tests/shell.test.mjs` asserts that structure. Messages remain contextual in the header, Wavelength, profiles, and relationship surfaces rather than becoming a sixth primary destination.
+
+The prototype also distinguishes four evidence states:
+
+- **Backend-connected** — an API or authoritative session workflow exists.
+- **Seeded simulation** — illustrative content shipped with the demo.
+- **Local-only demo** — interaction changes only the current browser tab.
+- **Designed preview** — intended UX whose complete customer workflow is not shipped.
+
+A label or interactive control is not proof that its production algorithm, persistence path, provider integration, or operational workflow is complete.
 
 ## Trust model
 
 - Raw coordinates are reduced to short-lived coarse cells before storage.
 - Discovery returns broad distance bands, never exact coordinates or phone numbers.
-- Ordinary public profiles never expose dating fields.
-- Dating requires explicit enablement, adult eligibility, a completed profile, and a separate visibility choice.
-- Dealbreakers and matching preferences are used privately and are not shown on public profiles.
+- Ordinary public profiles never expose Dating fields.
+- Dating requires explicit enablement, self-declared adult eligibility, current profile readiness, approved public media, and a separate visibility choice. Self-declaration is not described as identity or age verification.
+- Profile fields have explicit public, after-match, filter-only, and do-not-use semantics.
 - Diary notes are owner-only.
-- WebSockets use one-minute scoped tickets rather than primary access tokens in URLs.
-- Session playback, Knock, Pulse, reconnect, and Memory Anchor decisions are authorized from server-side state.
-- Production refuses default secrets, wildcard CORS, anonymous WebSocket access, or a database without an Alembic revision.
+- Account blocks revoke pair-scoped friendship, follow, Dating, live-session, and private-media access instead of acting as a discovery-only flag.
+- Physical Tap to Tether requires a short-lived, one-time token bound to both authenticated accounts; a target account ID is not consent.
+- WebSockets use one-minute one-time tickets and connection IDs so an older socket cannot disconnect a replacement socket.
+- Meaningful-session qualification is evaluated per pair from real overlap, playback confirmation, sync evidence, deliberate relational action, and safety state.
+- Client telemetry may record intent only. Server outcomes are generated by backend workflows and funnel analytics are administrative.
+- Production requires the exact expected Alembic revision and fails readiness when required database or Redis coordination is unavailable.
 - Core listening, invitations, joining, and Pulse are never ad-gated.
-- Telemetry rejects review text, titles, artists, diary notes, prompts, identity, orientation, relationship details, coordinates, contacts, credentials, and provider tokens.
 
 See `docs/CURRENT_STATE.md`, `docs/DELIVER_IMPLEMENTATION.md`, `docs/MUSIC_PLATFORM.md`, `docs/EVENTS.md`, and `docs/PRODUCT_PRINCIPLES.md`.
 
@@ -108,7 +115,7 @@ cp .env.example .env
 uvicorn main:app --reload
 ```
 
-Development defaults are intentionally local. Production requires an explicit secret, a CORS allowlist, and an Alembic-managed database at a known revision.
+Development defaults are intentionally local. Production requires an explicit secret, a CORS allowlist, Redis coordination, and an Alembic-managed database at the exact application revision.
 
 ## Test
 
@@ -121,20 +128,18 @@ cd ../backend
 SECRET_KEY=any-local-value-at-least-32-characters-long pytest -q
 ```
 
-`backend/config.py` refuses to start without a `SECRET_KEY` of at least 32
-characters that is not on its blocklist of known placeholder values — including
-in tests, which is why the variable is set above.
+`backend/config.py` refuses to start without a `SECRET_KEY` of at least 32 characters that is not on its blocklist of known placeholder values—including in tests, which is why the variable is set above.
 
-GitHub Actions runs both suites, plus guardrails that fail the build if a
-database file, a `.env`, or a submodule pointer without `.gitmodules` is ever
-committed again.
+GitHub Actions runs both suites, plus guardrails that fail the build if a database file, a `.env`, or a submodule pointer without `.gitmodules` is committed again. Behavioral tests cover key reversal and safety contracts in addition to source-level guardrails.
 
 ## Product measures
 
 The defining metric remains **Meaningful Shared Listens per Weekly Active User**. The cultural layer adds supporting measures such as diary retention, review creation, list saves, review-to-listen conversion, and the percentage of relationships that move from cultural interaction into a real Tether.
 
-The operating promise remains the **Ten-second Tether**: from opening the product to hearing synchronized music with another person in under ten seconds.
+The operating promise remains the **Ten-second Tether**: from opening the product to hearing synchronized music with another person in under ten seconds. That promise is not considered achieved until provider playback and sync are verified on real devices.
 
 ## Status
 
-Tether is a serious product prototype, not yet a production release. The durable audit foundation now covers trust boundaries, safety records, platform schemas, migrations, telemetry, and evidence-preserving recommendations. A complete native client, real provider authorization/playback, multi-instance coordination, production media infrastructure, migration rehearsal, moderation operations, store compliance, and real-device cross-provider testing remain required before public launch.
+Tether is a serious architectural prototype, not a production release. The second-audit overhaul strengthens consent, Dating reversals, pair-scoped Memory Anchors, block cleanup, telemetry authority, migration-head checks, multi-connection WebSockets, readiness reporting, and browser epistemic honesty.
+
+It does **not** complete every remaining launch blocker. Real provider verification, two-direction provider matching, distributed multi-worker session coordination, complete media and moderation operations, every Dating preference, mature Exchange and Taste Graph ranking, migration rehearsal against PostgreSQL, the native client, and real-device cross-provider testing remain required before public launch.
