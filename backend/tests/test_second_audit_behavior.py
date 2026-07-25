@@ -1,4 +1,4 @@
-from datetime import date, datetime, timedelta, timezone
+from datetime import datetime, timedelta, timezone
 
 import pytest
 from fastapi import HTTPException
@@ -7,8 +7,6 @@ from sqlalchemy import select
 from models.models import Follow, Friendship, Session, SessionListener, TetherJoinGrant, User
 from models.profile_models import (
     DatingMatch,
-    DatingPreference,
-    DatingProfile,
     PrivateAlbum,
     PrivateAlbumGrant,
     ProfileField,
@@ -159,7 +157,7 @@ async def test_block_cleanup_revokes_pair_scoped_access_without_restoring_on_unb
 
 
 @pytest.mark.asyncio
-async def test_match_only_profile_fields_require_an_active_match(db_session):
+async def test_profile_field_visibility_is_viewer_specific_and_owner_complete(db_session):
     owner = await create_user(db_session, "owner")
     viewer = await create_user(db_session, "viewer")
     db_session.add(PublicProfile(user_id=owner.id, statement="Public statement"))
@@ -168,6 +166,7 @@ async def test_match_only_profile_fields_require_an_active_match(db_session):
             ProfileField(user_id=owner.id, field_key="public", value="yes", visibility="public"),
             ProfileField(user_id=owner.id, field_key="after", value="matched", visibility="after_match"),
             ProfileField(user_id=owner.id, field_key="filter", value="secret", visibility="filter_only", use_for_filtering=True),
+            ProfileField(user_id=owner.id, field_key="unused", value="private", visibility="do_not_use"),
         ]
     )
     await db_session.flush()
@@ -181,6 +180,10 @@ async def test_match_only_profile_fields_require_an_active_match(db_session):
     matched_projection = await _serialize(db_session, owner.id, viewer.id)
     assert set(matched_projection["fields"]) == {"public", "after"}
     assert "filter" not in matched_projection["fields"]
+    assert "unused" not in matched_projection["fields"]
+
+    owner_projection = await _serialize(db_session, owner.id, owner.id)
+    assert set(owner_projection["fields"]) == {"public", "after", "filter", "unused"}
 
 
 class FakeWebSocket:
