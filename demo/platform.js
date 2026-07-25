@@ -170,11 +170,29 @@
     panel.querySelectorAll("[data-save-platform-list]").forEach(button => button.addEventListener("click", () => notify("List saved to your profile.")));
   }
 
+  function loadDatingWorld() {
+    if (!document.querySelector('link[data-dating-world-styles]')) {
+      const link = document.createElement("link");
+      link.rel = "stylesheet";
+      link.href = "dating-world.css?v=4";
+      link.dataset.datingWorldStyles = "true";
+      document.head.append(link);
+    }
+    if (!document.querySelector('script[data-dating-world-script]')) {
+      const script = document.createElement("script");
+      script.src = "dating-world.js?v=4";
+      script.dataset.datingWorldScript = "true";
+      document.body.append(script);
+    }
+  }
+
   function install() {
     document.body.classList.add("music-everything");
     ensureDialog();
     installHomeCulture();
     installExchangeTools();
+    if (document.readyState === "complete") loadDatingWorld();
+    else window.addEventListener("load", loadDatingWorld, { once: true });
   }
 
   install();
