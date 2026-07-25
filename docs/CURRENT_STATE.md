@@ -17,8 +17,10 @@ The North Star remains **Meaningful Shared Listens per Weekly Active User**. A m
 - Database-authorized WebSocket playback, Pulse, Knock, reconnect, and Tether-success handling.
 - Durable Knock records and provider-neutral session creation for Spotify and Apple Music.
 - Authoritative five-minute Memory Anchor creation without fabricated distance totals.
-- Durable public profiles, field-level visibility, media references, private albums, communities, Dating profiles/preferences/swipes/signals/matches, Exchange posts/reviews/comments/lists/diary, messages, listen events, Taste Graph aggregates, recommendation exposures/outcomes, and product telemetry.
-- Reciprocal Dating eligibility and mutual-match requirements before match state exists.
+- Durable public profiles, governed field-level visibility, moderated Dating media selections, match-scoped private albums, communities, Dating profiles/preferences/swipes/signals/matches, Exchange posts/reviews/comments/lists/diary, messages, listen events, Taste Graph aggregates, recommendation exposures/outcomes, and product telemetry.
+- Reciprocal Dating eligibility covers every currently exposed structured preference without revealing filter-only values; mutual positive decisions are required before match state exists.
+- Declared adult eligibility is distinct from provider-backed age verification. No customer-facing path labels self-entered birth dates as verified.
+- Dating impressions require idempotent client render events; private-album access is revoked by unmatch, interest withdrawal, or block.
 - Explainable recommendations that identify evidence provenance and say when no observed listen exists.
 - Exchange ranking that values listening, Tethers, replies, and saves more than passive reactions.
 - Production startup requires an Alembic-managed schema; development may still create tables automatically.
@@ -29,6 +31,8 @@ The North Star remains **Meaningful Shared Listens per Weekly Active User**. A m
 - Real Spotify and Apple Music authorization, playback-control, background-mode, and device testing.
 - Redis-backed multi-instance session coordination, pub/sub, distributed rate limits, and durable refresh-token state.
 - Production object storage and media processing.
+- Provider-backed age verification and production Dating media delivery.
+- Precomputed Dating candidate features, indexed city-scale retrieval, and ranking evaluation using real match-quality outcomes.
 - Human moderation operations, appeals, service-level objectives, and abuse-response staffing.
 - Full migration rehearsal against a production-like PostgreSQL snapshot.
 - Real-device cross-provider drift testing and failure recovery.

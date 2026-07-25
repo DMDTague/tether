@@ -9,6 +9,7 @@ from db.database import get_db
 from models.models import User
 from models.safety_models import ContentReport, ModerationCase, UserMute, UserReport, UserBlock
 from routes.auth import get_current_user_id
+from services.safety_policy import apply_block_cleanup
 
 router = APIRouter(prefix="/api/safety", tags=["safety"])
 _CONTEXTS = {"profile", "dating", "message", "post", "comment", "session", "album"}
@@ -57,6 +58,8 @@ async def report_user(payload: UserReportCreate, reporter_id: str = Depends(get_
         existing = await db.execute(select(UserBlock).where(UserBlock.blocker_id == reporter_id, UserBlock.blocked_user_id == payload.reported_user_id))
         if not existing.scalar_one_or_none():
             db.add(UserBlock(blocker_id=reporter_id, blocked_user_id=payload.reported_user_id, reason="reported"))
+            await db.flush()
+        await apply_block_cleanup(db, reporter_id, payload.reported_user_id)
     return {"reportId": report.id, "status": report.status, "blocked": payload.block_after_reporting}
 
 

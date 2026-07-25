@@ -10,9 +10,9 @@ test("Dating is a complete first-class world again", () => {
   for (const tab of ["cards", "grid", "signals", "profile"]) {
     assert.match(dating, new RegExp(`data-dating-world-panel=\\"${tab}\\"`));
   }
-  assert.match(dating, /Dating on Wavelength/);
+  assert.match(dating, /Meet someone who gets the song/);
   assert.match(dating, /Music-first discovery/);
-  assert.match(dating, /Mutual before messaging/);
+  assert.match(dating, /Mutual messages/);
 });
 
 test("the visual model deliberately blends cards, dense browse, and musical openings", () => {
@@ -35,8 +35,8 @@ test("the full Dating journey includes setup, privacy, decisions, matches, and c
 
 test("Dating loads after the audit layer and takes ownership of old entry points", () => {
   assert.match(platform, /window\.addEventListener\(\"load\", loadDatingWorld/);
-  assert.match(platform, /dating-world\.js\?v=4/);
-  assert.match(platform, /dating-world\.css\?v=4/);
+  assert.match(platform, /dating-world\.js\?v=5/);
+  assert.match(platform, /dating-world\.css\?v=5/);
   assert.match(dating, /cloneNode\(true\)/);
   assert.match(dating, /data-dating-mode-toggle/);
   assert.match(dating, /data-wavelength-settings/);

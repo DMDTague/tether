@@ -38,33 +38,42 @@ def upgrade() -> None:
     op.create_index("ix_tap_tether_tokens_target_id", "tap_tether_tokens", ["target_id"])
     op.create_index("ix_tap_tether_tokens_expires_at", "tap_tether_tokens", ["expires_at"])
 
-    with op.batch_alter_table("product_events") as batch:
-        batch.add_column(sa.Column("event_id", sa.String(length=64), nullable=True))
-        batch.add_column(sa.Column("authority", sa.String(length=20), nullable=False, server_default="client_intent"))
-        batch.add_column(sa.Column("journey_id", sa.String(length=64), nullable=True))
-        batch.add_column(sa.Column("session_id", sa.String(length=36), nullable=True))
-        batch.add_column(sa.Column("exposure_id", sa.String(length=64), nullable=True))
+    # The preceding foundation revision historically created its tables from
+    # then-current ORM metadata. Existing installations therefore need these
+    # columns, while a clean run against newer source may already have them.
+    # Keep this migration deterministic for both paths.
+    product_event_columns = {
+        column["name"]
+        for column in sa.inspect(op.get_bind()).get_columns("product_events")
+    }
+    if "event_id" not in product_event_columns:
+        with op.batch_alter_table("product_events") as batch:
+            batch.add_column(sa.Column("event_id", sa.String(length=64), nullable=True))
+            batch.add_column(sa.Column("authority", sa.String(length=20), nullable=False, server_default="client_intent"))
+            batch.add_column(sa.Column("journey_id", sa.String(length=64), nullable=True))
+            batch.add_column(sa.Column("session_id", sa.String(length=36), nullable=True))
+            batch.add_column(sa.Column("exposure_id", sa.String(length=64), nullable=True))
 
-    op.execute(sa.text("UPDATE product_events SET event_id = id WHERE event_id IS NULL"))
+        op.execute(sa.text("UPDATE product_events SET event_id = id WHERE event_id IS NULL"))
 
-    with op.batch_alter_table("product_events") as batch:
-        batch.alter_column("event_id", existing_type=sa.String(length=64), nullable=False)
-        batch.create_unique_constraint("uq_product_events_event_id", ["event_id"])
-        batch.create_check_constraint(
-            "ck_product_events_authority",
-            "authority IN ('client_intent', 'server_outcome')",
-        )
-        batch.create_foreign_key(
-            "fk_product_events_session_id_sessions",
-            "sessions",
-            ["session_id"],
-            ["id"],
-            ondelete="SET NULL",
-        )
-    op.create_index("ix_product_events_event_id", "product_events", ["event_id"], unique=True)
-    op.create_index("ix_product_events_journey_id", "product_events", ["journey_id"])
-    op.create_index("ix_product_events_session_id", "product_events", ["session_id"])
-    op.create_index("ix_product_events_exposure_id", "product_events", ["exposure_id"])
+        with op.batch_alter_table("product_events") as batch:
+            batch.alter_column("event_id", existing_type=sa.String(length=64), nullable=False)
+            batch.create_unique_constraint("uq_product_events_event_id", ["event_id"])
+            batch.create_check_constraint(
+                "ck_product_events_authority",
+                "authority IN ('client_intent', 'server_outcome')",
+            )
+            batch.create_foreign_key(
+                "fk_product_events_session_id_sessions",
+                "sessions",
+                ["session_id"],
+                ["id"],
+                ondelete="SET NULL",
+            )
+        op.create_index("ix_product_events_event_id", "product_events", ["event_id"], unique=True)
+        op.create_index("ix_product_events_journey_id", "product_events", ["journey_id"])
+        op.create_index("ix_product_events_session_id", "product_events", ["session_id"])
+        op.create_index("ix_product_events_exposure_id", "product_events", ["exposure_id"])
 
     # Keep one historical row per owner/friend/session before enforcing the
     # invariant. This is deterministic and does not fabricate missing Anchors.

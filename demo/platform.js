@@ -171,16 +171,16 @@
   }
 
   function loadDatingWorld() {
-    if (!document.querySelector('link[data-dating-world-styles]')) {
+    if (!document.querySelector('link[data-dating-world-styles], link[href^="dating-world.css"]')) {
       const link = document.createElement("link");
       link.rel = "stylesheet";
-      link.href = "dating-world.css?v=4";
+      link.href = "dating-world.css?v=5";
       link.dataset.datingWorldStyles = "true";
       document.head.append(link);
     }
-    if (!document.querySelector('script[data-dating-world-script]')) {
+    if (!document.querySelector('script[data-dating-world-script], script[src^="dating-world.js"]')) {
       const script = document.createElement("script");
-      script.src = "dating-world.js?v=4";
+      script.src = "dating-world.js?v=5";
       script.dataset.datingWorldScript = "true";
       document.body.append(script);
     }

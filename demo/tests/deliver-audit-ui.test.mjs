@@ -21,9 +21,9 @@ test("discovery uses broad location bands and makes demo evidence explicit", () 
   assert.match(radar, />In your city</);
   assert.match(radar, />Region</);
   assert.doesNotMatch(radar, />\s*\d+(?:\.\d+)?\s*(?:mi|miles)/i);
-  assert.match(ui, /Seeded simulation/);
-  assert.match(ui, /Local-only demo/);
-  assert.match(ui, /Designed preview/);
+  assert.match(ui, /Demo content/);
+  assert.match(ui, /This device/);
+  assert.match(ui, /Preview/);
   assert.match(ui, /No confidence claim/);
   assert.match(truth, /prototype-status-seeded/);
 });

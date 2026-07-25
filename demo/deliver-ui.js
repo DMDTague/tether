@@ -4,10 +4,10 @@
   const one = (selector, root = document) => root.querySelector(selector);
   const many = (selector, root = document) => [...root.querySelectorAll(selector)];
   const STATUS = {
-    connected: ["Backend-connected", "Uses an API or authoritative session workflow."],
-    seeded: ["Seeded simulation", "Illustrative content supplied with the product demo."],
-    local: ["Local-only demo", "Changes only this browser tab; it is not saved to an account."],
-    preview: ["Designed preview", "Shows intended UX, but the complete customer workflow is not shipped."],
+    connected: ["Live workflow", "Uses an API or authoritative session workflow."],
+    seeded: ["Demo content", "Illustrative content supplied with the product demo."],
+    local: ["This device", "Changes only this browser tab; it is not saved to an account."],
+    preview: ["Preview", "Shows intended UX, but the complete customer workflow is not shipped."],
   };
 
   function loadStyles() {
@@ -59,7 +59,7 @@
     const completeness = one(".profile-completeness small");
     if (completeness) completeness.textContent = "Illustrative completeness preview · not read from an account API";
     const sync = one(".sync-pill span");
-    if (sync) sync.textContent = "Mixed demo states";
+    if (sync) sync.textContent = "About this demo";
 
     const dating = one(".dating-readiness-card");
     if (dating) {
@@ -165,7 +165,6 @@
     if (document.body.classList.contains("truthful-demo-v2")) return;
     loadStyles();
     document.body.classList.add("truthful-demo-v2");
-    installLegend();
     rewriteStaticClaims();
     renderListenProofs();
     renderExchangeAndScenes();
