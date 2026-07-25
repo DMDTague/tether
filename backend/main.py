@@ -13,30 +13,9 @@ from sqlalchemy import select
 from config import get_settings
 from db.database import async_session, init_db
 from models.models import User
-from routes import (
-    ad_pass,
-    anchors,
-    auth,
-    blocks,
-    capsules,
-    charts,
-    discovery,
-    friends,
-    music_culture,
-    playback,
-    profile_signal,
-    recommendations,
-    sesh,
-    sessions,
-    telemetry,
-    tethers,
-    users,
-    vibe,
-)
+from routes import ad_pass, anchors, auth, blocks, capsules, charts, dating, discovery, friends, music_culture, playback, profile_signal, recommendations, safety, sesh, sessions, telemetry, tethers, users, vibe
 from routes.auth import decode_ws_ticket
-from services.music_culture import music_culture_store
 from services.presence import presence_store
-from services.profile_signal import profile_signal_store
 from worker import setup_scheduler
 from ws.handlers import handle_message
 from ws.manager import manager
@@ -50,16 +29,14 @@ async def lifespan(app: FastAPI):
     settings.validate_runtime()
     await init_db()
     await presence_store.connect_redis(settings.REDIS_URL)
-    await profile_signal_store.connect_redis(settings.REDIS_URL)
-    await music_culture_store.connect_redis(settings.REDIS_URL)
     setup_scheduler()
     yield
 
 
 app = FastAPI(
     title="Tether API",
-    description="A complete social music platform centered on real-time shared listening, with reviews, diary, lists, discovery, dating, profiles, and memories.",
-    version="0.4.0",
+    description="A durable social music platform centered on real-time shared listening, with Exchange, Wavelength, Dating, profiles, safety, recommendations, and memories.",
+    version="0.5.0",
     lifespan=lifespan,
     docs_url=None if settings.is_production else "/docs",
     redoc_url=None if settings.is_production else "/redoc",
@@ -86,8 +63,10 @@ for route in (
     vibe.router,
     sesh.router,
     discovery.router,
+    dating.router,
     profile_signal.router,
     music_culture.router,
+    safety.router,
     blocks.router,
     tethers.router,
     telemetry.router,
@@ -99,48 +78,39 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 
 @app.get("/")
 async def root():
-    return {"app": "Tether", "version": "0.4.0", "status": "running"}
+    return {"app": "Tether", "version": "0.5.0", "status": "running"}
 
 
 @app.get("/health")
 async def health():
-    return {"status": "ok"}
+    return {"status": "ok", "schema": "durable-platform-v1"}
 
 
 @app.websocket("/ws")
-async def websocket_endpoint(
-    websocket: WebSocket,
-    ticket: str = Query(default=""),
-    region: str = Query(default=""),
-):
+async def websocket_endpoint(websocket: WebSocket, ticket: str = Query(default=""), region: str = Query(default="")):
     """Authenticate with a one-minute ticket, never a primary JWT in the URL."""
     user_id: str | None = None
-    user_name = "Unknown"
-    user_initials = "??"
-
     if ticket:
         try:
             user_id = decode_ws_ticket(ticket)
         except JWTError:
             await websocket.close(code=4001, reason="Invalid or expired WebSocket ticket")
             return
-
     if not user_id:
         await websocket.close(code=4003, reason="Authentication required")
         return
 
     async with async_session() as db:
-        result = await db.execute(select(User).where(User.id == user_id))
-        user = result.scalar_one_or_none()
+        user = (await db.execute(select(User).where(User.id == user_id))).scalar_one_or_none()
         if not user:
             await websocket.close(code=4003, reason="User not found")
             return
-        user_name = user.display_name
-        user_initials = user.initials
+        user_name, user_initials = user.display_name, user.initials
         manager._user_colors[user_id] = user.theme_colors
 
     await manager.connect(user_id, websocket)
     if region:
+        # Display-only broad region; raw coordinates never enter WebSocket state.
         manager.set_user_city(user_id, region[:80])
 
     try:
@@ -168,5 +138,4 @@ async def websocket_endpoint(
 
 if __name__ == "__main__":
     import uvicorn
-
     uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=not settings.is_production)
