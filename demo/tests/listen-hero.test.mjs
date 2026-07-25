@@ -25,11 +25,12 @@ test("Listen includes a no-playback prompt with recent quick picks", () => {
   assert.match(app, /data-quick-pick=/);
 });
 
-test("social rails prioritize five available friends and defer discovery", () => {
+test("Listen prioritizes relationships, live requests, recommendations, and memory", () => {
   assert.match(index, /id="available-now-list"/);
-  assert.match(index, /Continue a Relationship/);
-  assert.match(index, /<details id="explore-more" class="explore-more">/);
-  assert.match(index, /<strong>Explore More<\/strong>/);
+  assert.match(index, /Continue a relationship/);
+  assert.match(index, /Knocks & invitations/);
+  assert.match(index, /From your musical neighborhood/);
+  assert.match(index, /Resurfaced memory/);
   assert.match(app, /sort\(\(a,b\) => relationshipStrength\(b\) - relationshipStrength\(a\)\)/);
   assert.match(app, /const available = live\.slice\(0,5\)/);
   assert.match(app, /data-home-session=/);
