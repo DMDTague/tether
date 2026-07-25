@@ -40,5 +40,5 @@ test("Dating loads after the audit layer and takes ownership of old entry points
   assert.match(dating, /cloneNode\(true\)/);
   assert.match(dating, /data-dating-mode-toggle/);
   assert.match(dating, /data-wavelength-settings/);
-  assert.match(dating, /data-you-tool=\\"dating\\"/);
+  assert.match(dating, /data-you-tool="dating"/);
 });
