@@ -311,6 +311,15 @@ textarea:focus-visible {
 .dating-world-principles { margin-top: 12px; }
 .dating-world-principles span { font-size: 9px; padding: 6px 8px; }
 
+.dating-world .dating-visibility-toggle,
+.dating-world [data-dating-filters],
+.dating-world [data-dating-undo] {
+  align-items: center;
+  display: inline-flex;
+  justify-content: center;
+  min-height: var(--experience-tap);
+}
+
 .dating-world-tabs {
   border-radius: 18px;
   position: sticky;
@@ -332,7 +341,7 @@ textarea:focus-visible {
 .dating-grid-toolbar p,
 .dating-signal-section-head small { font-size: 9px; }
 .dating-cards-toolbar button,
-.dating-grid-toolbar button { min-height: 38px; padding-inline: 12px; }
+.dating-grid-toolbar button { min-height: var(--experience-tap); padding-inline: 12px; }
 
 .dating-feature-photo { aspect-ratio: 1.18; }
 .dating-feature-body { padding: 16px; }
@@ -375,13 +384,13 @@ textarea:focus-visible {
 .dating-signal-card > button,
 .dating-match-card > button { font-size: 9px; }
 .dating-signal-card > button,
-.dating-match-card > button { min-height: 38px; }
+.dating-match-card > button { min-height: var(--experience-tap); }
 
 .dating-profile-preview-card p,
 .dating-control-card p { font-size: 10px; }
 .dating-profile-preview-card button,
 .dating-visibility-matrix button,
-.dating-safety-card button { min-height: 38px; }
+.dating-safety-card button { min-height: var(--experience-tap); }
 
 .dating-modal-actions button,
 .dating-modal-shell .icon-button {
