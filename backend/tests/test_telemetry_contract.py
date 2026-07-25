@@ -1,7 +1,8 @@
 import pytest
+from fastapi import HTTPException
 from pydantic import ValidationError
 
-from routes.telemetry import TelemetryBatch, TelemetryEvent
+from routes.telemetry import TelemetryBatch, TelemetryEvent, ingest_telemetry
 
 
 def event(name: str, properties: dict | None = None) -> TelemetryEvent:
@@ -34,13 +35,20 @@ def test_server_outcomes_cannot_be_submitted_by_clients(server_outcome):
         event(server_outcome)
 
 
-def test_properties_are_allowlisted_per_event():
-    with pytest.raises(ValidationError):
-        event("error_shown", {"messageBody": "secret"})
-    with pytest.raises(ValidationError):
-        event("dating_mode_opened", {"orientation": "private"})
-    with pytest.raises(ValidationError):
-        event("exchange_post_opened", {"reviewTitle": "content"})
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("event_name", "properties"),
+    [
+        ("error_shown", {"messageBody": "secret"}),
+        ("dating_mode_opened", {"orientation": "private"}),
+        ("exchange_post_opened", {"reviewTitle": "content"}),
+    ],
+)
+async def test_properties_are_allowlisted_at_ingestion(event_name, properties, db_session):
+    batch = TelemetryBatch(events=[event(event_name, properties)])
+    with pytest.raises(HTTPException) as error:
+        await ingest_telemetry(batch, user_id="test-user", db=db_session)
+    assert error.value.status_code == 422
 
 
 def test_dating_events_record_behavior_not_identity():
