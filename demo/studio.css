@@ -439,6 +439,11 @@ h3 {
   font-size: 12px;
 }
 
+/* Relationship suggestions belong in People, never above the listening moment. */
+#home-view > #wavelength-suggestion-list {
+  display: none !important;
+}
+
 .available-now-list {
   gap: 12px;
   margin-inline: -20px;
@@ -857,6 +862,11 @@ h3 {
 
 .dating-world {
   gap: 14px;
+}
+
+/* Dating has already explained itself in the mode heading. Lead with a person. */
+.studio-dating-active .dating-world-hero {
+  display: none;
 }
 
 .dating-world-hero {
