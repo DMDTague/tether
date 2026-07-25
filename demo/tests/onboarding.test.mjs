@@ -10,7 +10,7 @@ const DEMO = path.dirname(fileURLToPath(new URL("../index.html", import.meta.url
 const source = name => readFileSync(path.join(DEMO, name), "utf8");
 
 function boot() {
-  const dom = new JSDOM(`<main class="phone"><section id="home-view"></section><section id="you-view"><div class="you-card deliver-you-card"><div class="avatar self-avatar"><b class="avatar-fallback">JR</b><img></div><h2 id="you-title">John</h2><p class="handle"></p><p class="bio"></p><div class="identity-chips"></div></div><div class="top-five-card"><h3>Top 5</h3><div id="profile-top-five"></div></div></section></main>`, {
+  const dom = new JSDOM(`<main class="phone"><button class="self-avatar header-profile" aria-label="Open John Roastpork's profile"><b class="avatar-fallback">JR</b><img></button><button class="you-ping" aria-label="John Roastpork, approximate home city"><span>JR</span></button><section id="home-view"></section><section id="you-view"><div class="you-card deliver-you-card"><div class="avatar self-avatar"><b class="avatar-fallback">JR</b><img></div><h2 id="you-title">John</h2><p class="handle"></p><p class="bio"></p><div class="identity-chips"></div></div><div class="top-five-card"><h3>Top 5</h3><div id="profile-top-five"></div></div><div class="privacy-selector" aria-label="John's privacy mode"></div><div class="shared-avatar-pair"><span class="avatar">JR</span></div></section></main>`, {
     url: "http://localhost/", runScripts: "outside-only", pretendToBeVisual: true
   });
   const { window } = dom;
@@ -46,6 +46,10 @@ test("completion replaces the fictional account identity across the app", () => 
   assert.match(dom.window.document.querySelector(".handle").textContent, /@dylantague/);
   assert.equal(dom.window.document.querySelectorAll("#profile-top-five .profile-top-five-item").length, 5);
   assert.ok(dom.window.document.querySelector("[data-imported-card]"));
+  assert.match(dom.window.document.querySelector(".header-profile").getAttribute("aria-label"), /Dylan Tague/);
+  assert.match(dom.window.document.querySelector(".you-ping").getAttribute("aria-label"), /Dylan Tague/);
+  assert.match(dom.window.document.querySelector(".privacy-selector").getAttribute("aria-label"), /Dylan/);
+  assert.equal(dom.window.document.querySelector(".shared-avatar-pair .avatar").textContent, "DT");
   assert.equal(dom.window.document.querySelector(".install-gate").hidden, true);
   dom.window.close();
 });
