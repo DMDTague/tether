@@ -34,6 +34,19 @@ def _artist_names(user: User) -> list[str]:
     return names
 
 
+def _enrich_user_dict(user: User) -> dict:
+    """Return the discovery-safe public account projection.
+
+    The helper remains a compatibility contract for callers and tests, but its
+    real purpose is to make it impossible for contact data, credentials, or
+    private Spark tokens to leak through discovery serialization.
+    """
+    payload = user_to_dict(user)
+    for key in ("phoneNumber", "phone_number", "sparkToken", "spark_token", "passwordHash", "password_hash"):
+        payload.pop(key, None)
+    return payload
+
+
 async def _is_blocked(db: AsyncSession, first_id: str, second_id: str) -> bool:
     result = await db.execute(select(UserBlock.id).where(or_(and_(UserBlock.blocker_id == first_id, UserBlock.blocked_user_id == second_id), and_(UserBlock.blocker_id == second_id, UserBlock.blocked_user_id == first_id))))
     return result.scalar_one_or_none() is not None
@@ -80,9 +93,8 @@ async def match_people(mode: Literal["friends", "dating"] = Query(default="frien
         if not evidence:
             evidence.append({"type": "early_signal", "label": "New musical signal", "provenance": "observed"})
         tie = int(hashlib.sha256(f"friends:{user_id}:{candidate.id}:{date.today().isoformat()}".encode()).hexdigest()[:8], 16) / 0xFFFFFFFF
-        # Exact or relative distance never contributes inside the broad band.
         rank = min(len(shared), 3) * 0.3 + (0.15 if presence else 0.0) + ((public_profile.completeness if public_profile else 0.0) * 0.2) + tie * 0.1
-        payload = user_to_dict(candidate)
+        payload = _enrich_user_dict(candidate)
         payload.pop("adFreeUntil", None)
         payload.update({"topArtists": candidate.top_artists or [], "discoveryMode": "friends", "matchEvidence": evidence, "matchConfidence": "evidence_available" if len(evidence) > 1 else "early_signal", "distanceBand": normalized_band, "profileAtmosphere": {"statement": public_profile.statement if public_profile else "", "topFive": (public_profile.top_five or []) if public_profile else [], "completeness": public_profile.completeness if public_profile else 0.0}, "vibePreview": {"trackName": presence.get("track", ""), "artistName": presence.get("artist", ""), "artUrl": presence.get("albumArt", ""), "provider": presence.get("provider", "")} if presence else None})
         candidates.append((rank, candidate.display_name.casefold(), payload))
