@@ -21,9 +21,18 @@ from models.models import User
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 settings = get_settings()
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="api/auth/login")
+# NOTE: this state is per-process and in-memory. It is correct for a single
+# instance only. Running more than one worker or replica means a refresh token
+# minted on one process cannot be redeemed on another (users get logged out at
+# random) and a revoked access token stays valid everywhere else. Moving these
+# three maps to the Redis instance already configured in REDIS_URL is the
+# prerequisite for horizontal scaling.
 _attempts: dict[str, deque[float]] = defaultdict(deque)
 _refresh_sessions: dict[str, tuple[str, float]] = {}
 _revoked_access: set[str] = set()
+_MAX_REVOKED_ACCESS = 10_000
+_SWEEP_INTERVAL_SECONDS = 60.0
+_last_sweep = [0.0]
 
 
 class RegisterRequest(BaseModel):
@@ -61,14 +70,43 @@ class AuthResponse(BaseModel):
 
 
 def _client_key(request: Request, action: str) -> str:
-    forwarded = request.headers.get("x-forwarded-for", "").split(",")[0].strip()
-    host = forwarded or (request.client.host if request.client else "unknown")
+    """Identify the caller for rate limiting.
+
+    X-Forwarded-For is client-controlled. Honouring it unconditionally lets an
+    attacker rotate a fake value per request and defeat login rate limiting
+    entirely, so it is only read when TRUST_PROXY_HEADERS is enabled.
+    """
+    host = request.client.host if request.client else "unknown"
+    if settings.TRUST_PROXY_HEADERS:
+        forwarded = request.headers.get("x-forwarded-for", "").split(",")[0].strip()
+        host = forwarded or host
     return f"{action}:{host}"
+
+
+def _sweep_expired(now: float) -> None:
+    """Drop state that can no longer affect a decision.
+
+    These maps are per-process and never shrink on their own; a long-running
+    instance would otherwise grow one permanent entry per client key, per
+    rotated refresh token, and per logged-out access token.
+    """
+    window = settings.AUTH_RATE_LIMIT_WINDOW_SECONDS
+    for key in [k for k, bucket in _attempts.items() if not bucket or bucket[-1] < now - window]:
+        del _attempts[key]
+    for token_id in [t for t, (_, expires) in _refresh_sessions.items() if expires < now]:
+        del _refresh_sessions[token_id]
+    if len(_revoked_access) > _MAX_REVOKED_ACCESS:
+        # Entries only need to outlive the access-token lifetime; the oldest go first.
+        for token_id in list(_revoked_access)[: len(_revoked_access) - _MAX_REVOKED_ACCESS]:
+            _revoked_access.discard(token_id)
 
 
 def _enforce_rate_limit(request: Request, action: str) -> None:
     key = _client_key(request, action)
     now = time.time()
+    if now - _last_sweep[0] > _SWEEP_INTERVAL_SECONDS:
+        _last_sweep[0] = now
+        _sweep_expired(now)
     bucket = _attempts[key]
     while bucket and bucket[0] < now - settings.AUTH_RATE_LIMIT_WINDOW_SECONDS:
         bucket.popleft()

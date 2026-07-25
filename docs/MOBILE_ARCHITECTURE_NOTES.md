@@ -1,3 +1,16 @@
+> **Status: describes source that is not in this repository.**
+>
+> This document details React Native / Reanimated / Skia work in `mobile/`.
+> `mobile/` was committed as a git submodule pointer (mode `160000`) to commit
+> `b4f51e0f5cb0d19a9c36018c6387d9cd0e61bc83`, with no `.gitmodules` file, in
+> commit `2dc2640` (2026-05-22). That commit is not reachable from this remote,
+> so the directory clones empty and none of the code below can be verified here.
+>
+> See `docs/MOBILE_CLIENT_GAP.md` for recovery steps. Treat every claim in this
+> file as unverified until the native source is committed as ordinary files.
+
+---
+
 # Tether UI/UX Architecture Upgrade — Engineering Summary
 
 **Date**: May 19, 2026  

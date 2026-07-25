@@ -2,10 +2,12 @@
 
 from functools import lru_cache
 
-from pydantic_settings import BaseSettings
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
+    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
+
     ENVIRONMENT: str = "development"
     DATABASE_URL: str = "sqlite+aiosqlite:///./tether.db"
     REDIS_URL: str = "redis://localhost:6379/0"
@@ -18,9 +20,11 @@ class Settings(BaseSettings):
     SPOTIFY_CLIENT_ID: str = ""
     SPOTIFY_CLIENT_SECRET: str = ""
     OPENWEATHER_API_KEY: str = ""
-    JWT_SECRET: str = ""
     CORS_ORIGINS: str = "http://localhost:3000,http://localhost:19006,http://127.0.0.1:3000,http://127.0.0.1:19006"
     ALLOW_ANONYMOUS_WS: bool = False
+    # Only honour X-Forwarded-For when the API actually sits behind a proxy you control.
+    # Left False, a client can defeat auth rate limiting by sending a random XFF per request.
+    TRUST_PROXY_HEADERS: bool = False
     AUTH_RATE_LIMIT_ATTEMPTS: int = 10
     AUTH_RATE_LIMIT_WINDOW_SECONDS: int = 300
     LOCATION_CELL_DEGREES: float = 0.1
@@ -52,9 +56,6 @@ class Settings(BaseSettings):
         if self.ALLOW_ANONYMOUS_WS:
             raise RuntimeError("Anonymous WebSocket connections are disabled.")
 
-    class Config:
-        env_file = ".env"
-        env_file_encoding = "utf-8"
 
 
 @lru_cache()

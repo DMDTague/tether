@@ -67,3 +67,16 @@ coverage/
 
 # Misc
 .cache/
+
+# Local database files (never commit — they contain real user rows and password hashes)
+*.db
+*.sqlite
+*.sqlite3
+backend/tether.db
+
+# Runtime-generated user uploads
+backend/static/avatars/*
+!backend/static/avatars/.gitkeep
+
+# Scratch/one-off migration scripts
+modify_*.py

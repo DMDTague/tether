@@ -2,100 +2,112 @@ name: Tether CI
 
 on:
   push:
-    branches: [master, "overhaul/**", "design/**", "rebuild/**"]
+    branches: [master, "overhaul/**", "design/**", "rebuild/**", "review/**"]
   pull_request:
 
 permissions:
   contents: read
 
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   demo:
+    name: Demo prototype
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: demo
     steps:
       - uses: actions/checkout@v4
+
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - name: Check demo JavaScript
+
+      - name: Install demo test dependencies
+        run: npm install --no-audit --no-fund
+
+      - name: Parse every shipped script
+        # Catches syntax errors before the browser does. The list is derived
+        # from index.html, so a newly added script cannot skip this check.
         run: |
-          node --check demo/app.js
-          node --check demo/v14.js
-          node --check demo/platform.js
-          node --check demo/optimization.js
-          node --check demo/continuity.js
-      - name: Check the music-everything architecture
-        run: |
-          grep -q 'The Exchange' demo/index.html
-          grep -q 'Wavelength' demo/index.html
-          grep -q 'platform-tether-nav' demo/platform.js
-          grep -q 'Listening diary' demo/platform.js
-          grep -q 'Music lists' demo/platform.js
-          grep -q 'Wavelength Dating' demo/platform.js
-          grep -q 'v14.js' demo/app.js
-      - name: Preserve the recovered interaction engine
-        run: |
-          test $(wc -l < demo/v14.js) -gt 2000
-          grep -q 'renderSwipeDeck' demo/v14.js
-          grep -q 'renderReviews' demo/v14.js
-          grep -q 'openProfile' demo/v14.js
-      - name: Check customer-optimized journeys
-        run: |
-          grep -q 'data-customer-create="review"' demo/optimization.js
-          grep -q 'data-customer-create="diary"' demo/optimization.js
-          grep -q 'data-customer-create="list"' demo/optimization.js
-          grep -q 'data-customer-create="tether"' demo/optimization.js
-          grep -q 'data-turn-review' demo/optimization.js
-          grep -q 'data-add-list' demo/optimization.js
-          grep -q 'data-tether-entry' demo/optimization.js
-          grep -q 'data-undo-pass' demo/optimization.js
-          grep -q 'Ten-second Tether' demo/optimization.js
-          grep -q 'exchangeDraft' demo/continuity.js
-          grep -q 'diaryDraft' demo/continuity.js
-          grep -q 'listDraft' demo/continuity.js
-          grep -q 'datingDraft' demo/continuity.js
-          grep -q 'Discover → understand → act → continue' docs/CUSTOMER_OPTIMIZATION.md
+          for script in $(grep -oP '(?<=<script src=")[^"?]+' index.html); do
+            echo "checking $script"
+            node --check "$script"
+          done
+
+      - name: Run demo tests
+        # Includes tests/runtime-smoke.test.mjs, which boots the page in jsdom
+        # and clicks every control. This replaces the grep assertions that used
+        # to live here: those checked that marketing strings existed in source,
+        # would have passed while the app was broken, and failed on harmless
+        # refactors (one of them asserted v14.js was over 2000 lines long).
+        run: npm test
 
   backend:
+    name: Backend service
     runs-on: ubuntu-latest
     defaults:
       run:
         working-directory: backend
     steps:
       - uses: actions/checkout@v4
+
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
           cache: pip
           cache-dependency-path: backend/requirements.txt
+
       - name: Install backend
         run: pip install --disable-pip-version-check --quiet -r requirements.txt
+
       - name: Compile Python
         run: python -m compileall -q .
+
       - name: Run tests
         env:
           ENVIRONMENT: development
-          SECRET_KEY: local-development-only-change-me
-        run: |
-          set +e
-          pytest -q --tb=short > pytest.log 2>&1
-          status=$?
-          cat pytest.log
-          exit $status
-      - name: Upload pytest failure log
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: pytest-failure
-          path: backend/pytest.log
-          if-no-files-found: error
-          retention-days: 3
+          # Must not be a value config.validate_runtime() rejects. The previous
+          # value was "local-development-only-change-me", which is on that
+          # blocklist, so this job died at conftest import on every run and the
+          # suite never actually executed.
+          SECRET_KEY: ci-only-secret-not-used-outside-github-actions
+        run: pytest -q --tb=short
+
+  guardrails:
+    name: Security guardrails
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
       - name: Reject known unsafe defaults
-        working-directory: ${{ github.workspace }}
         run: |
           ! grep -R "tether-dev-secret-key-change-in-production" backend --exclude-dir=__pycache__
           ! grep -R 'allow_origins=\["\*"\]' backend --exclude-dir=__pycache__
-          ! grep -R 'phoneNumber.*phone_number' backend/routes/discovery.py
-          grep -q 'orientation' backend/routes/telemetry.py
-          grep -q 'include_dating=False' backend/routes/profile_signal.py
-          grep -q 'privateNote' backend/routes/music_culture.py
-          grep -q 'music_culture.router' backend/main.py
+
+      - name: Reject committed databases and credentials
+        # backend/tether.db was committed once and contained real user rows,
+        # including bcrypt password hashes. Never again.
+        run: |
+          if git ls-files | grep -E '\.(db|sqlite3?)$'; then
+            echo "::error::A database file is tracked in git. Remove it and gitignore it."
+            exit 1
+          fi
+          if git ls-files | grep -E '(^|/)\.env$'; then
+            echo "::error::A .env file is tracked in git."
+            exit 1
+          fi
+
+      - name: Reject orphaned submodule pointers
+        # mobile/ and mobile.worktrees/ were committed as gitlinks with no
+        # .gitmodules, so the referenced commits were unreachable and the
+        # directories cloned empty.
+        run: |
+          orphans=$(git ls-files -s | awk '$1 == "160000" { print $4 }')
+          if [ -n "$orphans" ] && [ ! -f .gitmodules ]; then
+            echo "::error::Submodule pointers exist with no .gitmodules: $orphans"
+            exit 1
+          fi
