@@ -18,7 +18,25 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  verify:
+    # The demo used to deploy straight from a push with nothing run against it,
+    # so a broken build reached dmdtague.github.io before anyone noticed.
+    name: Verify before publishing
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: demo
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm install --no-audit --no-fund
+      - run: npm test
+
   deploy:
+    name: Publish to GitHub Pages
+    needs: verify
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
@@ -26,12 +44,20 @@ jobs:
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
+
       - name: Configure Pages
         uses: actions/configure-pages@v5
+
+      - name: Strip test scaffolding from the published artifact
+        # tests/ and package.json are development files; only the static
+        # prototype should be served.
+        run: rm -rf demo/tests demo/package.json demo/package-lock.json demo/node_modules
+
       - name: Upload demo
         uses: actions/upload-pages-artifact@v3
         with:
           path: demo
+
       - name: Deploy demo
         id: deployment
         uses: actions/deploy-pages@v4

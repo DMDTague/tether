@@ -55,7 +55,21 @@ Relationship discovery through music:
 
 A complete music identity: top artists, favorite records, diary, reviews, lists, ratings, Tether history, Memory Anchors, Time Capsules, dating controls, and privacy settings.
 
-Messages are contextual and live in the header and person surfaces rather than occupying a permanent primary destination. The five-position navigation centers Tether physically and conceptually.
+### What the prototype actually ships
+
+The sections above describe the product design. The browser prototype currently
+implements a deliberately narrowed version of it, and the two should not be
+confused when reading this repository:
+
+- **Primary navigation is three destinations — Listen, People, You.** The
+  five-position navigation described above is a design target, not shipped code.
+- Exchange and Wavelength exist as surfaces reachable from within those three
+  destinations, not as their own tabs.
+- Messages are contextual, living in the header and person surfaces rather than
+  occupying a permanent primary destination.
+
+`demo/tests/shell.test.mjs` asserts the three-destination shell, so this section
+and the code cannot drift apart silently.
 
 ## Trust model
 
@@ -99,14 +113,21 @@ Development defaults are intentionally local. Production requires an explicit se
 ## Test
 
 ```bash
-node --check demo/app.js
-node --check demo/v14.js
-node --check demo/platform.js
-cd backend
-pytest -q
+cd demo
+npm install
+npm test          # 22 tests, including a jsdom smoke test that boots the page
+
+cd ../backend
+SECRET_KEY=any-local-value-at-least-32-characters-long pytest -q   # 68 tests
 ```
 
-GitHub Actions validates the recovered interaction engine, the expanded music-platform surfaces, Python compilation, backend tests, and known unsafe defaults.
+`backend/config.py` refuses to start without a `SECRET_KEY` of at least 32
+characters that is not on its blocklist of known placeholder values — including
+in tests, which is why the variable is set above.
+
+GitHub Actions runs both suites, plus guardrails that fail the build if a
+database file, a `.env`, or a submodule pointer without `.gitmodules` is ever
+committed again.
 
 ## Product measures
 

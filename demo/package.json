@@ -1,0 +1,14 @@
+{
+  "name": "tether-demo",
+  "version": "0.19.0",
+  "private": true,
+  "description": "Static browser prototype for Tether. No build step: the files in this directory are what ships.",
+  "type": "module",
+  "scripts": {
+    "test": "node --test tests/*.test.mjs",
+    "serve": "python3 -m http.server 4173"
+  },
+  "devDependencies": {
+    "jsdom": "^26.0.0"
+  }
+}
