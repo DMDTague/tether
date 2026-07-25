@@ -77,11 +77,21 @@ async def apply_block_cleanup(db: AsyncSession, blocker_id: str, blocked_id: str
         )
     )
 
-    await db.execute(
-        update(DatingMatch)
-        .where(DatingMatch.user_a == user_a, DatingMatch.user_b == user_b, DatingMatch.status == "active")
-        .values(status="blocked", ended_at=now, ended_by=blocker_id)
-    )
+    match = (
+        await db.execute(
+            select(DatingMatch)
+            .where(
+                DatingMatch.user_a == user_a,
+                DatingMatch.user_b == user_b,
+                DatingMatch.status == "active",
+            )
+            .with_for_update()
+        )
+    ).scalar_one_or_none()
+    if match:
+        match.status = "blocked"
+        match.ended_at = now
+        match.ended_by = blocker_id
 
     await db.execute(
         update(TetherJoinGrant)
