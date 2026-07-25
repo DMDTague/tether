@@ -1,8 +1,8 @@
-"""Durable platform models extracted from the Tether architecture audit."""
+"""Durable safety, consent, and moderation models."""
 
 from sqlalchemy import (
-    BigInteger, Boolean, Column, Date, DateTime, Float, ForeignKey, Index,
-    Integer, JSON, String, Text, UniqueConstraint,
+    Boolean, CheckConstraint, Column, DateTime, ForeignKey, String, Text,
+    UniqueConstraint,
 )
 from sqlalchemy.orm import relationship
 
@@ -26,6 +26,31 @@ class UserBlock(Base):
 
 Block = UserBlock
 
+
+class TapTetherToken(Base):
+    """One-time proof that two authenticated devices consented to a physical Tether.
+
+    Only a SHA-256 digest is persisted. The plaintext token is returned once to
+    the initiating device and must be consumed by the specifically-bound target.
+    """
+
+    __tablename__ = "tap_tether_tokens"
+    __table_args__ = (
+        UniqueConstraint("token_hash"),
+        CheckConstraint("initiator_id <> target_id", name="ck_tap_tether_distinct_accounts"),
+    )
+
+    id = Column(String(36), primary_key=True, default=gen_uuid)
+    token_hash = Column(String(64), nullable=False, unique=True, index=True)
+    initiator_id = Column(String(36), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    target_id = Column(String(36), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    action = Column(String(32), nullable=False, default="accept_friendship")
+    expires_at = Column(DateTime(timezone=True), nullable=False, index=True)
+    consumed_at = Column(DateTime(timezone=True), nullable=True)
+    consumed_by = Column(String(36), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    created_at = Column(DateTime(timezone=True), default=utcnow, nullable=False)
+
+
 class UserMute(Base):
     __tablename__ = "user_mutes"
     __table_args__ = (UniqueConstraint("muter_id", "muted_user_id"),)
@@ -34,6 +59,7 @@ class UserMute(Base):
     muter_id = Column(String(36), ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
     muted_user_id = Column(String(36), ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
     created_at = Column(DateTime(timezone=True), default=utcnow)
+
 
 class UserReport(Base):
     __tablename__ = "user_reports"
@@ -48,6 +74,7 @@ class UserReport(Base):
     status = Column(String(20), default="open", nullable=False, index=True)
     created_at = Column(DateTime(timezone=True), default=utcnow)
 
+
 class ContentReport(Base):
     __tablename__ = "content_reports"
 
@@ -60,6 +87,7 @@ class ContentReport(Base):
     status = Column(String(20), default="open", nullable=False)
     created_at = Column(DateTime(timezone=True), default=utcnow)
 
+
 class ModerationCase(Base):
     __tablename__ = "moderation_cases"
 
@@ -71,6 +99,7 @@ class ModerationCase(Base):
     source_id = Column(String(64), nullable=False)
     opened_at = Column(DateTime(timezone=True), default=utcnow)
     closed_at = Column(DateTime(timezone=True), nullable=True)
+
 
 class ModerationAction(Base):
     __tablename__ = "moderation_actions"
