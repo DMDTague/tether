@@ -33,7 +33,7 @@ jobs:
             node --check "$script"
           done
       - name: Run demo tests
-        run: npm test
+        run: timeout 45s npm test
 
   backend:
     name: Backend service
