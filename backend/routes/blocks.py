@@ -1,44 +1,55 @@
-"""
-Block / report routes — ties into normalized phone_number on User.
+"""Account-level block controls.
+
+Safety relationships are bound to stable user IDs, never phone numbers or other
+contact data. Blocking is immediate, silent, and symmetric for discovery.
 """
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Response
+from pydantic import BaseModel, Field
+from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
-from pydantic import BaseModel
 
 from db.database import get_db
-from models.models import User, Block
+from models.models import User
+from models.safety_models import UserBlock
 from routes.auth import get_current_user_id
 
-router = APIRouter(prefix="/api/blocks", tags=["blocks"])
+router = APIRouter(prefix="/api/blocks", tags=["safety"])
 
 
 class BlockRequest(BaseModel):
-    phone_number: str
-    reason: str | None = None
+    blocked_user_id: str = Field(min_length=1, max_length=36)
+    reason: str | None = Field(default=None, max_length=120)
 
 
-@router.post("")
-async def block_user(
-    req: BlockRequest,
-    user_id: str = Depends(get_current_user_id),
-    db: AsyncSession = Depends(get_db),
-):
-    """Block a user by their normalized phone number."""
-    phone = req.phone_number.strip()
-    if not phone:
-        raise HTTPException(status_code=400, detail="phone_number required")
+def _serialize(block: UserBlock) -> dict:
+    return {"id": block.id, "blockedUserId": block.blocked_user_id, "reason": block.reason, "createdAt": block.created_at.isoformat() if block.created_at else None}
 
-    existing = await db.execute(
-        select(Block).where(
-            Block.blocker_id == user_id,
-            Block.blocked_phone_number == phone,
-        )
-    )
-    if existing.scalar_one_or_none():
-        return {"success": True, "alreadyBlocked": True}
 
-    db.add(Block(blocker_id=user_id, blocked_phone_number=phone))
-    await db.commit()
-    return {"success": True, "alreadyBlocked": False}
+@router.get("")
+async def list_blocks(user_id: str = Depends(get_current_user_id), db: AsyncSession = Depends(get_db)):
+    result = await db.execute(select(UserBlock).where(UserBlock.blocker_id == user_id).order_by(UserBlock.created_at.desc()))
+    return [_serialize(block) for block in result.scalars().all()]
+
+
+@router.post("", status_code=201)
+async def block_user(req: BlockRequest, user_id: str = Depends(get_current_user_id), db: AsyncSession = Depends(get_db)):
+    if req.blocked_user_id == user_id:
+        raise HTTPException(status_code=400, detail="Cannot block yourself")
+    target = await db.execute(select(User.id).where(User.id == req.blocked_user_id))
+    if not target.scalar_one_or_none():
+        raise HTTPException(status_code=404, detail="User not found")
+    existing = await db.execute(select(UserBlock).where(UserBlock.blocker_id == user_id, UserBlock.blocked_user_id == req.blocked_user_id))
+    block = existing.scalar_one_or_none()
+    if block:
+        return {**_serialize(block), "alreadyBlocked": True}
+    block = UserBlock(blocker_id=user_id, blocked_user_id=req.blocked_user_id, reason=req.reason)
+    db.add(block)
+    await db.flush()
+    return {**_serialize(block), "alreadyBlocked": False}
+
+
+@router.delete("/{blocked_user_id}", status_code=204)
+async def unblock_user(blocked_user_id: str, user_id: str = Depends(get_current_user_id), db: AsyncSession = Depends(get_db)):
+    await db.execute(delete(UserBlock).where(UserBlock.blocker_id == user_id, UserBlock.blocked_user_id == blocked_user_id))
+    return Response(status_code=204)

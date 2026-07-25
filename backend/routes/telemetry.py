@@ -1,76 +1,27 @@
-"""Small, explicit telemetry contract for customer-value and reliability events."""
+"""Privacy-conscious durable product telemetry and funnel summaries."""
 
-import json
-import logging
-from datetime import datetime, timezone
-from typing import Any
+from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException
+from datetime import datetime, timedelta, timezone
+from typing import Any, Literal
+
+from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field, field_validator
+from sqlalchemy import func, select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from config import get_settings
+from db.database import get_db
+from models.taste_models import ProductEvent
 from routes.auth import get_current_user_id
 
 router = APIRouter(prefix="/api/telemetry", tags=["telemetry"])
-logger = logging.getLogger(__name__)
 settings = get_settings()
 
 ALLOWED_EVENTS = {
-    "app_opened",
-    "now_playing_detected",
-    "live_presence_impression",
-    "session_start_tapped",
-    "session_created",
-    "invite_sent",
-    "knock_sent",
-    "join_started",
-    "join_succeeded",
-    "join_failed",
-    "session_30s_reached",
-    "session_5m_reached",
-    "pulse_sent",
-    "queue_item_added",
-    "sync_corrected",
-    "session_ended",
-    "anchor_created",
-    "privacy_mode_changed",
-    "match_explanation_opened",
-    "match_feedback_given",
-    "dating_mode_opened",
-    "dating_signal_sent",
-    "dating_preferences_changed",
-    "exchange_opened",
-    "review_created",
-    "review_rated",
-    "diary_entry_created",
-    "music_list_created",
-    "music_list_saved",
-    "error_shown",
+    "app_opened", "now_playing_detected", "live_presence_impression", "session_start_tapped", "session_created", "invite_sent", "knock_sent", "join_started", "join_succeeded", "join_failed", "provider_resolved", "audio_started", "initial_drift_measured", "ten_second_tether_reached", "session_30s_reached", "session_5m_reached", "meaningful_session_reached", "pulse_sent", "queue_item_added", "sync_corrected", "session_ended", "anchor_created", "privacy_mode_changed", "profile_opened", "match_explanation_opened", "match_feedback_given", "dating_mode_opened", "dating_profile_completed", "dating_candidate_shown", "dating_passed", "dating_signal_sent", "dating_match_created", "dating_preferences_changed", "exchange_opened", "exchange_post_impression", "exchange_post_opened", "exchange_to_listen", "exchange_to_tether", "review_created", "review_feedback_given", "diary_entry_created", "music_list_created", "music_list_saved", "recommendation_shown", "recommendation_outcome", "report_submitted", "block_created", "error_shown",
 }
-FORBIDDEN_PROPERTY_PARTS = {
-    "message",
-    "body",
-    "note",
-    "title",
-    "artist",
-    "prompt",
-    "answer",
-    "query",
-    "search",
-    "latitude",
-    "longitude",
-    "phone",
-    "email",
-    "password",
-    "token",
-    "handle",
-    "username",
-    "displayname",
-    "orientation",
-    "identity",
-    "height",
-    "relationship",
-}
+FORBIDDEN_PROPERTY_PARTS = {"message", "body", "note", "title", "artist", "prompt", "answer", "query", "search", "latitude", "longitude", "phone", "email", "password", "token", "handle", "username", "displayname", "orientation", "identity", "height", "relationship", "coordinate", "contact", "credential", "provideraccount"}
 
 
 class TelemetryEvent(BaseModel):
@@ -91,7 +42,7 @@ class TelemetryEvent(BaseModel):
     def safe_properties(cls, value: dict[str, Any]) -> dict[str, Any]:
         if len(value) > 30:
             raise ValueError("Too many event properties")
-        safe: dict[str, Any] = {}
+        safe = {}
         for key, item in value.items():
             normalized = key.replace("_", "").casefold()
             if any(part in normalized for part in FORBIDDEN_PROPERTY_PARTS):
@@ -114,22 +65,31 @@ async def event_dictionary():
 
 
 @router.post("/batch", status_code=202)
-async def ingest_telemetry(batch: TelemetryBatch, user_id: str = Depends(get_current_user_id)):
+async def ingest_telemetry(batch: TelemetryBatch, user_id: str = Depends(get_current_user_id), db: AsyncSession = Depends(get_db)):
     if not settings.TELEMETRY_ENABLED:
         raise HTTPException(status_code=503, detail="Telemetry is disabled")
     for event in batch.events:
-        logger.info(
-            "product_event %s",
-            json.dumps(
-                {
-                    "event": event.event,
-                    "schemaVersion": event.schemaVersion,
-                    "occurredAt": event.occurredAt.isoformat(),
-                    "userId": user_id,
-                    "properties": event.properties,
-                },
-                separators=(",", ":"),
-                sort_keys=True,
-            ),
-        )
-    return {"accepted": len(batch.events)}
+        db.add(ProductEvent(user_id=user_id, event_name=event.event, schema_version=event.schemaVersion, occurred_at=event.occurredAt, properties=event.properties))
+    return {"accepted": len(batch.events), "storage": "durable"}
+
+
+FUNNELS = {
+    "ten_second_tether": ["app_opened", "now_playing_detected", "session_start_tapped", "session_created", "join_started", "provider_resolved", "audio_started", "ten_second_tether_reached"],
+    "wavelength_to_tether": ["dating_candidate_shown", "profile_opened", "dating_signal_sent", "dating_match_created", "join_started", "meaningful_session_reached"],
+    "exchange_to_listen": ["exchange_post_impression", "exchange_post_opened", "exchange_to_listen", "audio_started", "meaningful_session_reached"],
+}
+
+
+@router.get("/funnels/{funnel_name}")
+async def funnel_summary(funnel_name: Literal["ten_second_tether", "wavelength_to_tether", "exchange_to_listen"], days: int = Query(default=7, ge=1, le=90), user_id: str = Depends(get_current_user_id), db: AsyncSession = Depends(get_db)):
+    del user_id
+    since = datetime.now(timezone.utc) - timedelta(days=days)
+    steps = FUNNELS[funnel_name]
+    rows = await db.execute(select(ProductEvent.event_name, func.count(ProductEvent.id)).where(ProductEvent.event_name.in_(steps), ProductEvent.occurred_at >= since).group_by(ProductEvent.event_name))
+    counts = {name: int(count) for name, count in rows.all()}
+    output, previous = [], None
+    for step in steps:
+        count = counts.get(step, 0)
+        output.append({"step": step, "count": count, "conversionFromPrior": None if previous in (None, 0) else round(count / previous, 4)})
+        previous = count
+    return {"funnel": funnel_name, "windowDays": days, "steps": output}
