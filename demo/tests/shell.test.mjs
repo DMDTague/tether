@@ -4,6 +4,7 @@ import test from "node:test";
 
 const index = readFileSync(new URL("../index.html", import.meta.url), "utf8");
 const app = readFileSync(new URL("../v14.js", import.meta.url), "utf8");
+const deliverStyles = readFileSync(new URL("../deliver-ui.css", import.meta.url), "utf8");
 
 function primaryNavigation() {
   const match = index.match(/<nav class="bottom-nav[^\"]*"[\s\S]*?<\/nav>/);
@@ -20,6 +21,14 @@ test("primary navigation exposes Listen, Exchange, Tether, Wavelength, and You",
   assert.deepEqual(destinations, ["home", "activity", "messages", "you"]);
   assert.match(navigation, /class="tether-action"/);
   assert.match(navigation, /<span>Tether<\/span>/);
+});
+
+test("the five-position navigation resets the legacy three-column shell", () => {
+  assert.match(deliverStyles, /\.bottom-nav\.deliver-bottom-nav\s*\{[\s\S]*?display:\s*block\s*!important/);
+  assert.match(deliverStyles, /grid-template-columns:\s*none\s*!important/);
+  assert.match(deliverStyles, /\.deliver-bottom-nav \.bottom-nav-tablist\s*\{[\s\S]*?grid-template-columns:\s*repeat\(5,minmax\(0,1fr\)\)/);
+  assert.match(deliverStyles, /\.deliver-bottom-nav \.nav-item\s*\{[\s\S]*?width:\s*100%\s*!important/);
+  assert.match(deliverStyles, /text-overflow:\s*ellipsis/);
 });
 
 test("the persistent Tether action opens the listening flow", () => {
