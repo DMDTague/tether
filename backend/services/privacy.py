@@ -51,7 +51,11 @@ async def can_view_presence(db: AsyncSession, viewer_id: str, host_id: str) -> b
 
 
 async def can_request_tether(db: AsyncSession, viewer_id: str, host_id: str, session_id: str) -> str:
-    """Authorize visibility of the Tether/Knock action without leaking blocks."""
+    """Authorize showing or sending a Tether/Knock request.
+
+    Knock First still allows the request itself. The separate join decision
+    requires a live grant before any session payload is released.
+    """
     if viewer_id == host_id:
         return AuthDecision.ALLOW
     if await is_blocked(db, viewer_id, host_id):
@@ -62,7 +66,7 @@ async def can_request_tether(db: AsyncSession, viewer_id: str, host_id: str, ses
         return AuthDecision.HOST_UNAVAILABLE
     if not await is_friend(db, viewer_id, host_id):
         return AuthDecision.NOT_FRIENDS
-    return AuthDecision.ALLOW if host.privacy_mode == "open-door" else AuthDecision.KNOCK_REQUIRED
+    return AuthDecision.ALLOW
 
 
 async def can_join_session(db: AsyncSession, viewer_id: str, session_id: str) -> str:
