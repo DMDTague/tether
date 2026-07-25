@@ -151,6 +151,17 @@
     return available[model.cardIndex];
   }
 
+  function declaredAge() {
+    const dob = new Date(`${model.profile.dob}T00:00:00`);
+    if (Number.isNaN(dob.getTime())) return "18+";
+    const today = new Date();
+    let age = today.getFullYear() - dob.getFullYear();
+    const birthdayPassed = today.getMonth() > dob.getMonth()
+      || (today.getMonth() === dob.getMonth() && today.getDate() >= dob.getDate());
+    if (!birthdayPassed) age -= 1;
+    return Math.max(18, age);
+  }
+
   function openModal(markup) {
     if (typeof globalThis.openFeatureModal === "function") {
       globalThis.openFeatureModal(`<div class="dating-modal-shell">${markup}</div>`);
@@ -174,23 +185,28 @@
       <header class="dating-world-hero">
         <div class="dating-world-hero-glow"></div>
         <div class="dating-world-hero-top">
-          <span class="dating-mode-mark"><i></i> Dating on Wavelength</span>
+          <span class="dating-mode-mark"><i></i> Dating</span>
           <button class="dating-visibility-toggle ${model.discoverable ? "is-on" : ""}" data-dating-visibility aria-pressed="${model.discoverable}">
             <i></i><span>${model.discoverable ? "Visible" : "Hidden"}</span>
           </button>
         </div>
-        <div class="dating-world-identity">
-          <div><p>Music-first discovery</p><h2>${escapeHtml(model.profile.firstName)}, 22</h2><span>${escapeHtml(model.profile.intent)} · ${escapeHtml(model.profile.proximity)}</span></div>
-          <button data-dating-edit-profile>Edit setup</button>
+        <div class="dating-world-promise">
+          <p>Music-first discovery</p>
+          <h2>Meet someone who gets the song.</h2>
+          <span>Decide with context. Start with expression. Keep control.</span>
         </div>
-        <div class="dating-world-principles"><span>Mutual before messaging</span><span>Broad location only</span><span>Private Signals</span></div>
+        <div class="dating-world-identity">
+          <div><p>Your Dating profile</p><h3>${escapeHtml(model.profile.firstName)}, ${declaredAge()}</h3><span>${escapeHtml(model.profile.intent)} · ${escapeHtml(model.profile.proximity)}</span></div>
+          <button data-dating-edit-profile>Edit profile</button>
+        </div>
+        <div class="dating-world-principles"><span>Free filters</span><span>Mutual messages</span><span>Broad location</span><span>Private Signals</span></div>
       </header>
 
       <nav class="dating-world-tabs" role="tablist" aria-label="Dating sections">
-        ${tabButton("cards", "Cards", "Swipe")}
-        ${tabButton("grid", "Browse", "Nearby")}
+        ${tabButton("cards", "Discover", "Cards")}
+        ${tabButton("grid", "Browse", "Grid")}
         ${tabButton("signals", "Signals", model.unreadSignals ? `${model.unreadSignals} new` : "Matches")}
-        ${tabButton("profile", "You", "Profile")}
+        ${tabButton("profile", "Profile", "Control")}
       </nav>
 
       <div class="dating-world-panel ${active === "cards" ? "active" : ""}" data-dating-world-panel="cards"></div>
@@ -235,8 +251,8 @@
     const saved = model.saved.includes(candidate.id);
     const signaled = model.signaled.includes(candidate.id);
     host.innerHTML = `<div class="dating-cards-toolbar">
-      <div><span class="dating-live-dot"></span><strong>Selected for you</strong><small>Reciprocal eligibility + music evidence</small></div>
-      <button data-dating-filters>Filters</button>
+      <div><span class="dating-live-dot"></span><strong>Discover</strong><small>Mutual fit + music evidence</small></div>
+      <button data-dating-filters>Filters · free</button>
     </div>
     <article class="dating-feature-card" data-dating-card style="--dating-a:${candidate.colors[0]};--dating-b:${candidate.colors[1]}">
       <div class="dating-feature-photo">
@@ -260,7 +276,7 @@
       <button class="profile" data-dating-open-profile><b>◎</b><small>Profile</small></button>
       <button class="signal ${signaled ? "active" : ""}" data-dating-signal><b>✦</b><small>${signaled ? "Sent" : "Signal"}</small></button>
     </div>
-    <div class="dating-card-footer"><button data-dating-undo ${recentPass ? "" : "disabled"}>↶ Undo pass</button><span>Messaging opens only after mutual interest.</span></div>`;
+    <div class="dating-card-footer"><button data-dating-undo ${recentPass ? "" : "disabled"}>↶ Undo pass</button><span>No cold DMs. Conversation opens after mutual interest.</span></div>`;
 
     one("[data-dating-pass]", host)?.addEventListener("click", passCurrent);
     one("[data-dating-save]", host)?.addEventListener("click", saveCurrent);
@@ -276,8 +292,8 @@
     const host = one('[data-dating-world-panel="grid"]');
     if (!host) return;
     host.innerHTML = `<div class="dating-grid-toolbar">
-      <div><p class="eyebrow">Browse without exact distance</p><h3>People in your bands</h3></div>
-      <button data-dating-filters>Filter</button>
+      <div><p class="eyebrow">Fast, contextual browsing</p><h3>People in your area bands</h3></div>
+      <button data-dating-filters>Filters · free</button>
     </div>
     <div class="dating-browse-grid">${candidates.map(candidate => `
       <button class="dating-grid-person" data-dating-person="${candidate.id}" style="--dating-a:${candidate.colors[0]};--dating-b:${candidate.colors[1]}">
@@ -313,7 +329,7 @@
     many("[data-dating-person]", host).forEach(button => button.addEventListener("click", () => openCandidate(candidates.find(c => c.id === button.dataset.datingPerson))));
     many("[data-dating-reply-signal]", host).forEach(button => button.addEventListener("click", () => respondToSignal(button.dataset.datingReplySignal)));
     many("[data-dating-chat]", host).forEach(button => button.addEventListener("click", () => openMatchChat(button.dataset.datingChat)));
-    one("[data-dating-compose-signal]", host)?.addEventListener("click", openSignalComposer);
+    one("[data-dating-compose-signal]", host)?.addEventListener("click", () => openSignalComposer());
   }
 
   function signalCard(candidate, track, note, mutual) {
