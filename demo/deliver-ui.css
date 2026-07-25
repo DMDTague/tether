@@ -32,14 +32,42 @@
 }
 .sync-pill i,.account-save-state i { background: var(--deliver-mint); border-radius: 50%; box-shadow: 0 0 12px rgba(120,228,189,.6); height: 6px; width: 6px; }
 
-/* Five-position navigation with Tether as the dominant center action. */
-.deliver-bottom-nav { min-height: 82px; }
-.deliver-bottom-nav .bottom-nav-tablist {
-  display: grid !important; grid-template-columns: repeat(5,minmax(0,1fr)); width: 100%;
+/* Five-position navigation with Tether as the dominant center action.
+   Explicitly reset the legacy three-column bottom-nav grid before laying out
+   the five customer-facing positions. */
+.bottom-nav.deliver-bottom-nav {
+  display: block !important;
+  grid-template-columns: none !important;
+  height: calc(82px + env(safe-area-inset-bottom));
+  min-height: calc(82px + env(safe-area-inset-bottom));
+  padding: 27px 8px env(safe-area-inset-bottom);
+  overflow: visible;
 }
-.deliver-bottom-nav .nav-item { min-width: 0; padding-inline: 3px; }
-.deliver-bottom-nav .nav-item small { font-size: 9px; letter-spacing: -.02em; }
-.deliver-bottom-nav .tether-nav-space { display: block; }
+.deliver-bottom-nav .bottom-nav-tablist {
+  align-items: stretch;
+  display: grid !important;
+  grid-template-columns: repeat(5,minmax(0,1fr));
+  height: 55px;
+  width: 100%;
+}
+.deliver-bottom-nav .nav-item {
+  min-height: 50px;
+  min-width: 0 !important;
+  padding: 3px 1px 4px;
+  width: 100% !important;
+}
+.deliver-bottom-nav .nav-item svg { height: 20px; width: 20px; }
+.deliver-bottom-nav .nav-item small {
+  display: block;
+  font-size: 9px;
+  letter-spacing: -.02em;
+  line-height: 1;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.deliver-bottom-nav .tether-nav-space { display: block; min-width: 0; pointer-events: none; }
 .deliver-bottom-nav .tether-action { left: 50%; position: absolute; transform: translateX(-50%); z-index: 4; }
 
 /* Listen becomes the living relationship dashboard described by the audit. */
@@ -192,8 +220,15 @@
 .safety-check input { margin-top: 2px; width: auto; }
 
 @media (max-width: 390px) {
+  .bottom-nav.deliver-bottom-nav { padding-inline: 4px; }
   .deliver-bottom-nav .nav-item small { font-size: 8px; }
+  .deliver-bottom-nav .tether-action { width: 102px; }
   .recommendation-card { grid-template-columns: 66px minmax(0,1fr); }
   .recommendation-art svg { height: 66px; width: 66px; }
   .community-card-grid,.local-scene-grid { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 340px) {
+  .deliver-bottom-nav .nav-item small { font-size: 7px; }
+  .deliver-bottom-nav .tether-action { width: 94px; }
 }
