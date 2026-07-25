@@ -120,18 +120,19 @@ async def apply_block_cleanup(db: AsyncSession, blocker_id: str, blocked_id: str
     for listener in active_pair_sessions.scalars().all():
         listener.left_at = now
 
-    blocker_album_ids = select(PrivateAlbum.id).where(PrivateAlbum.owner_id == blocker_id)
-    blocked_album_ids = select(PrivateAlbum.id).where(PrivateAlbum.owner_id == blocked_id)
-    await db.execute(
-        update(PrivateAlbumGrant)
+    grants = await db.execute(
+        select(PrivateAlbumGrant)
+        .join(PrivateAlbum, PrivateAlbum.id == PrivateAlbumGrant.album_id)
         .where(
             PrivateAlbumGrant.revoked_at.is_(None),
             or_(
-                and_(PrivateAlbumGrant.album_id.in_(blocker_album_ids), PrivateAlbumGrant.grantee_id == blocked_id),
-                and_(PrivateAlbumGrant.album_id.in_(blocked_album_ids), PrivateAlbumGrant.grantee_id == blocker_id),
+                and_(PrivateAlbum.owner_id == blocker_id, PrivateAlbumGrant.grantee_id == blocked_id),
+                and_(PrivateAlbum.owner_id == blocked_id, PrivateAlbumGrant.grantee_id == blocker_id),
             ),
         )
-        .values(revoked_at=now)
+        .with_for_update()
     )
+    for grant in grants.scalars().all():
+        grant.revoked_at = now
 
     await db.flush()
