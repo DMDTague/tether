@@ -1843,7 +1843,7 @@ function startSession(profile) {
           <span class="pulse-fill" data-pulse-fill></span>
           <span class="pulse-symbol" aria-hidden="true">✦</span>
         </button>
-        <p id="pulse-instruction" class="pulse-label" data-pulse-label>${isSelf ? "Pulses unlock when a friend joins" : "Pulse — hold for 1.5 seconds to say “I’m here”"}</p>
+        <p id="pulse-instruction" class="pulse-label" data-pulse-label>${isSelf ? "Pulses unlock when a friend joins" : "Hold to send a Pulse"}</p>
         <p class="session-note" data-session-note>${isSelf ? "Friends in your Orbit can see your Stage is live." : ""}</p>
       </div>
     </div>`;
@@ -1889,7 +1889,7 @@ function startSession(profile) {
         beginPulseCooldownDisplay();
       } else {
         if (button) button.disabled = false;
-        if (label) label.textContent = "press and hold for 1.5 seconds";
+        if (label) label.textContent = "Hold to send a Pulse";
       }
       const note = $("[data-session-note]", view);
       if (note) note.textContent = "";
@@ -2054,12 +2054,14 @@ function startPulseCharge(event) {
   const button = $("[data-pulse]");
   const fill = $("[data-pulse-fill]");
   button.classList.add("charging");
+  const label = $("[data-pulse-label]");
+  if (label) label.textContent = "Keep holding — let it build";
   fill.style.transition = "height 1.5s linear";
   fill.style.height = "100%";
   state.pulseChargeTimer = setTimeout(() => {
     state.pulseReady = true;
     button.classList.add("ready");
-    $("[data-pulse-label]").textContent = "release to send";
+    $("[data-pulse-label]").textContent = "Release — send it";
   }, 1500);
 }
 
@@ -2095,7 +2097,7 @@ function resetPulseCharge() {
   fill.style.transition = "height .25s ease";
   fill.style.height = "0";
   const label = $("[data-pulse-label]");
-  if (label) label.textContent = "press and hold for 1.5 seconds";
+  if (label) label.textContent = "Hold to send a Pulse";
 }
 
 function firePulse() {
@@ -2105,11 +2107,17 @@ function firePulse() {
   void button.offsetWidth;
   button.classList.add("pulsing");
   const stage = $(".session-stage");
+  stage.classList.remove("pulse-transmission");
+  void stage.offsetWidth;
+  stage.classList.add("pulse-transmission");
   const spark = document.createElement("div");
   spark.className = "pulse-spark";
   stage.appendChild(spark);
   spark.addEventListener("animationend", () => spark.remove());
-  $("[data-session-note]").textContent = `Pulse sent to ${state.session.name} ✦`;
+  setTimeout(() => stage.classList.remove("pulse-transmission"), 1400);
+  const companion = state.sessionIsSelf ? profileByUsername(state.sessionCompanionUsername) : state.session;
+  const recipient = companion?.name?.split(" ")[0] || "your listener";
+  $("[data-session-note]").textContent = `${recipient} felt your Pulse`;
   consequentialHaptic([20, 36, 26]);
   state.pulsesThisSession += 1;
   state.pulseCooldownUntil = Date.now() + PULSE_COOLDOWN_MS;
@@ -2142,10 +2150,10 @@ function beginPulseCooldownDisplay() {
       }
       currentButton.disabled = false;
       currentButton.classList.remove("cooling");
-      currentLabel.textContent = "press and hold for 1.5 seconds";
+      currentLabel.textContent = "Hold to send a Pulse";
       return;
     }
-    currentLabel.textContent = `cooldown ${formatTime(remaining / 1000)} · demo-shortened from 5:00`;
+    currentLabel.textContent = `Pulse rests for ${formatTime(remaining / 1000)}`;
   };
   tick();
   state.pulseCooldownTimerId = setInterval(tick, 1000);
