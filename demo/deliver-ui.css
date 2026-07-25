@@ -32,32 +32,48 @@
 }
 .sync-pill i,.account-save-state i { background: var(--deliver-mint); border-radius: 50%; box-shadow: 0 0 12px rgba(120,228,189,.6); height: 6px; width: 6px; }
 
-/* Five-position navigation with Tether as the dominant center action.
-   Explicitly reset the legacy three-column bottom-nav grid before laying out
-   the five customer-facing positions. */
+/* One real five-cell navigation grid. The legacy tab wrapper becomes
+   display:contents so the central Tether control participates in the same
+   layout instead of floating over the other destinations. */
 .bottom-nav.deliver-bottom-nav {
-  display: block !important;
-  grid-template-columns: none !important;
-  height: calc(82px + env(safe-area-inset-bottom));
-  min-height: calc(82px + env(safe-area-inset-bottom));
-  padding: 27px 8px env(safe-area-inset-bottom);
-  overflow: visible;
-}
-.deliver-bottom-nav .bottom-nav-tablist {
   align-items: stretch;
   display: grid !important;
-  grid-template-columns: repeat(5,minmax(0,1fr));
-  height: 55px;
-  width: 100%;
+  gap: 2px;
+  grid-template-columns: repeat(5,minmax(0,1fr)) !important;
+  height: calc(76px + env(safe-area-inset-bottom));
+  min-height: calc(76px + env(safe-area-inset-bottom));
+  padding: 6px 4px env(safe-area-inset-bottom);
+  overflow: hidden;
 }
-.deliver-bottom-nav .nav-item {
-  min-height: 50px;
+.deliver-bottom-nav .bottom-nav-tablist { display: contents !important; }
+.deliver-bottom-nav .tether-nav-space { display: none !important; }
+.deliver-bottom-nav #listen-tab { grid-column: 1; }
+.deliver-bottom-nav #exchange-tab { grid-column: 2; }
+.deliver-bottom-nav .tether-action { grid-column: 3; }
+.deliver-bottom-nav #wavelength-tab { grid-column: 4; }
+.deliver-bottom-nav #you-tab { grid-column: 5; }
+.deliver-bottom-nav .nav-item,
+.deliver-bottom-nav .tether-action {
+  bottom: auto !important;
+  box-shadow: none !important;
+  height: auto !important;
+  inset: auto !important;
+  left: auto !important;
+  margin: 0;
+  min-height: 64px;
   min-width: 0 !important;
-  padding: 3px 1px 4px;
+  overflow: hidden;
+  padding: 5px 2px;
+  position: relative !important;
+  right: auto !important;
+  top: auto !important;
+  transform: none !important;
   width: 100% !important;
+  z-index: auto;
 }
 .deliver-bottom-nav .nav-item svg { height: 20px; width: 20px; }
-.deliver-bottom-nav .nav-item small {
+.deliver-bottom-nav .nav-item small,
+.deliver-bottom-nav .tether-action > span:last-child {
   display: block;
   font-size: 9px;
   letter-spacing: -.02em;
@@ -67,8 +83,19 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.deliver-bottom-nav .tether-nav-space { display: block; min-width: 0; pointer-events: none; }
-.deliver-bottom-nav .tether-action { left: 50%; position: absolute; transform: translateX(-50%); z-index: 4; }
+.deliver-bottom-nav .tether-action {
+  align-content: center;
+  align-items: center;
+  background: linear-gradient(145deg,rgba(155,160,250,.2),rgba(76,211,165,.13));
+  border: 1px solid rgba(155,160,250,.28);
+  border-radius: 15px;
+  color: white;
+  display: grid;
+  gap: 4px;
+  justify-items: center;
+}
+.deliver-bottom-nav .tether-action::before { display: none !important; }
+.deliver-bottom-nav .tether-action-signal { height: 20px; }
 
 /* Listen becomes the living relationship dashboard described by the audit. */
 .knock-invite-list { display: grid; gap: 9px; }
@@ -220,15 +247,17 @@
 .safety-check input { margin-top: 2px; width: auto; }
 
 @media (max-width: 390px) {
-  .bottom-nav.deliver-bottom-nav { padding-inline: 4px; }
-  .deliver-bottom-nav .nav-item small { font-size: 8px; }
-  .deliver-bottom-nav .tether-action { width: 102px; }
+  .bottom-nav.deliver-bottom-nav { gap: 1px; padding-inline: 2px; }
+  .deliver-bottom-nav .nav-item,
+  .deliver-bottom-nav .tether-action { padding-inline: 1px; }
+  .deliver-bottom-nav .nav-item small,
+  .deliver-bottom-nav .tether-action > span:last-child { font-size: 8px; }
   .recommendation-card { grid-template-columns: 66px minmax(0,1fr); }
   .recommendation-art svg { height: 66px; width: 66px; }
   .community-card-grid,.local-scene-grid { grid-template-columns: 1fr; }
 }
 
 @media (max-width: 340px) {
-  .deliver-bottom-nav .nav-item small { font-size: 7px; }
-  .deliver-bottom-nav .tether-action { width: 94px; }
+  .deliver-bottom-nav .nav-item small,
+  .deliver-bottom-nav .tether-action > span:last-child { font-size: 7px; }
 }

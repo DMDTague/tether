@@ -23,12 +23,15 @@ test("primary navigation exposes Listen, Exchange, Tether, Wavelength, and You",
   assert.match(navigation, /<span>Tether<\/span>/);
 });
 
-test("the five-position navigation resets the legacy three-column shell", () => {
-  assert.match(deliverStyles, /\.bottom-nav\.deliver-bottom-nav\s*\{[\s\S]*?display:\s*block\s*!important/);
-  assert.match(deliverStyles, /grid-template-columns:\s*none\s*!important/);
-  assert.match(deliverStyles, /\.deliver-bottom-nav \.bottom-nav-tablist\s*\{[\s\S]*?grid-template-columns:\s*repeat\(5,minmax\(0,1fr\)\)/);
-  assert.match(deliverStyles, /\.deliver-bottom-nav \.nav-item\s*\{[\s\S]*?width:\s*100%\s*!important/);
-  assert.match(deliverStyles, /text-overflow:\s*ellipsis/);
+test("the five-position navigation is one structural grid with no floating overlay", () => {
+  assert.match(deliverStyles, /\.bottom-nav\.deliver-bottom-nav\s*\{[\s\S]*?display:\s*grid\s*!important/);
+  assert.match(deliverStyles, /grid-template-columns:\s*repeat\(5,minmax\(0,1fr\)\)\s*!important/);
+  assert.match(deliverStyles, /\.deliver-bottom-nav \.bottom-nav-tablist\s*\{\s*display:\s*contents\s*!important/);
+  assert.match(deliverStyles, /\.deliver-bottom-nav \.tether-nav-space\s*\{\s*display:\s*none\s*!important/);
+  assert.match(deliverStyles, /\.deliver-bottom-nav \.tether-action\s*\{\s*grid-column:\s*3/);
+  assert.match(deliverStyles, /position:\s*relative\s*!important/);
+  assert.match(deliverStyles, /transform:\s*none\s*!important/);
+  assert.match(deliverStyles, /\.deliver-bottom-nav \.tether-action::before\s*\{\s*display:\s*none\s*!important/);
 });
 
 test("the persistent Tether action opens the listening flow", () => {
