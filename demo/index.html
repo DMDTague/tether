@@ -14,11 +14,13 @@
   <title>Tether — Philadelphia Product Demo</title>
   <link rel="preload" href="fonts/outfit-latin-400-normal.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="preload" href="fonts/space-grotesk-latin-700-normal.woff2" as="font" type="font/woff2" crossorigin>
-  <link rel="stylesheet" href="styles.css?v=20">
-  <link rel="stylesheet" href="platform.css?v=20">
-  <link rel="stylesheet" href="optimization.css?v=20">
-  <link rel="stylesheet" href="continuity.css?v=20">
-  <link rel="stylesheet" href="deliver-ui.css?v=20">
+  <link rel="stylesheet" href="styles.css?v=25">
+  <link rel="stylesheet" href="platform.css?v=25">
+  <link rel="stylesheet" href="optimization.css?v=25">
+  <link rel="stylesheet" href="continuity.css?v=25">
+  <link rel="stylesheet" href="deliver-ui.css?v=25">
+  <link rel="stylesheet" href="dating-world.css?v=5" data-dating-world-styles>
+  <link rel="stylesheet" href="experience.css?v=1">
 </head>
 <body>
   <main class="phone" aria-label="Tether Philadelphia interactive product demo">
@@ -38,7 +40,7 @@
     <section id="home-view" class="view active" role="tabpanel" aria-labelledby="listen-tab" aria-hidden="false">
       <div class="view-intro listen-intro">
         <div><p class="eyebrow">Alive right now</p><h1 id="home-title">Listen</h1></div>
-        <button class="sync-pill" data-sync-explainer><i></i><span>Demo data</span></button>
+        <button class="sync-pill" data-sync-explainer><i></i><span>About this demo</span></button>
       </div>
 
       <section id="listen-hero" class="listen-hero is-loading" data-listen-hero aria-label="Now playing" aria-live="polite">
@@ -200,13 +202,23 @@
 
     <section id="messages-view" class="view" role="tabpanel" aria-labelledby="wavelength-tab" aria-hidden="true">
       <div class="section-heading people-heading wavelength-heading">
-        <div><p class="eyebrow">People and scenes</p><h2 id="messages-title">Wavelength</h2></div>
-        <button class="dating-mode-toggle" data-dating-mode-toggle aria-pressed="false"><i></i><span>Dating</span><small>Set up</small></button>
+        <div><p class="eyebrow">Connect through music</p><h2 id="messages-title">Wavelength</h2><p class="section-promise">Find friends, scenes, and dates without reducing anyone to a score.</p></div>
       </div>
 
-      <div class="wavelength-hub-tabs" role="tablist" aria-label="Wavelength sections">
+      <div class="wavelength-mode-switch" role="tablist" aria-label="Choose how you want to connect">
+        <button class="active" role="tab" aria-selected="true" data-wavelength-mode="people">
+          <span class="wavelength-mode-icon" aria-hidden="true">◎</span>
+          <span><b>People</b><small>Friends, communities, and local scenes</small></span>
+        </button>
+        <button role="tab" aria-selected="false" data-wavelength-hub="dating">
+          <span class="wavelength-mode-icon dating" aria-hidden="true">✦</span>
+          <span><b>Dating</b><small>Music-first discovery and Signals</small></span>
+          <i class="wavelength-mode-badge" aria-label="2 new Signals">2</i>
+        </button>
+      </div>
+
+      <div class="wavelength-hub-tabs wavelength-people-tabs" role="tablist" aria-label="People sections">
         <button class="active" data-wavelength-hub="friends">Friends</button>
-        <button data-wavelength-hub="dating">Dating</button>
         <button data-wavelength-hub="communities">Communities</button>
         <button data-wavelength-hub="local">Local</button>
         <button data-wavelength-hub="search">Search</button>
@@ -304,7 +316,7 @@
         <button id="listen-tab" class="nav-item active" role="tab" data-view="home" aria-controls="home-view" aria-selected="true" aria-current="page"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12h3l2.2-5 4.1 10 2.2-5H20"/></svg><small>Listen</small></button>
         <button id="exchange-tab" class="nav-item" role="tab" data-view="activity" aria-controls="activity-view" aria-selected="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5h14v10H9l-4 4V5Z"/><path d="M9 9h6M9 12h4"/></svg><small>Exchange</small></button>
         <span class="tether-nav-space" aria-hidden="true"></span>
-        <button id="wavelength-tab" class="nav-item" role="tab" data-view="messages" aria-controls="messages-view" aria-selected="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 15c4-5 12-5 16 0M7 18c2.7-3 7.3-3 10 0"/><circle cx="12" cy="20" r="1"/></svg><small>Wavelength</small><span class="nav-badge" data-unread-badge hidden>0</span></button>
+        <button id="wavelength-tab" class="nav-item" role="tab" data-view="messages" aria-controls="messages-view" aria-selected="false" aria-label="Wavelength — people and Dating"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 15c4-5 12-5 16 0M7 18c2.7-3 7.3-3 10 0"/><circle cx="12" cy="20" r="1"/></svg><small>Wavelength</small><span class="nav-badge dating-badge" data-unread-badge hidden>0</span></button>
         <button id="you-tab" class="nav-item" role="tab" data-view="you" aria-controls="you-view" aria-selected="false"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8.5" r="3.4"/><path d="M5.5 19.5 C6.5 15.5, 9 14, 12 14 C15 14, 17.5 15.5, 18.5 19.5"/></svg><small>You</small></button>
       </div>
       <button class="tether-action" type="button" data-tether-action aria-label="Open your listening"><span class="tether-action-signal" aria-hidden="true"><i></i><i></i><i></i></span><span>Tether</span></button>
@@ -312,10 +324,12 @@
 
     <div id="toast" class="toast" role="status"></div>
   </main>
-  <script src="v14.js?v=20" defer></script>
-  <script src="platform.js?v=20" defer></script>
-  <script src="optimization.js?v=20" defer></script>
-  <script src="continuity.js?v=20" defer></script>
-  <script src="deliver-ui.js?v=20" defer></script>
+  <script src="v14.js?v=25" defer></script>
+  <script src="platform.js?v=25" defer></script>
+  <script src="optimization.js?v=25" defer></script>
+  <script src="continuity.js?v=25" defer></script>
+  <script src="deliver-ui.js?v=25" defer></script>
+  <script src="dating-world.js?v=5" defer></script>
+  <script src="experience.js?v=1" defer></script>
 </body>
 </html>
