@@ -10,7 +10,6 @@ from datetime import datetime, timezone
 from sqlalchemy import and_, delete, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from models.culture_models import Conversation, ConversationMember
 from models.models import Follow, Friendship, Session, SessionListener, TetherJoinGrant
 from models.profile_models import DatingMatch, PrivateAlbum, PrivateAlbumGrant
 from models.safety_models import UserBlock
@@ -49,9 +48,9 @@ async def blocked_user_ids(db: AsyncSession, viewer_id: str) -> set[str]:
 async def apply_block_cleanup(db: AsyncSession, blocker_id: str, blocked_id: str) -> None:
     """Atomically revoke pair-scoped access when a block is created.
 
-    Message evidence is retained for reports, but the direct conversation is no
-    longer treated as an active customer relationship by Dating or friendship
-    projections. Live membership and private grants are revoked immediately.
+    Message evidence is retained for reports, but all customer-facing conversation
+    reads must apply ``is_blocked`` before returning it. Friendship, follow,
+    Dating, session, and private-media access are revoked immediately.
     """
 
     now = utcnow()
@@ -124,15 +123,5 @@ async def apply_block_cleanup(db: AsyncSession, blocker_id: str, blocked_id: str
         )
         .values(revoked_at=now)
     )
-
-    # Preserve messages as safety evidence. Conversation reads must apply the
-    # same block policy before returning them to either customer.
-    pair_conversations = await db.execute(
-        select(ConversationMember.conversation_id)
-        .where(ConversationMember.user_id.in_([blocker_id, blocked_id]))
-        .group_by(ConversationMember.conversation_id)
-        .having(select(ConversationMember.user_id).where(ConversationMember.conversation_id == ConversationMember.conversation_id).exists())
-    )
-    del pair_conversations  # Explicitly document retention; no destructive delete.
 
     await db.flush()
