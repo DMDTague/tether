@@ -1,11 +1,7 @@
 /**
  * Runtime smoke test.
  *
- * The other files in this directory assert on source *text*. They are snapshot
- * locks: they break when you rename a variable and stay green when the app is
- * broken. This one actually boots the demo, walks the DOM, and clicks every
- * interactive control, so it fails when the product fails rather than when the
- * source string changes.
+ * Boots the static demo, walks the DOM, and clicks every interactive control.
  */
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
@@ -18,7 +14,6 @@ import { JSDOM, VirtualConsole } from "jsdom";
 
 const DEMO = path.dirname(fileURLToPath(new URL("../index.html", import.meta.url)));
 
-/** Scripts the page loads, in the order index.html declares them. */
 function declaredScripts(html) {
   return [...html.matchAll(/<script src="([^"?]+)[^"]*" defer><\/script>/g)].map(m => m[1]);
 }
@@ -29,7 +24,6 @@ function boot() {
 
   const virtualConsole = new VirtualConsole();
   virtualConsole.on("jsdomError", error => {
-    // jsdom does not implement <dialog>; that is an environment gap, not a bug.
     if (/showModal is not a function|close is not a function/.test(error.message)) return;
     errors.push(error.message);
   });
@@ -43,7 +37,6 @@ function boot() {
   });
   const { window } = dom;
 
-  // Browser APIs jsdom does not provide.
   window.matchMedia = query => ({
     matches: false, media: query, onchange: null,
     addEventListener() {}, removeEventListener() {},
@@ -78,41 +71,25 @@ function boot() {
 }
 
 const settle = ms => new Promise(resolve => setTimeout(resolve, ms));
-
-/** jsdom leaves intervals running; without this the test runner never exits. */
-function shutdown(dom) {
-  dom.window.close();
-}
+function shutdown(dom) { dom.window.close(); }
 
 test("the demo boots without uncaught errors and renders seeded people", async () => {
   const { dom, window, errors } = boot();
   await settle(400);
 
   assert.deepEqual(errors, [], `uncaught errors during boot:\n${errors.join("\n")}`);
-
-  const seeded = window.document.querySelectorAll(
-    "[data-profile-id], [data-home-session], .profile-card, [data-open-profile]",
-  );
+  const seeded = window.document.querySelectorAll("[data-profile-id], [data-home-session], .profile-card, [data-open-profile]");
   assert.ok(seeded.length > 5, `expected seeded people in the DOM, found ${seeded.length}`);
-
   const skeletons = window.document.querySelectorAll(".skeleton:not([hidden])");
   assert.equal(skeletons.length, 0, "loading skeletons should resolve after boot");
   shutdown(dom);
 });
 
 test("every enhancement layer installs synchronously, with no polling", async () => {
-  // The layers used to poll for each other on a 80-100ms timer, which added
-  // hundreds of milliseconds before the interface became interactive.
   const { dom, window } = boot();
-  // Read the classes before yielding: the point is that they are set during
-  // script evaluation, not after a timer.
   const classes = window.document.body.className;
-
   assert.match(classes, /music-everything/, "platform layer should install during evaluation");
   assert.match(classes, /customer-optimized/, "optimization layer should install during evaluation");
-
-  // Let the demo's own async boot work drain before tearing the window down,
-  // otherwise it resolves against a closed document.
   await settle(500);
   shutdown(dom);
 });
@@ -122,7 +99,7 @@ test("clicking every control does not throw", async () => {
   await settle(400);
 
   const controls = [...window.document.querySelectorAll("button, [role='button'], [data-view]")];
-  assert.ok(controls.length > 50, `expected a populated interface, found ${controls.length} controls`);
+  assert.ok(controls.length > 70, `expected a populated interface, found ${controls.length} controls`);
 
   const thrown = [];
   for (const control of controls) {
@@ -139,11 +116,11 @@ test("clicking every control does not throw", async () => {
   shutdown(dom);
 });
 
-test("primary navigation switches views without losing the shell", async () => {
+test("primary navigation switches all four worlds without losing the shell", async () => {
   const { dom, window, errors } = boot();
   await settle(400);
 
-  const tabs = ["#listen-tab", "#people-tab", "#you-tab"];
+  const tabs = ["#listen-tab", "#exchange-tab", "#wavelength-tab", "#you-tab"];
   for (const selector of tabs) {
     const tab = window.document.querySelector(selector);
     assert.ok(tab, `${selector} should exist`);
