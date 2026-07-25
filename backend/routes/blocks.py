@@ -60,6 +60,7 @@ async def block_user(
         )
     )
     block = existing.scalar_one_or_none()
+    already_blocked = block is not None
     if not block:
         block = UserBlock(
             blocker_id=user_id,
@@ -73,7 +74,7 @@ async def block_user(
     # prevents stale grants or relationships created by a racing workflow from
     # surviving merely because the block row already existed.
     await apply_block_cleanup(db, user_id, req.blocked_user_id)
-    return {**_serialize(block), "alreadyBlocked": existing.scalar_one_or_none() is not None}
+    return {**_serialize(block), "alreadyBlocked": already_blocked}
 
 
 @router.delete("/{blocked_user_id}", status_code=204)
