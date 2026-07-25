@@ -93,6 +93,7 @@ async def join_session(req: JoinSessionRequest, user_id: str = Depends(get_curre
     listener = (await db.execute(select(SessionListener).where(SessionListener.session_id == session.id, SessionListener.user_id == user_id))).scalar_one_or_none()
     if listener:
         listener.left_at = None
+        listener.joined_at = datetime.now(timezone.utc)
     else:
         listener = SessionListener(session_id=session.id, user_id=user_id)
         db.add(listener)
@@ -124,17 +125,23 @@ async def leave_session(session_id: str, user_id: str = Depends(get_current_user
     listener = (await db.execute(select(SessionListener).where(SessionListener.session_id == session_id, SessionListener.user_id == user_id, SessionListener.left_at.is_(None)))).scalar_one_or_none()
     if not listener and session.host_id != user_id:
         raise HTTPException(status_code=404, detail="Session not found")
+    is_host = session.host_id == user_id
     now = datetime.now(timezone.utc)
-    if listener:
+    if listener and not is_host:
         listener.left_at = now
-    if session.host_id == user_id:
-        session.status, session.ended_at = "ended", now
     db.add(SessionEvent(session_id=session_id, actor_id=user_id, event_type="session_left"))
+    if is_host:
+        # Persist the explicit leave before the shared finalizer opens its own
+        # transaction. The finalizer remains the only place that ends a host
+        # session and decides whether Memory Anchors are earned.
+        await db.commit()
+        from ws.terminator import handle_disconnect
+        await handle_disconnect(user_id, session_id)
     await manager.leave_session(user_id)
     await presence_store.remove_user_session(user_id)
     await presence_store.remove_presence(user_id)
     await manager.broadcast_to_session(session_id, protocol.listener_left(user_id))
-    return {"status": "ended" if session.host_id == user_id else "left"}
+    return {"status": "ended" if is_host else "left"}
 
 
 @router.post("/{session_id}/pulse")
