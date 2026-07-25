@@ -1,0 +1,412 @@
+/* Canonical customer-experience boundary.
+   This file loads last and owns shell geometry, customer wayfinding, readable
+   interaction sizes, and the Wavelength/Dating information architecture. */
+
+:root {
+  --experience-tap: 44px;
+  --experience-radius: 20px;
+  --experience-panel: rgba(18,21,33,.92);
+  --experience-line: rgba(255,255,255,.105);
+  --experience-copy: rgba(238,240,248,.72);
+  --experience-pink: #ff79b4;
+}
+
+html, body { min-height: 100%; }
+
+body { padding: 24px; }
+
+.phone {
+  border: 1px solid rgba(255,255,255,.11);
+  border-radius: 34px;
+  box-shadow: 0 34px 110px rgba(0,0,0,.58);
+  padding-bottom: 0 !important;
+}
+
+.view {
+  padding: 0 18px 26px !important;
+  scroll-padding-block: 12px 24px;
+}
+
+button {
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: 2px solid #d7d9ff;
+  outline-offset: 3px;
+}
+
+.section-promise {
+  color: var(--experience-copy);
+  font-size: 12px;
+  line-height: 1.45;
+  margin: 7px 0 0;
+  max-width: 330px;
+}
+
+.sync-pill {
+  min-height: var(--experience-tap);
+  padding-inline: 12px;
+}
+
+.sync-pill span { white-space: nowrap; }
+
+/* Truth remains one tap away without becoming the first customer task. */
+.evidence-legend { display: none !important; }
+
+.prototype-status {
+  font-size: 9px;
+  margin-bottom: 7px;
+  opacity: .86;
+  padding: 4px 7px;
+}
+
+.experience-trust-guide .modal-copy { color: var(--experience-copy); line-height: 1.5; }
+
+.experience-trust-list {
+  display: grid;
+  gap: 8px;
+  margin-top: 15px;
+}
+
+.experience-trust-list article {
+  align-items: center;
+  background: rgba(255,255,255,.045);
+  border: 1px solid var(--experience-line);
+  border-radius: 15px;
+  display: grid;
+  gap: 11px;
+  grid-template-columns: auto 1fr;
+  padding: 11px;
+}
+
+.experience-trust-list i {
+  background: currentColor;
+  border-radius: 50%;
+  box-shadow: 0 0 12px currentColor;
+  height: 8px;
+  width: 8px;
+}
+
+.experience-trust-list i.connected { color: #78e4bd; }
+.experience-trust-list i.seeded { color: #f4c574; }
+.experience-trust-list i.local { color: #aeb2ff; }
+.experience-trust-list i.preview { color: #77b7f0; }
+.experience-trust-list b { font-size: 12px; }
+.experience-trust-list p { color: var(--experience-copy); font-size: 10px; line-height: 1.4; margin: 3px 0 0; }
+
+.experience-customer-promise {
+  background: linear-gradient(145deg,rgba(155,160,250,.13),rgba(120,228,189,.07));
+  border: 1px solid rgba(174,178,255,.18);
+  border-radius: 17px;
+  margin-top: 13px;
+  padding: 13px;
+}
+
+.experience-customer-promise h4 { font-size: 15px; margin: 4px 0 5px; }
+.experience-customer-promise > p:last-child { color: var(--experience-copy); font-size: 10px; line-height: 1.45; margin: 0; }
+
+/* The shell consumes its actual height. No phantom area remains below it. */
+.bottom-nav.deliver-bottom-nav {
+  background: rgba(7,9,16,.96);
+  border-top: 1px solid rgba(255,255,255,.1);
+  flex: 0 0 auto;
+  height: calc(80px + env(safe-area-inset-bottom));
+  min-height: calc(80px + env(safe-area-inset-bottom));
+  padding: 7px 5px env(safe-area-inset-bottom);
+}
+
+.deliver-bottom-nav .nav-item,
+.deliver-bottom-nav .tether-action {
+  border-radius: 16px;
+  min-height: 64px;
+}
+
+.deliver-bottom-nav .nav-item small,
+.deliver-bottom-nav .tether-action > span:last-child {
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.deliver-bottom-nav .nav-item.active {
+  background: linear-gradient(145deg,rgba(155,160,250,.18),rgba(120,228,189,.07));
+  color: white;
+}
+
+.deliver-bottom-nav .nav-item.active::after {
+  background: linear-gradient(90deg,#aeb2ff,#78e4bd);
+  border-radius: 999px;
+  bottom: 4px;
+  content: "";
+  height: 2px;
+  left: 25%;
+  position: absolute;
+  right: 25%;
+}
+
+.deliver-bottom-nav .tether-action {
+  background: linear-gradient(145deg,rgba(155,160,250,.28),rgba(76,211,165,.17));
+  border-color: rgba(174,178,255,.38);
+}
+
+.deliver-bottom-nav .dating-badge {
+  background: var(--experience-pink);
+}
+
+/* Wavelength starts with an unmistakable customer choice. */
+.wavelength-heading {
+  align-items: flex-start;
+  margin-bottom: 14px;
+}
+
+.wavelength-mode-switch {
+  display: grid;
+  gap: 9px;
+  grid-template-columns: repeat(2,minmax(0,1fr));
+  margin-bottom: 12px;
+}
+
+.wavelength-mode-switch > button {
+  align-items: center;
+  background: var(--experience-panel);
+  border: 1px solid var(--experience-line);
+  border-radius: var(--experience-radius);
+  color: white;
+  display: grid;
+  gap: 10px;
+  grid-template-columns: auto minmax(0,1fr);
+  min-height: 78px;
+  padding: 12px;
+  position: relative;
+  text-align: left;
+}
+
+.wavelength-mode-switch > button.active {
+  background: linear-gradient(145deg,rgba(155,160,250,.2),rgba(120,228,189,.08));
+  border-color: rgba(174,178,255,.38);
+  box-shadow: inset 0 1px rgba(255,255,255,.08),0 12px 28px rgba(0,0,0,.2);
+}
+
+.wavelength-mode-switch > button[data-wavelength-hub="dating"].active {
+  background: linear-gradient(145deg,rgba(255,121,180,.2),rgba(155,160,250,.12));
+  border-color: rgba(255,121,180,.38);
+}
+
+.wavelength-mode-icon {
+  align-items: center;
+  background: rgba(174,178,255,.13);
+  border: 1px solid rgba(174,178,255,.2);
+  border-radius: 14px;
+  color: #d7d9ff;
+  display: flex;
+  font-size: 18px;
+  height: 38px;
+  justify-content: center;
+  width: 38px;
+}
+
+.wavelength-mode-icon.dating {
+  background: rgba(255,121,180,.12);
+  border-color: rgba(255,121,180,.2);
+  color: #ffc4dd;
+}
+
+.wavelength-mode-switch b,
+.wavelength-mode-switch small { display: block; }
+.wavelength-mode-switch b { font-size: 13px; }
+.wavelength-mode-switch small {
+  color: var(--experience-copy);
+  font-size: 9px;
+  line-height: 1.3;
+  margin-top: 3px;
+}
+
+.wavelength-mode-badge {
+  align-items: center;
+  background: var(--experience-pink);
+  border: 2px solid #121521;
+  border-radius: 999px;
+  display: flex;
+  font-size: 8px;
+  font-style: normal;
+  height: 20px;
+  justify-content: center;
+  min-width: 20px;
+  position: absolute;
+  right: 8px;
+  top: 8px;
+}
+
+.wavelength-people-tabs {
+  display: grid;
+  gap: 5px;
+  grid-template-columns: repeat(4,minmax(0,1fr));
+  margin: 0 0 14px;
+  overflow: visible;
+}
+
+.wavelength-people-tabs button {
+  align-items: center;
+  display: flex;
+  justify-content: center;
+  min-height: var(--experience-tap);
+  min-width: 0;
+  padding: 7px 4px;
+}
+
+#messages-view.dating-experience-active .wavelength-people-tabs {
+  display: none;
+}
+
+/* Dating is an immersive product section, not a settings card. */
+.dating-world-host { margin-inline: 0; }
+.dating-world { gap: 13px; }
+
+.dating-world-hero {
+  border-radius: 24px;
+  padding: 16px;
+}
+
+.dating-world-promise { margin-top: 18px; position: relative; }
+.dating-world-promise p {
+  color: var(--experience-copy);
+  font-size: 10px;
+  margin: 0 0 4px;
+}
+.dating-world-promise h2 {
+  font: 700 25px/1.04 var(--display);
+  letter-spacing: -.035em;
+  margin: 0;
+  max-width: 300px;
+}
+.dating-world-promise span {
+  color: var(--experience-copy);
+  display: block;
+  font-size: 10px;
+  line-height: 1.4;
+  margin-top: 7px;
+}
+
+.dating-world-identity {
+  align-items: center;
+  border-top: 1px solid rgba(255,255,255,.09);
+  margin-top: 15px;
+  padding-top: 13px;
+}
+
+.dating-world-identity h3 {
+  font: 700 15px var(--display);
+  margin: 2px 0 3px;
+}
+
+.dating-world-identity > button {
+  min-height: var(--experience-tap);
+  padding: 9px 12px;
+}
+
+.dating-world-principles { margin-top: 12px; }
+.dating-world-principles span { font-size: 9px; padding: 6px 8px; }
+
+.dating-world-tabs {
+  border-radius: 18px;
+  position: sticky;
+  top: 0;
+  z-index: 5;
+}
+
+.dating-world-tabs button { min-height: 50px; }
+.dating-world-tabs b { font-size: 11px; }
+.dating-world-tabs small { font-size: 8px; }
+
+.dating-cards-toolbar,
+.dating-grid-toolbar,
+.dating-signal-section-head { min-height: var(--experience-tap); }
+.dating-cards-toolbar strong,
+.dating-grid-toolbar h3,
+.dating-signal-section-head h3 { font-size: 13px; }
+.dating-cards-toolbar small,
+.dating-grid-toolbar p,
+.dating-signal-section-head small { font-size: 9px; }
+.dating-cards-toolbar button,
+.dating-grid-toolbar button { min-height: 38px; padding-inline: 12px; }
+
+.dating-feature-photo { aspect-ratio: 1.18; }
+.dating-feature-body { padding: 16px; }
+.dating-feature-bio { font-size: 12px; }
+.dating-intent-row span,
+.dating-artist-row span { font-size: 9px; }
+.dating-anthem { min-height: 56px; }
+.dating-anthem small { font-size: 8px; }
+.dating-anthem strong { font-size: 11px; }
+.dating-prompt small,
+.dating-why small { font-size: 9px; }
+.dating-why { min-height: 50px; }
+
+.dating-card-actions button {
+  min-height: 62px;
+}
+
+.dating-card-actions small,
+.dating-card-footer button,
+.dating-card-footer span { font-size: 9px; }
+
+.dating-grid-person {
+  min-height: 180px;
+  padding: 7px 7px 10px;
+}
+.dating-grid-person strong { font-size: 11px; }
+.dating-grid-person small,
+.dating-grid-person em,
+.dating-grid-note { font-size: 9px; }
+
+.dating-signal-intro h3 { font-size: 17px; }
+.dating-signal-intro p { font-size: 10px; }
+.dating-signal-intro > button { min-height: var(--experience-tap); }
+.dating-signal-meta strong,
+.dating-match-card strong { font-size: 11px; }
+.dating-signal-meta span,
+.dating-match-card small,
+.dating-signal-card p,
+.dating-signal-track,
+.dating-signal-card > button,
+.dating-match-card > button { font-size: 9px; }
+.dating-signal-card > button,
+.dating-match-card > button { min-height: 38px; }
+
+.dating-profile-preview-card p,
+.dating-control-card p { font-size: 10px; }
+.dating-profile-preview-card button,
+.dating-visibility-matrix button,
+.dating-safety-card button { min-height: 38px; }
+
+.dating-modal-actions button,
+.dating-modal-shell .icon-button {
+  min-height: var(--experience-tap);
+}
+
+@media (max-width: 470px) {
+  body { padding: 0; }
+  .phone {
+    border: 0;
+    border-radius: 0;
+    height: 100dvh;
+    max-height: none;
+  }
+}
+
+@media (max-width: 370px) {
+  .view { padding-inline: 14px !important; }
+  .wavelength-mode-switch { grid-template-columns: 1fr; }
+  .wavelength-mode-switch > button { min-height: 68px; }
+  .wavelength-people-tabs { grid-template-columns: repeat(2,minmax(0,1fr)); }
+  .dating-world-promise h2 { font-size: 22px; }
+  .dating-browse-grid { grid-template-columns: repeat(2,minmax(0,1fr)); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { scroll-behavior: auto !important; }
+}
