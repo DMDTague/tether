@@ -21,7 +21,9 @@ test("Wavelength starts with friends and exposes the complete relationship world
 });
 
 test("Dating Mode is explicit and honestly local-only in the browser demo", () => {
-  assert.match(index, /data-dating-mode-toggle aria-pressed="false"/);
+  assert.match(index, /class="wavelength-mode-switch"/);
+  assert.match(index, /data-wavelength-hub="dating"/);
+  assert.match(index, /Music-first discovery and Signals/);
   assert.match(index, /Separate opt-in ritual/);
   assert.match(index, /Two profile photos/);
   assert.match(deliver, /function openDatingPreview/);
