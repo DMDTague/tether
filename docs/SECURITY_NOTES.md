@@ -11,6 +11,15 @@
 - Phone numbers and private spark tokens are excluded from discovery serialization.
 - Raw coordinates are not persisted by the presence service.
 - Ad completion is no longer trusted to unlock core access.
+- Friendship accept, sever, mute, and transparent-presence mutations require a participant; only the pending recipient can accept.
+- Memory Anchor re-Tether requires an authenticated Anchor participant.
+- Billboard cache refresh is authenticated, POST-only, and rate-limited; GET cannot bypass the cache.
+- Sesh history requires authentication, applies blocks, and hides Ghost accounts from other viewers.
+- The avatar parsing stack is pinned to patched Pillow and multipart releases. The unused Passlib dependency was removed and Billboard is reproducibly pinned.
+
+## Dependency audit
+
+`pip-audit` reports one known advisory: `ecdsa==0.19.2` (`PYSEC-2026-1325`) has no fixed release and is pulled by `python-jose`. Tether signs tokens with HS256, so the vulnerable ECDSA signing path is not used. Replacing `python-jose` remains preferable to carrying an unactionable transitive advisory.
 
 ## Required before production
 

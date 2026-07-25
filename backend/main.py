@@ -26,6 +26,7 @@ from routes import (
     music_culture,
     playback,
     profile_signal,
+    private_albums,
     recommendations,
     safety,
     sesh,
@@ -41,7 +42,7 @@ from ws.manager import manager
 
 logger = logging.getLogger(__name__)
 settings = get_settings()
-BUILD_VERSION = "0.6.0-second-audit"
+BUILD_VERSION = "0.6.1-dating-integrity"
 
 
 @asynccontextmanager
@@ -84,6 +85,7 @@ for route in (
     discovery.router,
     dating.router,
     profile_signal.router,
+    private_albums.router,
     music_culture.router,
     safety.router,
     blocks.router,

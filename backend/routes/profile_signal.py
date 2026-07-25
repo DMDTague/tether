@@ -5,7 +5,7 @@ from typing import Any, Literal
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field, field_validator, model_validator
-from sqlalchemy import and_, or_, select
+from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from db.database import get_db
@@ -14,22 +14,27 @@ from models.profile_models import (
     DatingMatch,
     DatingPreference,
     DatingProfile,
+    DatingProfileMedia,
     MediaAsset,
     ProfileField,
     ProfileMedia,
     PublicProfile,
 )
 from routes.auth import get_current_user_id
+from services.dating_integrity import (
+    approved_dating_media_ids,
+    dating_readiness,
+    declared_age,
+    declared_date_of_birth,
+)
+from services.profile_field_registry import public_registry, validate_field_value, validate_filter_map
 from services.safety_policy import is_blocked
 
 router = APIRouter(prefix="/api/profile-signal", tags=["profile-signal"])
 
 
 def _age(dob: date | None) -> int | None:
-    if not dob:
-        return None
-    today = date.today()
-    return today.year - dob.year - ((today.month, today.day) < (dob.month, dob.day))
+    return declared_age(dob)
 
 
 class Atmosphere(BaseModel):
@@ -111,6 +116,11 @@ class DatingSignal(BaseModel):
             ]
             if not all(required) or not self.locationConsent or not self.safetyAcknowledged:
                 raise ValueError("Complete the required Dating profile, safety step, and location consent")
+        try:
+            self.bodyFilters = validate_filter_map(self.bodyFilters)
+            self.dealbreakers = validate_filter_map(self.dealbreakers, exclusions=True)
+        except ValueError as exc:
+            raise ValueError(str(exc)) from exc
         return self
 
 
@@ -149,31 +159,6 @@ async def _approved_public_media_ids(db: AsyncSession, user_id: str) -> list[str
         .order_by(ProfileMedia.position)
     )
     return list(rows.scalars().all())
-
-
-async def _dating_readiness(db: AsyncSession, dating: DatingProfile | None) -> dict:
-    if not dating:
-        return {"ready": False, "reasons": ["profile_missing"], "approvedMediaCount": 0}
-    approved_media = await _approved_public_media_ids(db, dating.user_id)
-    reasons = []
-    declared_age = _age(dating.date_of_birth)
-    if declared_age is None or declared_age < 18:
-        reasons.append("declared_adult_eligibility_missing")
-    if not all([dating.first_name, dating.gender_identity, dating.show_me, dating.intent, dating.bio, dating.city]):
-        reasons.append("required_fields_incomplete")
-    if not dating.location_consent:
-        reasons.append("location_consent_missing")
-    if not dating.safety_acknowledged_at:
-        reasons.append("safety_acknowledgement_missing")
-    if len(set(approved_media)) < 2:
-        reasons.append("two_approved_public_media_required")
-    return {
-        "ready": not reasons,
-        "reasons": reasons,
-        "approvedMediaCount": len(set(approved_media)),
-        "ageStatus": "self_declared_eligible" if declared_age is not None and declared_age >= 18 else "not_eligible",
-        "ageVerified": False,
-    }
 
 
 async def _serialize(
@@ -220,17 +205,18 @@ async def _serialize(
         "concertHabits": profile.concert_habits or "" if profile else "",
         "favoriteVenues": profile.favorite_venues or [] if profile else [],
     }
-    readiness = await _dating_readiness(db, dating)
+    readiness = await dating_readiness(db, dating)
     private_dating = None
     if owner and dating:
         private_dating = {
             "enabled": dating.enabled,
             "visible": dating.visible,
             "firstName": dating.first_name,
-            "dateOfBirth": dating.date_of_birth,
-            "age": _age(dating.date_of_birth),
+            "dateOfBirthDeclared": declared_date_of_birth(dating),
+            "age": _age(declared_date_of_birth(dating)),
             "adultEligibility": readiness["ageStatus"],
-            "ageVerified": False,
+            "ageVerified": readiness["ageVerified"],
+            "ageVerificationStatus": readiness["ageVerificationStatus"],
             "genderIdentity": dating.gender_identity,
             "showMe": dating.show_me,
             "orientations": dating.orientations,
@@ -241,6 +227,7 @@ async def _serialize(
             "promptAnswer": dating.prompt_answer,
             "city": dating.city,
             "locationConsent": dating.location_consent,
+            "mediaIds": readiness["mediaIds"],
             "readiness": readiness,
             "preferences": {
                 "ageMin": prefs.age_min,
@@ -305,6 +292,10 @@ async def update_my_profile_signal(
     )
 
     for item in update.fields:
+        try:
+            normalized_value = validate_field_value(item.key, item.value, item.visibility)
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
         row = (
             await db.execute(
                 select(ProfileField).where(
@@ -314,7 +305,7 @@ async def update_my_profile_signal(
             )
         ).scalar_one_or_none() or ProfileField(user_id=user_id, field_key=item.key)
         db.add(row)
-        row.value = item.value
+        row.value = normalized_value
         row.visibility = item.visibility
         row.use_for_filtering = item.visibility == "filter_only"
 
@@ -327,19 +318,32 @@ async def update_my_profile_signal(
     ).scalar_one_or_none() or DatingPreference(user_id=user_id)
     db.add_all([dating, prefs])
 
+    approved_ids = set(await _approved_public_media_ids(db, user_id))
+    requested_ids = set(payload.mediaIds)
+    if requested_ids and not requested_ids.issubset(approved_ids):
+        raise HTTPException(
+            status_code=409,
+            detail="Dating media must be distinct, approved, public assets owned by this account",
+        )
     if payload.enabled:
-        approved_ids = set(await _approved_public_media_ids(db, user_id))
-        requested_ids = set(payload.mediaIds)
-        if len(requested_ids) < 2 or not requested_ids.issubset(approved_ids):
+        if len(requested_ids) < 2:
             raise HTTPException(
                 status_code=409,
                 detail="Dating requires two distinct, approved, public media assets owned by this account",
             )
+    await db.execute(delete(DatingProfileMedia).where(DatingProfileMedia.user_id == user_id))
+    for position, media_id in enumerate(dict.fromkeys(payload.mediaIds)):
+        db.add(DatingProfileMedia(user_id=user_id, media_id=media_id, position=position))
 
     dating.enabled = payload.enabled
     dating.visible = False
     dating.first_name = payload.firstName
+    dating.date_of_birth_declared = payload.dateOfBirth
+    # Keep the legacy column synchronized until its removal migration.
     dating.date_of_birth = payload.dateOfBirth
+    dating.adult_eligibility_calculated_at = (
+        datetime.now(timezone.utc) if payload.dateOfBirth else None
+    )
     # Self-entered date of birth establishes declared eligibility only. It is
     # never represented as identity or age verification.
     dating.adult_verified_at = None
@@ -368,7 +372,7 @@ async def update_my_profile_signal(
     prefs.dealbreakers = payload.dealbreakers
 
     await db.flush()
-    readiness = await _dating_readiness(db, dating)
+    readiness = await dating_readiness(db, dating)
     dating.completion = 1.0 if readiness["ready"] else 0.0
     dating.visible = bool(payload.visible and payload.enabled and readiness["ready"])
     if payload.visible and not dating.visible:
@@ -389,6 +393,16 @@ async def disable_dating(
         dating.visible = False
         dating.completion = 0.0
     return None
+
+
+@router.get("/field-registry")
+async def get_profile_field_registry(
+    user_id: str = Depends(get_current_user_id),
+):
+    # Authentication prevents this schema from becoming an unauthenticated map
+    # of sensitive product fields while keeping every filter free in-product.
+    del user_id
+    return public_registry()
 
 
 @router.get("/{profile_user_id}")

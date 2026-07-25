@@ -93,8 +93,17 @@ class DatingProfile(Base):
     enabled = Column(Boolean, default=False, nullable=False)
     visible = Column(Boolean, default=False, nullable=False)
     first_name = Column(String(64), default="")
+    # date_of_birth is retained temporarily for migration compatibility. New
+    # product code writes and reads date_of_birth_declared so self-attestation
+    # cannot be confused with provider-backed age verification.
     date_of_birth = Column(Date, nullable=True)
+    date_of_birth_declared = Column(Date, nullable=True)
+    adult_eligibility_calculated_at = Column(DateTime(timezone=True), nullable=True)
     adult_verified_at = Column(DateTime(timezone=True), nullable=True)
+    age_verification_method = Column(String(32), nullable=True)
+    age_verification_provider = Column(String(64), nullable=True)
+    age_verification_status = Column(String(24), default="not_verified", nullable=False)
+    age_verified_at = Column(DateTime(timezone=True), nullable=True)
     gender_identity = Column(String(120), default="")
     show_me = Column(JSON, default=list, nullable=False)
     orientations = Column(JSON, default=list, nullable=False)
@@ -108,6 +117,30 @@ class DatingProfile(Base):
     safety_acknowledged_at = Column(DateTime(timezone=True), nullable=True)
     completion = Column(Float, default=0.0, nullable=False)
     updated_at = Column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
+
+
+class DatingProfileMedia(Base):
+    __tablename__ = "dating_profile_media"
+    __table_args__ = (
+        UniqueConstraint("user_id", "media_id"),
+        UniqueConstraint("user_id", "position"),
+    )
+
+    id = Column(String(36), primary_key=True, default=gen_uuid)
+    user_id = Column(
+        String(36),
+        ForeignKey("dating_profiles.user_id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    media_id = Column(
+        String(36),
+        ForeignKey("media_assets.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    position = Column(Integer, nullable=False)
+    created_at = Column(DateTime(timezone=True), default=utcnow)
+
 
 class DatingPreference(Base):
     __tablename__ = "dating_preferences"
@@ -166,10 +199,12 @@ class DatingMatch(Base):
 
 class DatingExposure(Base):
     __tablename__ = "dating_exposures"
+    __table_args__ = (UniqueConstraint("viewer_id", "client_event_id"),)
 
     id = Column(String(36), primary_key=True, default=gen_uuid)
     viewer_id = Column(String(36), ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
     candidate_id = Column(String(36), ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    client_event_id = Column(String(64), nullable=False)
     proximity_band = Column(String(24), nullable=True)
     explanation = Column(JSON, nullable=False)
     shown_at = Column(DateTime(timezone=True), default=utcnow)

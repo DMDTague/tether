@@ -12,7 +12,7 @@ This map translates `TetherDeliver.txt` into repository work. It prevents visibl
 | One meaningful-session rule | Five minutes + synchronized playback + relational action + no session-scoped safety report. |
 | Remove fabricated metrics | Anchor recap reports observed sessions, pulses, relationship count, and provenance; fabricated distance is removed. |
 | Canonical current-state document | `docs/CURRENT_STATE.md`. |
-| Production migration discipline | Production refuses implicit `create_all`; Alembic revision `9f4a1d2c7b10` creates the foundation. |
+| Production migration discipline | Production refuses implicit `create_all`; Alembic revision `e4d7b2a91c30` is the required schema head. |
 
 Credential rotation and history purging remain an operator action described in `SECURITY_INCIDENT.md`; code cannot rotate a human password or remove already-forked Git objects.
 
@@ -22,11 +22,11 @@ Backend contracts now support provider-neutral sessions, canonical track identit
 
 ## Phase 2 — Complete profiles
 
-Durable public profiles, field-level visibility, media assets, profile media, private albums/grants, communities/memberships, and profile stickers are modeled. Media upload/processing and complete client editing journeys remain open.
+Durable public profiles, direct four-state field visibility, media assets, profile media, private albums/grants, communities/memberships, and profile stickers are modeled. A versioned registry now governs field types, sensitivity, filtering, ranking, telemetry, and retention. Active matches can receive private-album grants, and unmatch, withdrawal, or block revokes them. Production media upload/processing and complete native editing journeys remain open.
 
 ## Phase 3 — Dating
 
-Dating requires explicit enablement, visibility, age 18+, a completed profile, and at least two media references. Discovery applies reciprocal eligibility; swipes and song signals are durable; matches require mutual positive decisions; unmatch is durable. Client onboarding, verification operations, private-album UX, and moderation staffing remain open.
+Dating requires explicit enablement, separate visibility, declared age 18+, a currently ready profile, and two distinct moderated public assets selected through relational media rows. Discovery applies reciprocal age, identity, orientation, intent, relationship structure, community, genre, structured-field, dealbreaker, and broad-proximity eligibility. Swipes and rate-limited song signals are durable; matches require mutual positive decisions; unmatch is durable and revokes private media. Exposure submissions are idempotent and explicitly described as client-reported renders. Provider-backed age verification, ranking-feature precomputation, production private-album media delivery, and moderation staffing remain open.
 
 ## Phase 4 — Exchange
 

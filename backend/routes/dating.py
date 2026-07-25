@@ -8,7 +8,7 @@ from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
-from sqlalchemy import and_, or_, select
+from sqlalchemy import and_, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from db.database import get_db
@@ -20,10 +20,19 @@ from models.profile_models import (
     DatingMatch,
     DatingPreference,
     DatingProfile,
+    PrivateAlbum,
+    PrivateAlbumGrant,
     SongSignal,
     SwipeDecision,
 )
 from routes.auth import get_current_user_id
+from services.dating_integrity import (
+    dating_readiness,
+    declared_age,
+    declared_date_of_birth,
+    filter_values,
+    reciprocal_structured_filters_match,
+)
 from services.presence import presence_store
 from services.safety_policy import is_blocked
 
@@ -53,8 +62,7 @@ class SongSignalCreate(BaseModel):
 
 class ExposureCreate(BaseModel):
     candidate_id: str = Field(min_length=1, max_length=36)
-    proximity_band: str | None = Field(default=None, max_length=24)
-    explanation: list[dict] = Field(default_factory=list, max_length=12)
+    client_event_id: str = Field(min_length=8, max_length=64)
 
 
 def _now() -> datetime:
@@ -62,10 +70,7 @@ def _now() -> datetime:
 
 
 def _age(dob: date | None) -> int | None:
-    if not dob:
-        return None
-    today = date.today()
-    return today.year - dob.year - ((today.month, today.day) < (dob.month, dob.day))
+    return declared_age(dob)
 
 
 def _artist_names(user: User) -> list[str]:
@@ -87,6 +92,16 @@ def _intersects(required: list | None, actual: list | None) -> bool:
     return bool({str(value).casefold() for value in required} & {str(value).casefold() for value in actual or []})
 
 
+def _normalize_proximity_band(raw_band: str | None, same_city: bool) -> str:
+    return {
+        "under_5_miles": "very_nearby",
+        "5_to_15_miles": "nearby",
+        "15_to_50_miles": "region",
+        "over_50_miles": "farther_away",
+        None: "city" if same_city else "unknown",
+    }[raw_band]
+
+
 async def _load_profile_bundle(db: AsyncSession, user_id: str):
     user = (await db.execute(select(User).where(User.id == user_id))).scalar_one_or_none()
     profile = (await db.execute(select(DatingProfile).where(DatingProfile.user_id == user_id))).scalar_one_or_none()
@@ -100,7 +115,8 @@ def _reciprocal_eligibility(
     candidate: DatingProfile,
     candidate_pref: DatingPreference,
 ) -> tuple[bool, list[str]]:
-    viewer_age, candidate_age = _age(viewer.date_of_birth), _age(candidate.date_of_birth)
+    viewer_age = _age(declared_date_of_birth(viewer))
+    candidate_age = _age(declared_date_of_birth(candidate))
     if viewer_age is None or candidate_age is None:
         return False, []
     if not (viewer_pref.age_min <= candidate_age <= viewer_pref.age_max):
@@ -183,7 +199,36 @@ async def _reconcile_match(
         match.status = "interest_withdrawn"
         match.ended_at = _now()
         match.ended_by = ended_by
+        await _revoke_pair_album_grants(db, first_id, second_id)
     return None
+
+
+async def _revoke_pair_album_grants(
+    db: AsyncSession,
+    first_id: str,
+    second_id: str,
+) -> None:
+    grants = await db.execute(
+        select(PrivateAlbumGrant)
+        .join(PrivateAlbum, PrivateAlbum.id == PrivateAlbumGrant.album_id)
+        .where(
+            PrivateAlbumGrant.revoked_at.is_(None),
+            or_(
+                and_(
+                    PrivateAlbum.owner_id == first_id,
+                    PrivateAlbumGrant.grantee_id == second_id,
+                ),
+                and_(
+                    PrivateAlbum.owner_id == second_id,
+                    PrivateAlbumGrant.grantee_id == first_id,
+                ),
+            ),
+        )
+        .with_for_update()
+    )
+    now = _now()
+    for grant in grants.scalars().all():
+        grant.revoked_at = now
 
 
 async def _require_eligible_pair(db: AsyncSession, first_id: str, second_id: str):
@@ -195,9 +240,53 @@ async def _require_eligible_pair(db: AsyncSession, first_id: str, second_id: str
         raise HTTPException(status_code=404, detail="Profile not found")
     if not (first_profile.enabled and first_profile.visible and second_profile.enabled and second_profile.visible):
         raise HTTPException(status_code=404, detail="Profile not found")
+    first_readiness, second_readiness = await dating_readiness(db, first_profile), await dating_readiness(
+        db, second_profile
+    )
+    if not first_readiness["ready"] or not second_readiness["ready"]:
+        raise HTTPException(status_code=409, detail="Profiles are not currently ready for Dating")
     eligible, evidence = _reciprocal_eligibility(first_profile, first_pref, second_profile, second_pref)
     if not eligible:
         raise HTTPException(status_code=409, detail="Profiles are not reciprocally eligible")
+    memberships = await db.execute(
+        select(CommunityMembership.user_id, CommunityMembership.community_id).where(
+            CommunityMembership.user_id.in_([first_id, second_id])
+        )
+    )
+    communities = {first_id: set(), second_id: set()}
+    for member_id, community_id in memberships.all():
+        communities[member_id].add(community_id)
+    if first_pref.communities and not communities[second_id].intersection(first_pref.communities):
+        raise HTTPException(status_code=409, detail="Profiles are not reciprocally eligible")
+    if second_pref.communities and not communities[first_id].intersection(second_pref.communities):
+        raise HTTPException(status_code=409, detail="Profiles are not reciprocally eligible")
+    if not await reciprocal_structured_filters_match(
+        db,
+        first_id,
+        first_pref.body_filters or {},
+        first_pref.dealbreakers or {},
+        second_id,
+        second_pref.body_filters or {},
+        second_pref.dealbreakers or {},
+    ):
+        raise HTTPException(status_code=409, detail="Profiles are not reciprocally eligible")
+    first_values = await filter_values(db, first_id)
+    second_values = await filter_values(db, second_id)
+    if first_pref.genres and not _intersects(first_pref.genres, second_values.get("music_genres")):
+        raise HTTPException(status_code=409, detail="Profiles are not reciprocally eligible")
+    if second_pref.genres and not _intersects(second_pref.genres, first_values.get("music_genres")):
+        raise HTTPException(status_code=409, detail="Profiles are not reciprocally eligible")
+    raw_band = await presence_store.distance_band_between(first_id, second_id)
+    band = _normalize_proximity_band(raw_band, first_profile.city == second_profile.city)
+    if band not in set(first_pref.proximity_bands or []) or band not in set(second_pref.proximity_bands or []):
+        raise HTTPException(status_code=409, detail="Profiles are not reciprocally eligible")
+    evidence.extend(
+        [
+            "reciprocal_communities",
+            "reciprocal_private_preferences",
+            "reciprocal_proximity_band",
+        ]
+    )
     return first_user, first_profile, first_pref, second_user, second_profile, second_pref, evidence
 
 
@@ -208,9 +297,10 @@ async def discover_dating_profiles(
     db: AsyncSession = Depends(get_db),
 ):
     current_user, current_profile, current_pref = await _load_profile_bundle(db, user_id)
-    if not current_user or not current_profile or not current_pref or not (
-        current_profile.enabled and current_profile.visible and current_profile.completion >= 1.0
-    ):
+    if not current_user or not current_profile or not current_pref:
+        return []
+    current_readiness = await dating_readiness(db, current_profile)
+    if not current_profile.enabled or not current_profile.visible or not current_readiness["ready"]:
         return []
 
     decisions = await db.execute(
@@ -237,7 +327,6 @@ async def discover_dating_profiles(
             DatingProfile.user_id != user_id,
             DatingProfile.enabled.is_(True),
             DatingProfile.visible.is_(True),
-            DatingProfile.completion >= 1.0,
         )
     )
     current_artists = {artist.casefold() for artist in _artist_names(current_user)}
@@ -249,19 +338,18 @@ async def discover_dating_profiles(
         candidate_user, _, candidate_pref = await _load_profile_bundle(db, candidate_id)
         if not candidate_user or not candidate_pref:
             continue
+        if not (await dating_readiness(db, candidate_profile))["ready"]:
+            continue
         eligible, eligibility_evidence = _reciprocal_eligibility(
             current_profile, current_pref, candidate_profile, candidate_pref
         )
         if not eligible:
             continue
         raw_band = await presence_store.distance_band_between(user_id, candidate_id)
-        normalized_band = {
-            "under_5_miles": "very_nearby",
-            "5_to_15_miles": "nearby",
-            "15_to_50_miles": "region",
-            "over_50_miles": "farther_away",
-            None: "city" if candidate_profile.city == current_profile.city else "unknown",
-        }[raw_band]
+        normalized_band = _normalize_proximity_band(
+            raw_band,
+            candidate_profile.city == current_profile.city,
+        )
         if normalized_band not in set(current_pref.proximity_bands or []):
             continue
         if normalized_band not in set(candidate_pref.proximity_bands or []):
@@ -289,12 +377,41 @@ async def discover_dating_profiles(
             continue
         if candidate_pref.communities and not current_communities.intersection(candidate_pref.communities):
             continue
+        if not await reciprocal_structured_filters_match(
+            db,
+            user_id,
+            current_pref.body_filters or {},
+            current_pref.dealbreakers or {},
+            candidate_id,
+            candidate_pref.body_filters or {},
+            candidate_pref.dealbreakers or {},
+        ):
+            continue
+        current_field_values = await filter_values(db, user_id)
+        candidate_field_values = await filter_values(db, candidate_id)
+        if current_pref.genres and not _intersects(
+            current_pref.genres,
+            candidate_field_values.get("music_genres"),
+        ):
+            continue
+        if candidate_pref.genres and not _intersects(
+            candidate_pref.genres,
+            current_field_values.get("music_genres"),
+        ):
+            continue
 
         evidence = [{"type": value, "provenance": "self_declared"} for value in eligibility_evidence]
         if shared_artists:
             evidence.append({"type": "shared_artists", "artists": shared_artists, "provenance": "imported_or_observed"})
         if community_names:
             evidence.append({"type": "shared_communities", "communities": community_names, "provenance": "self_declared"})
+        if current_pref.body_filters or current_pref.dealbreakers or current_pref.genres:
+            evidence.append(
+                {
+                    "type": "reciprocal_private_preferences_satisfied",
+                    "provenance": "self_declared",
+                }
+            )
         evidence.append({"type": "proximity_band", "band": normalized_band, "provenance": "model_inferred"})
         tie = int(
             hashlib.sha256(f"{user_id}:{candidate_id}:{date.today().isoformat()}".encode()).hexdigest()[:8],
@@ -304,7 +421,7 @@ async def discover_dating_profiles(
         payload = {
             "userId": candidate_id,
             "name": candidate_profile.first_name,
-            "age": _age(candidate_profile.date_of_birth),
+            "age": _age(declared_date_of_birth(candidate_profile)),
             "intent": candidate_profile.intent,
             "relationshipStructure": candidate_profile.relationship_structure,
             "bio": candidate_profile.bio,
@@ -329,16 +446,44 @@ async def record_dating_exposure(
     user_id: str = Depends(get_current_user_id),
     db: AsyncSession = Depends(get_db),
 ):
-    await _require_eligible_pair(db, user_id, payload.candidate_id)
+    pair = await _require_eligible_pair(db, user_id, payload.candidate_id)
+    existing = (
+        await db.execute(
+            select(DatingExposure).where(
+                DatingExposure.viewer_id == user_id,
+                DatingExposure.client_event_id == payload.client_event_id,
+            )
+        )
+    ).scalar_one_or_none()
+    if existing:
+        return {
+            "exposureId": existing.id,
+            "recordedWhen": "client_reported_render",
+            "duplicate": True,
+        }
+    viewer_profile, candidate_profile, evidence = pair[1], pair[4], pair[6]
+    raw_band = await presence_store.distance_band_between(user_id, payload.candidate_id)
+    proximity_band = _normalize_proximity_band(
+        raw_band,
+        viewer_profile.city == candidate_profile.city,
+    )
     exposure = DatingExposure(
         viewer_id=user_id,
         candidate_id=payload.candidate_id,
-        proximity_band=payload.proximity_band,
-        explanation=payload.explanation,
+        client_event_id=payload.client_event_id,
+        proximity_band=proximity_band,
+        explanation=[
+            {"type": item, "provenance": "server_eligibility_rule"}
+            for item in evidence
+        ],
     )
     db.add(exposure)
     await db.flush()
-    return {"exposureId": exposure.id, "recordedWhen": "card_rendered"}
+    return {
+        "exposureId": exposure.id,
+        "recordedWhen": "client_reported_render",
+        "duplicate": False,
+    }
 
 
 @router.post("/swipes", status_code=201)
@@ -412,6 +557,28 @@ async def send_song_signal(
     db: AsyncSession = Depends(get_db),
 ):
     await _require_eligible_pair(db, user_id, payload.recipient_id)
+    day_ago = _now() - timedelta(days=1)
+    daily_total = int(
+        await db.scalar(
+            select(func.count(SongSignal.id)).where(
+                SongSignal.sender_id == user_id,
+                SongSignal.created_at >= day_ago,
+            )
+        )
+        or 0
+    )
+    recipient_total = int(
+        await db.scalar(
+            select(func.count(SongSignal.id)).where(
+                SongSignal.sender_id == user_id,
+                SongSignal.recipient_id == payload.recipient_id,
+                SongSignal.created_at >= day_ago,
+            )
+        )
+        or 0
+    )
+    if daily_total >= 50 or recipient_total >= 3:
+        raise HTTPException(status_code=429, detail="Song Signal limit reached")
     signal = SongSignal(
         sender_id=user_id,
         recipient_id=payload.recipient_id,
@@ -519,4 +686,6 @@ async def unmatch(
     match.status = "unmatched"
     match.ended_at = _now()
     match.ended_by = user_id
+    await _revoke_pair_album_grants(db, user_id, other_id)
+    await db.flush()
     return {"unmatched": True, "eligibleForRematchAfter": decision.resurface_after.isoformat() if decision and decision.resurface_after else None}

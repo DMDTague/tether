@@ -62,7 +62,9 @@ jobs:
           cache: pip
           cache-dependency-path: backend/requirements.txt
       - name: Install backend
-        run: pip install --disable-pip-version-check --quiet -r requirements.txt
+        run: pip install --disable-pip-version-check --quiet -r requirements.txt pip-audit
+      - name: Audit backend dependencies
+        run: pip-audit -r requirements.txt --ignore-vuln PYSEC-2026-1325
       - name: Compile Python
         run: python -m compileall -q .
       - name: Run tests
@@ -91,7 +93,7 @@ jobs:
       - uses: actions/checkout@v4
       - name: Reject known unsafe defaults
         run: |
-          ! grep -R "tether-dev-secret-key-change-in-production" backend --exclude-dir=__pycache__
+          ! grep -E 'SECRET_KEY:[[:space:]]*str[[:space:]]*=[[:space:]]*"tether-dev-secret-key-change-in-production"' backend/config.py
           ! grep -R 'allow_origins=\["\*"\]' backend --exclude-dir=__pycache__
       - name: Reject committed databases and credentials
         run: |

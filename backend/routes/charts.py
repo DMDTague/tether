@@ -1,9 +1,10 @@
 import time
 import asyncio
 import billboard
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends, HTTPException
 from typing import Dict, Any
 
+from routes.auth import get_current_user_id
 from services.spotify import search_track
 
 router = APIRouter()
@@ -12,7 +13,9 @@ router = APIRouter()
 # Format: { 'hot-100': { 'time': 123456789, 'data': [...] }, ... }
 # Note: Cache stores complete track data including artwork, so updates are atomic
 cache: Dict[str, Any] = {}
+cache_clear_times: Dict[str, float] = {}
 CACHE_TTL = 3600 * 2 # 2 hours - keeps data fresh while avoiding rate limits
+CACHE_CLEAR_COOLDOWN = 60 * 15
 
 async def hydrate_track(song) -> dict:
     # Billboard provides album art directly - use it!
@@ -62,13 +65,8 @@ async def get_chart_data(chart_name: str, limit: int = 10):
         return []
 
 @router.get("/billboard")
-async def get_billboard_charts(force_refresh: bool = False):
+async def get_billboard_charts():
     """Top 15 Hot 100 tracks and Billboard 200 albums/EPs (Spotify-hydrated)."""
-    # Clear cache if force_refresh is requested
-    if force_refresh:
-        cache.clear()
-        print("🔄 Force refresh: cache cleared")
-    
     hot_100 = await get_chart_data('hot-100', 15)
     billboard_200 = await get_chart_data('billboard-200', 15)
     
@@ -78,8 +76,12 @@ async def get_billboard_charts(force_refresh: bool = False):
     }
 
 @router.post("/billboard/clear-cache")
-async def clear_billboard_cache():
+async def clear_billboard_cache(user_id: str = Depends(get_current_user_id)):
     """Clear the Billboard cache to force fresh data fetch."""
+    now = time.monotonic()
+    if now - cache_clear_times.get(user_id, 0) < CACHE_CLEAR_COOLDOWN:
+        raise HTTPException(status_code=429, detail="Chart refresh cooldown is active")
+    cache_clear_times[user_id] = now
     global cache
     cache.clear()
     return {"message": "Billboard cache cleared"}

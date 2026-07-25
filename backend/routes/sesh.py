@@ -9,6 +9,7 @@ from typing import List, Optional
 from db.database import get_db
 from models.models import Sesh, User
 from routes.auth import get_current_user_id
+from services.safety_policy import is_blocked
 
 router = APIRouter(prefix="/api/sesh", tags=["sesh"])
 
@@ -94,10 +95,16 @@ async def get_pending_seshs(user_id: str = Depends(get_current_user_id), db: Asy
     return out
 
 @router.get("/{username}")
-async def get_user_seshs(username: str, db: AsyncSession = Depends(get_db)):
+async def get_user_seshs(
+    username: str,
+    viewer_id: str = Depends(get_current_user_id),
+    db: AsyncSession = Depends(get_db),
+):
     user_result = await db.execute(select(User).where(User.username == username))
     user = user_result.scalar_one_or_none()
-    if not user:
+    if not user or await is_blocked(db, viewer_id, user.id):
+        raise HTTPException(status_code=404, detail="User not found")
+    if viewer_id != user.id and user.privacy_mode == "ghost":
         raise HTTPException(status_code=404, detail="User not found")
 
     result = await db.execute(
