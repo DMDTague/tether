@@ -2,7 +2,7 @@ name: Tether CI
 
 on:
   push:
-    branches: [master, "overhaul/**", "design/**", "rebuild/**", "review/**"]
+    branches: [master, "overhaul/**", "design/**", "rebuild/**", "review/**", "agent/**"]
   pull_request:
 
 permissions:
@@ -21,29 +21,18 @@ jobs:
         working-directory: demo
     steps:
       - uses: actions/checkout@v4
-
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-
       - name: Install demo test dependencies
         run: npm install --no-audit --no-fund
-
       - name: Parse every shipped script
-        # Catches syntax errors before the browser does. The list is derived
-        # from index.html, so a newly added script cannot skip this check.
         run: |
           for script in $(grep -oP '(?<=<script src=")[^"?]+' index.html); do
             echo "checking $script"
             node --check "$script"
           done
-
       - name: Run demo tests
-        # Includes tests/runtime-smoke.test.mjs, which boots the page in jsdom
-        # and clicks every control. This replaces the grep assertions that used
-        # to live here: those checked that marketing strings existed in source,
-        # would have passed while the app was broken, and failed on harmless
-        # refactors (one of them asserted v14.js was over 2000 lines long).
         run: npm test
 
   backend:
@@ -54,43 +43,44 @@ jobs:
         working-directory: backend
     steps:
       - uses: actions/checkout@v4
-
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
           cache: pip
           cache-dependency-path: backend/requirements.txt
-
       - name: Install backend
         run: pip install --disable-pip-version-check --quiet -r requirements.txt
-
       - name: Compile Python
         run: python -m compileall -q .
-
       - name: Run tests
         env:
           ENVIRONMENT: development
-          # Must not be a value config.validate_runtime() rejects. The previous
-          # value was "local-development-only-change-me", which is on that
-          # blocklist, so this job died at conftest import on every run and the
-          # suite never actually executed.
           SECRET_KEY: ci-only-secret-not-used-outside-github-actions
-        run: pytest -q --tb=short
+        run: |
+          set +e
+          pytest -q --tb=short > pytest.log 2>&1
+          status=$?
+          cat pytest.log
+          exit $status
+      - name: Upload pytest failure log
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pytest-failure
+          path: backend/pytest.log
+          if-no-files-found: error
+          retention-days: 3
 
   guardrails:
     name: Security guardrails
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
       - name: Reject known unsafe defaults
         run: |
           ! grep -R "tether-dev-secret-key-change-in-production" backend --exclude-dir=__pycache__
           ! grep -R 'allow_origins=\["\*"\]' backend --exclude-dir=__pycache__
-
       - name: Reject committed databases and credentials
-        # backend/tether.db was committed once and contained real user rows,
-        # including bcrypt password hashes. Never again.
         run: |
           if git ls-files | grep -E '\.(db|sqlite3?)$'; then
             echo "::error::A database file is tracked in git. Remove it and gitignore it."
@@ -100,11 +90,7 @@ jobs:
             echo "::error::A .env file is tracked in git."
             exit 1
           fi
-
       - name: Reject orphaned submodule pointers
-        # mobile/ and mobile.worktrees/ were committed as gitlinks with no
-        # .gitmodules, so the referenced commits were unreachable and the
-        # directories cloned empty.
         run: |
           orphans=$(git ls-files -s | awk '$1 == "160000" { print $4 }')
           if [ -n "$orphans" ] && [ ! -f .gitmodules ]; then
