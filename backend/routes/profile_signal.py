@@ -16,6 +16,13 @@ from routes.auth import get_current_user_id
 router = APIRouter(prefix="/api/profile-signal", tags=["profile-signal"])
 
 
+def _age(dob: date | None) -> int | None:
+    if not dob:
+        return None
+    today = date.today()
+    return today.year - dob.year - ((today.month, today.day) < (dob.month, dob.day))
+
+
 class Atmosphere(BaseModel):
     statement: str = Field(default="", max_length=240)
     palette: list[str] = Field(default_factory=list, max_length=5)
@@ -78,7 +85,7 @@ class DatingSignal(BaseModel):
         if self.visible and not self.enabled:
             raise ValueError("Dating visibility requires Dating to be enabled")
         if self.enabled:
-            if not self.dateOfBirth or (date.today() - self.dateOfBirth).days < 18 * 365:
+            if _age(self.dateOfBirth) is None or _age(self.dateOfBirth) < 18:
                 raise ValueError("Dating is restricted to adults age 18+")
             required = [self.firstName, self.genderIdentity, self.showMe, self.intent, self.bio, self.city]
             if not all(required) or len(self.mediaIds) < 2 or not self.locationConsent or not self.safetyAcknowledged:
@@ -90,13 +97,6 @@ class ProfileSignalUpdate(BaseModel):
     atmosphere: Atmosphere
     fields: list[FieldValue] = Field(default_factory=list, max_length=100)
     dating: DatingSignal
-
-
-def _age(dob: date | None) -> int | None:
-    if not dob:
-        return None
-    today = date.today()
-    return today.year - dob.year - ((today.month, today.day) < (dob.month, dob.day))
 
 
 async def _serialize(db: AsyncSession, user_id: str, include_private: bool) -> dict:
