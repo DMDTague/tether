@@ -1,219 +1,157 @@
-from routes.auth import get_current_user_id
-"""
-Tether Sessions Routes
+"""Create, join, recover, and leave authoritative live listening sessions."""
 
-Create, join, leave sessions. Send pulses.
-"""
+from datetime import datetime, timezone
+from typing import Literal, Optional
 
 from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel, Field
+from sqlalchemy import and_, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
-from pydantic import BaseModel
-from typing import Optional
 
 from db.database import get_db
 from models.models import Session, SessionListener, User
+from models.session_models import SessionEvent
+from models.safety_models import UserBlock
+from routes.auth import get_current_user_id
+from services.matching import matcher
+from services.presence import presence_store
 from services.sync import sync_engine
-from ws.manager import manager
 from ws import protocol
+from ws.manager import manager
 
 router = APIRouter(prefix="/api/sessions", tags=["sessions"])
 
 
 class CreateSessionRequest(BaseModel):
-    track_id: str
-    track_name: str
-    artist_name: str
-    track_duration_ms: int
-    track_isrc: Optional[str] = None
-    next_track_name: Optional[str] = None
-    album_name: Optional[str] = None
-    explicit: Optional[bool] = False
-    artwork_url: Optional[str] = None
+    track_id: str = Field(min_length=1, max_length=256)
+    track_name: str = Field(min_length=1, max_length=256)
+    artist_name: str = Field(min_length=1, max_length=256)
+    track_duration_ms: int = Field(gt=0)
+    provider: Literal["spotify", "apple_music"] = "spotify"
+    track_isrc: Optional[str] = Field(default=None, max_length=16)
+    next_track_name: Optional[str] = Field(default=None, max_length=256)
+    album_name: Optional[str] = Field(default=None, max_length=256)
+    explicit: bool = False
+    artwork_url: Optional[str] = Field(default=None, max_length=512)
 
 
 class JoinSessionRequest(BaseModel):
     session_id: str
-    target_provider: str = "spotify"
+    target_provider: Literal["spotify", "apple_music"] = "spotify"
 
 
-from services.matching import matcher
+async def _is_blocked(db: AsyncSession, first_id: str, second_id: str) -> bool:
+    result = await db.execute(select(UserBlock.id).where(or_(and_(UserBlock.blocker_id == first_id, UserBlock.blocked_user_id == second_id), and_(UserBlock.blocker_id == second_id, UserBlock.blocked_user_id == first_id))))
+    return result.scalar_one_or_none() is not None
+
 
 @router.post("/create")
 async def create_session(req: CreateSessionRequest, user_id: str = Depends(get_current_user_id), db: AsyncSession = Depends(get_db)):
-    """Host creates a new listening session."""
-    
-    # Phase 3A: Canonicalize Spotify Track
-    canonical_id = await matcher.canonicalize_spotify_track(
-        db=db,
-        spotify_track_id=req.track_id,
-        title=req.track_name,
-        artist=req.artist_name,
-        duration_ms=req.track_duration_ms,
-        isrc=req.track_isrc,
-        album=req.album_name,
-        explicit=req.explicit or False,
-        artwork_url=req.artwork_url
-    )
+    canonical_id: str | None = None
+    if req.provider == "spotify":
+        canonical_id = await matcher.canonicalize_spotify_track(db=db, spotify_track_id=req.track_id, title=req.track_name, artist=req.artist_name, duration_ms=req.track_duration_ms, isrc=req.track_isrc, album=req.album_name, explicit=req.explicit, artwork_url=req.artwork_url)
+    else:
+        from models.models import CanonicalTrack, ProviderTrackMatch
+        canonical = None
+        if req.track_isrc:
+            canonical = (await db.execute(select(CanonicalTrack).where(CanonicalTrack.isrc == req.track_isrc))).scalar_one_or_none()
+        if not canonical:
+            canonical = CanonicalTrack(isrc=req.track_isrc, title=req.track_name, artist=req.artist_name, album=req.album_name, duration_ms=req.track_duration_ms, explicit=req.explicit, artwork_url=req.artwork_url)
+            db.add(canonical)
+            await db.flush()
+        canonical_id = canonical.id
+        match = (await db.execute(select(ProviderTrackMatch).where(ProviderTrackMatch.provider == req.provider, ProviderTrackMatch.provider_track_id == req.track_id))).scalar_one_or_none()
+        if not match:
+            db.add(ProviderTrackMatch(canonical_track_id=canonical.id, provider=req.provider, provider_track_id=req.track_id, match_method="host_provided", confidence=1.0))
 
-    session = Session(
-        host_id=user_id,
-        track_id=req.track_id,
-        track_name=req.track_name,
-        artist_name=req.artist_name,
-        track_isrc=req.track_isrc,
-        track_duration_ms=req.track_duration_ms,
-        canonical_track_id=canonical_id,
-        provider="spotify",
-        provider_track_id=req.track_id,
-        track_start_epoch=sync_engine.create_track_start_epoch(),
-        next_track_name=req.next_track_name,
-    )
+    session = Session(host_id=user_id, track_id=req.track_id, track_name=req.track_name, artist_name=req.artist_name, track_isrc=req.track_isrc, track_duration_ms=req.track_duration_ms, canonical_track_id=canonical_id, provider=req.provider, provider_track_id=req.track_id, track_start_epoch=sync_engine.create_track_start_epoch(), next_track_name=req.next_track_name, status="active")
     db.add(session)
     await db.flush()
-
-    # Register host in WebSocket session
+    db.add(SessionListener(session_id=session.id, user_id=user_id, has_tethered=True))
+    db.add(SessionEvent(session_id=session.id, actor_id=user_id, event_type="session_created"))
+    await db.flush()
     await manager.join_session(user_id, session.id)
-
-    return {
-        "sessionId": session.id,
-        "trackStartEpoch": session.track_start_epoch,
-        "trackDurationMs": session.track_duration_ms,
-        "positionMs": 0,
-        "isPaused": session.is_paused,
-    }
+    await presence_store.set_user_session(user_id, session.id)
+    await presence_store.set_presence(user_id, "hosting", req.track_name, req.artist_name, req.artwork_url or "", req.provider)
+    return {"sessionId": session.id, "provider": session.provider, "trackStartEpoch": session.track_start_epoch, "trackDurationMs": session.track_duration_ms, "positionMs": 0, "isPaused": bool(session.is_paused)}
 
 
 @router.post("/join")
 async def join_session(req: JoinSessionRequest, user_id: str = Depends(get_current_user_id), db: AsyncSession = Depends(get_db)):
-    """Listener joins an existing session."""
-    result = await db.execute(select(Session).where(Session.id == req.session_id))
-    session = result.scalar_one_or_none()
+    session = (await db.execute(select(Session).where(Session.id == req.session_id, Session.status == "active"))).scalar_one_or_none()
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")
-
-    from services.privacy import can_join_session, consume_grant, AuthDecision
-    
-    # Phase 4: Privacy Enforcement
+    if await _is_blocked(db, user_id, session.host_id):
+        return {"status": "unavailable", "message": "This user is unavailable to tether."}
+    from services.privacy import AuthDecision, can_join_session, consume_grant
     decision = await can_join_session(db, user_id, session.id)
-    
     if decision == AuthDecision.KNOCK_REQUIRED:
-        return {
-            "status": "knock_required",
-            "sessionId": session.id,
-            "hostId": session.host_id,
-            "message": "Knock required"
-        }
-        
-    if decision in [AuthDecision.HOST_UNAVAILABLE, AuthDecision.DENY, AuthDecision.NOT_FRIENDS]:
-        # Do not leak specific privacy mode or lack of friendship
-        return {
-            "status": "unavailable",
-            "message": "This user is unavailable to tether."
-        }
-        
-    # If ALLOW, consume the grant (if one existed)
+        return {"status": "knock_required", "sessionId": session.id, "hostId": session.host_id, "message": "Knock required"}
+    if decision in {AuthDecision.HOST_UNAVAILABLE, AuthDecision.DENY, AuthDecision.NOT_FRIENDS}:
+        return {"status": "unavailable", "message": "This user is unavailable to tether."}
     await consume_grant(db, user_id, session.id)
-
-    # Add listener to DB
-    listener = SessionListener(session_id=session.id, user_id=user_id)
-    db.add(listener)
+    listener = (await db.execute(select(SessionListener).where(SessionListener.session_id == session.id, SessionListener.user_id == user_id))).scalar_one_or_none()
+    if listener:
+        listener.left_at = None
+    else:
+        listener = SessionListener(session_id=session.id, user_id=user_id)
+        db.add(listener)
+    db.add(SessionEvent(session_id=session.id, actor_id=user_id, event_type="listener_joined"))
     await db.flush()
-
-    # Register in WebSocket
     await manager.join_session(user_id, session.id)
-
-    # Get user info for broadcast
-    user_result = await db.execute(select(User).where(User.id == user_id))
-    user = user_result.scalar_one()
-
-    # Notify session members
-    await manager.broadcast_to_session(
-        session.id,
-        protocol.listener_joined(user.id, user.display_name, user.initials),
-        exclude=user_id,
-    )
-
-    # Calculate current position
-    position = sync_engine.calculate_position_ms(
-        session.track_start_epoch,
-        session.track_duration_ms,
-        session.is_paused,
-        session.pause_position_ms or 0,
-    )
-
-    # Phase 3B: Cross-provider track matching
-    provider_track_id = session.track_id # fallback to host's spotify ID
+    await presence_store.set_user_session(user_id, session.id)
+    user = (await db.execute(select(User).where(User.id == user_id))).scalar_one()
+    await manager.broadcast_to_session(session.id, protocol.listener_joined(user.id, user.display_name, user.initials), exclude=user_id)
+    position = sync_engine.calculate_position_ms(session.track_start_epoch, session.track_duration_ms, session.is_paused, session.pause_position_ms or 0)
+    provider_track_id = session.provider_track_id
     is_ambiguous = False
-    
     if session.canonical_track_id and req.target_provider != session.provider:
-        match = await matcher.match_track_for_provider(
-            db=db,
-            canonical_track_id=session.canonical_track_id,
-            target_provider=req.target_provider
-        )
-        if match:
-            if match.match_method == "ambiguous":
-                is_ambiguous = True
-                provider_track_id = None
-            else:
-                provider_track_id = match.provider_track_id
+        match = await matcher.match_track_for_provider(db=db, canonical_track_id=session.canonical_track_id, target_provider=req.target_provider)
+        if match and match.match_method == "ambiguous":
+            is_ambiguous, provider_track_id = True, None
+        elif match:
+            provider_track_id = match.provider_track_id
         else:
-            provider_track_id = None # unavailable
-
-    return {
-        "status": "success",
-        "sessionId": session.id,
-        "trackId": provider_track_id,
-        "trackName": session.track_name,
-        "artistName": session.artist_name,
-        "positionMs": position,
-        "isPaused": session.is_paused,
-        "trackStartEpoch": session.track_start_epoch,
-        "trackDurationMs": session.track_duration_ms,
-        "nextTrackName": session.next_track_name,
-        "isAmbiguous": is_ambiguous,
-        "isUnavailable": provider_track_id is None and not is_ambiguous
-    }
+            provider_track_id = None
+    return {"status": "success", "sessionId": session.id, "hostProvider": session.provider, "targetProvider": req.target_provider, "trackId": provider_track_id, "trackName": session.track_name, "artistName": session.artist_name, "positionMs": position, "isPaused": bool(session.is_paused), "trackStartEpoch": session.track_start_epoch, "trackDurationMs": session.track_duration_ms, "nextTrackName": session.next_track_name, "isAmbiguous": is_ambiguous, "isUnavailable": provider_track_id is None and not is_ambiguous}
 
 
 @router.post("/{session_id}/leave")
 async def leave_session(session_id: str, user_id: str = Depends(get_current_user_id), db: AsyncSession = Depends(get_db)):
-    """Leave an active session."""
-    await manager.leave_session(user_id)
-
-    # Remove from DB
-    result = await db.execute(
-        select(SessionListener).where(
-            SessionListener.session_id == session_id,
-            SessionListener.user_id == user_id,
-        )
-    )
-    listener = result.scalar_one_or_none()
+    session = (await db.execute(select(Session).where(Session.id == session_id, Session.status == "active"))).scalar_one_or_none()
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
+    listener = (await db.execute(select(SessionListener).where(SessionListener.session_id == session_id, SessionListener.user_id == user_id, SessionListener.left_at.is_(None)))).scalar_one_or_none()
+    if not listener and session.host_id != user_id:
+        raise HTTPException(status_code=404, detail="Session not found")
+    now = datetime.now(timezone.utc)
     if listener:
-        await db.delete(listener)
-
-    # Notify remaining members
-    await manager.broadcast_to_session(
-        session_id,
-        protocol.listener_left(user_id),
-    )
-
-    return {"status": "left"}
+        listener.left_at = now
+    if session.host_id == user_id:
+        session.status, session.ended_at = "ended", now
+    db.add(SessionEvent(session_id=session_id, actor_id=user_id, event_type="session_left"))
+    await manager.leave_session(user_id)
+    await presence_store.remove_user_session(user_id)
+    await presence_store.remove_presence(user_id)
+    await manager.broadcast_to_session(session_id, protocol.listener_left(user_id))
+    return {"status": "ended" if session.host_id == user_id else "left"}
 
 
 @router.post("/{session_id}/pulse")
 async def send_pulse(session_id: str, user_id: str = Depends(get_current_user_id), db: AsyncSession = Depends(get_db)):
-    """Send a pulse to all session members."""
-    user_result = await db.execute(select(User).where(User.id == user_id))
-    user = user_result.scalar_one_or_none()
+    session = (await db.execute(select(Session).where(Session.id == session_id, Session.status == "active"))).scalar_one_or_none()
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
+    membership = await db.execute(select(SessionListener.user_id).where(SessionListener.session_id == session_id, SessionListener.user_id == user_id, SessionListener.left_at.is_(None)))
+    if session.host_id != user_id and not membership.scalar_one_or_none():
+        raise HTTPException(status_code=404, detail="Session not found")
+    if await _is_blocked(db, user_id, session.host_id):
+        raise HTTPException(status_code=404, detail="Session not found")
+    if await presence_store.check_pulse_cooldown(session_id, user_id):
+        raise HTTPException(status_code=429, detail="Pulse cooldown active")
+    user = (await db.execute(select(User).where(User.id == user_id))).scalar_one_or_none()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
-
-    await manager.broadcast_to_session(
-        session_id,
-        protocol.pulse_received(user.display_name),
-        exclude=user_id,
-    )
-
+    db.add(SessionEvent(session_id=session_id, actor_id=user_id, event_type="pulse"))
+    await manager.broadcast_to_session(session_id, protocol.pulse_received(user.display_name), exclude=user_id)
     return {"status": "pulse_sent"}
