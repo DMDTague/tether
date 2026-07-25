@@ -599,7 +599,17 @@
     rewireEntryButtons();
   }
 
-  globalThis.TetherDatingWorld = { open: () => { one('[data-wavelength-hub="dating"]')?.click(); renderWorld(); }, edit: () => openOnboarding(0) };
+  globalThis.TetherDatingWorld = {
+    open: () => { one('[data-wavelength-hub="dating"]')?.click(); renderWorld(); },
+    edit: () => openOnboarding(0),
+    applyProfile: (profile, discoverable = true) => {
+      model.profile = { ...model.profile, ...(profile || {}) };
+      model.onboarded = true;
+      model.discoverable = Boolean(discoverable);
+      saveModel();
+      renderWorld();
+    }
+  };
 
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", install, { once: true });
   else install();
