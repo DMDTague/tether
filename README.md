@@ -76,16 +76,16 @@ and the code cannot drift apart silently.
 - Raw coordinates are reduced to short-lived coarse cells before storage.
 - Discovery returns broad distance bands, never exact coordinates or phone numbers.
 - Ordinary public profiles never expose dating fields.
-- Dating requires explicit enablement and a separate visibility choice.
-- Height and body language have independent publication controls.
+- Dating requires explicit enablement, adult eligibility, a completed profile, and a separate visibility choice.
 - Dealbreakers and matching preferences are used privately and are not shown on public profiles.
 - Diary notes are owner-only.
 - WebSockets use one-minute scoped tickets rather than primary access tokens in URLs.
-- Production refuses default secrets, wildcard CORS, or anonymous WebSocket access.
+- Session playback, Knock, Pulse, reconnect, and Memory Anchor decisions are authorized from server-side state.
+- Production refuses default secrets, wildcard CORS, anonymous WebSocket access, or a database without an Alembic revision.
 - Core listening, invitations, joining, and Pulse are never ad-gated.
-- Telemetry rejects review text, titles, artists, diary notes, prompts, identity, orientation, height, relationship details, coordinates, contacts, credentials, and provider tokens.
+- Telemetry rejects review text, titles, artists, diary notes, prompts, identity, orientation, relationship details, coordinates, contacts, credentials, and provider tokens.
 
-See `docs/MUSIC_PLATFORM.md`, `docs/EVENTS.md`, and `docs/PRODUCT_PRINCIPLES.md`.
+See `docs/CURRENT_STATE.md`, `docs/DELIVER_IMPLEMENTATION.md`, `docs/MUSIC_PLATFORM.md`, `docs/EVENTS.md`, and `docs/PRODUCT_PRINCIPLES.md`.
 
 ## Run the browser prototype
 
@@ -108,17 +108,17 @@ cp .env.example .env
 uvicorn main:app --reload
 ```
 
-Development defaults are intentionally local. Production requires an explicit secret and CORS allowlist.
+Development defaults are intentionally local. Production requires an explicit secret, a CORS allowlist, and an Alembic-managed database at a known revision.
 
 ## Test
 
 ```bash
 cd demo
 npm install
-npm test          # 22 tests, including a jsdom smoke test that boots the page
+npm test
 
 cd ../backend
-SECRET_KEY=any-local-value-at-least-32-characters-long pytest -q   # 68 tests
+SECRET_KEY=any-local-value-at-least-32-characters-long pytest -q
 ```
 
 `backend/config.py` refuses to start without a `SECRET_KEY` of at least 32
@@ -137,4 +137,4 @@ The operating promise remains the **Ten-second Tether**: from opening the produc
 
 ## Status
 
-Tether is a serious product prototype, not yet a production release. Provider credentials, deployment monitoring, durable multi-instance state, database migrations for all cultural objects, native packaging, store compliance, abuse operations, moderation, and real-device cross-provider testing remain required before public launch.
+Tether is a serious product prototype, not yet a production release. The durable audit foundation now covers trust boundaries, safety records, platform schemas, migrations, telemetry, and evidence-preserving recommendations. A complete native client, real provider authorization/playback, multi-instance coordination, production media infrastructure, migration rehearsal, moderation operations, store compliance, and real-device cross-provider testing remain required before public launch.
