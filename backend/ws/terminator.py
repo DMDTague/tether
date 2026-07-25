@@ -17,10 +17,11 @@ MEANINGFUL_SECONDS = 5 * 60
 
 
 async def handle_disconnect(user_id: str, session_id: str | None):
-    """End a host session and create Anchors only under the shared contract.
+    """End a host session and create Anchors under one shared contract.
 
-    A meaningful session requires at least five minutes, verified synchronized
-    playback, a relational action, and no session-scoped safety report.
+    Each anchored pair must have remained synchronized together for five
+    minutes. A relational action may come from either participant, because it
+    describes the shared session rather than an individual achievement.
     """
     if not session_id:
         return
@@ -30,25 +31,26 @@ async def handle_disconnect(user_id: str, session_id: str | None):
             if not session or session.host_id != user_id or session.status != "active":
                 return
             ended_at = datetime.now(timezone.utc)
-            duration_seconds = max(0, int((ended_at - session.created_at).total_seconds()))
             listeners = (await db.execute(select(SessionListener).where(SessionListener.session_id == session_id, SessionListener.user_id != session.host_id, SessionListener.has_tethered.is_(True)))).scalars().all()
             relational_actor_ids = set((await db.execute(select(SessionEvent.actor_id).where(SessionEvent.session_id == session_id, SessionEvent.event_type.in_(["pulse", "queue_add", "message", "tether_success"])))).scalars().all())
+            relational_action_seen = bool(relational_actor_ids) or any(listener.relational_action for listener in listeners)
             safety_rejections = int((await db.execute(select(func.count(UserReport.id)).where(UserReport.context_type == "session", UserReport.context_id == session_id))).scalar() or 0)
             pulse_count = int((await db.execute(select(func.count(SessionEvent.id)).where(SessionEvent.session_id == session_id, SessionEvent.event_type == "pulse"))).scalar() or 0)
-            meaningful = duration_seconds >= MEANINGFUL_SECONDS and safety_rejections == 0
-            qualified = [listener for listener in listeners if listener.relational_action or listener.user_id in relational_actor_ids]
-            if meaningful and qualified:
+            qualified = [listener for listener in listeners if listener.joined_at and max(0, (ended_at - listener.joined_at).total_seconds()) >= MEANINGFUL_SECONDS]
+            meaningful = bool(qualified) and relational_action_seen and safety_rejections == 0
+            if meaningful:
                 host_city = manager.get_user_city(user_id)
                 for listener in qualified:
                     listener_city = manager.get_user_city(listener.user_id)
                     same_region = bool(host_city and listener_city and host_city == listener_city)
-                    common = dict(session_id=session_id, track_name=session.track_name or "Unknown track", artist_name=session.artist_name or "Unknown artist", duration_minutes=duration_seconds // 60, pulse_count=pulse_count, city_a="Same broad area" if same_region else (host_city or None), city_b=None if same_region else (listener_city or None), session_date=session.created_at, meaningful_session_verified=True)
+                    duration_minutes = int((ended_at - listener.joined_at).total_seconds()) // 60
+                    common = dict(session_id=session_id, track_name=session.track_name or "Unknown track", artist_name=session.artist_name or "Unknown artist", duration_minutes=duration_minutes, pulse_count=pulse_count, city_a="Same broad area" if same_region else (host_city or None), city_b=None if same_region else (listener_city or None), session_date=listener.joined_at, meaningful_session_verified=True)
                     db.add(MemoryAnchor(user_id=session.host_id, friend_id=listener.user_id, **common))
                     db.add(MemoryAnchor(user_id=listener.user_id, friend_id=session.host_id, **common))
             session.status, session.ended_at = "ended", ended_at
             await presence_store.remove_user_session(user_id)
             await db.commit()
-            payload = {"type": "memory_created" if meaningful and qualified else "memory_not_created", "session_id": session_id, "meaningful": bool(meaningful and qualified), "contract": "5m + synchronized playback + relational action + no safety report"}
+            payload = {"type": "memory_created" if meaningful else "memory_not_created", "session_id": session_id, "meaningful": meaningful, "contract": "5m together + synchronized playback + relational action + no safety report"}
             await manager.send_to_user(session.host_id, payload)
             for listener in listeners:
                 await manager.send_to_user(listener.user_id, payload)
