@@ -1,4 +1,4 @@
-"""Async database setup with migration discipline in production."""
+"""Async database setup with exact migration-head discipline in production."""
 
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
@@ -7,6 +7,7 @@ from sqlalchemy.orm import DeclarativeBase
 from config import get_settings
 
 settings = get_settings()
+REQUIRED_ALEMBIC_REVISION = "c7e2a91b4f60"
 
 engine = create_async_engine(settings.DATABASE_URL, echo=False, future=True)
 async_session = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
@@ -29,12 +30,8 @@ async def get_db():
 
 
 async def init_db():
-    """Create tables only for local development.
+    """Create tables locally; require the exact application migration in production."""
 
-    Production must be deployed at a known Alembic revision. Silently calling
-    ``create_all`` in production can produce a schema that does not match the
-    migrations or rollback plan.
-    """
     if not settings.is_production:
         async with engine.begin() as conn:
             await conn.run_sync(Base.metadata.create_all)
@@ -42,10 +39,17 @@ async def init_db():
 
     async with engine.connect() as conn:
         try:
-            revision = await conn.scalar(text("SELECT version_num FROM alembic_version LIMIT 1"))
+            revisions = list(
+                (
+                    await conn.execute(text("SELECT version_num FROM alembic_version"))
+                ).scalars().all()
+            )
         except Exception as exc:
             raise RuntimeError(
                 "Production database is not Alembic-managed; run migrations before startup."
             ) from exc
-        if not revision:
-            raise RuntimeError("Production database has no Alembic revision.")
+        if revisions != [REQUIRED_ALEMBIC_REVISION]:
+            observed = ", ".join(revisions) if revisions else "none"
+            raise RuntimeError(
+                f"Production database revision mismatch: expected {REQUIRED_ALEMBIC_REVISION}, observed {observed}."
+            )
