@@ -13,7 +13,7 @@ from sqlalchemy import select
 from config import get_settings
 from db.database import async_session, init_db
 from models.models import User
-from routes import ad_pass, anchors, auth, blocks, capsules, charts, dating, discovery, friends, music_culture, playback, profile_signal, recommendations, safety, sesh, sessions, telemetry, tethers, users, vibe
+from routes import ad_pass, anchors, auth, blocks, capsules, charts, dating, discovery, friends, music_culture, playback, profile_signal, recommendations, safety, sesh, sessions, telemetry, tethers, users
 from routes.auth import decode_ws_ticket
 from services.presence import presence_store
 from worker import setup_scheduler
@@ -60,7 +60,6 @@ for route in (
     ad_pass.router,
     users.router,
     recommendations.router,
-    vibe.router,
     sesh.router,
     discovery.router,
     dating.router,
