@@ -8,9 +8,9 @@ Tether is a relationship network whose fundamental unit is a shared musical mome
 
 **Listen → Express → Discover → Connect → Tether → Remember → Return**
 
-The North Star remains **Meaningful Shared Listens per Weekly Active User**. A meaningful shared listen has one authoritative contract: two real accounts remain synchronized for at least five minutes, at least one relational action occurs, and the session has no immediate safety rejection.
+The North Star remains **Meaningful Shared Listens per Weekly Active User**. A meaningful shared listen has one authoritative contract: two real accounts remain synchronized for at least five minutes together, at least one relational action occurs, and the session has no immediate safety rejection.
 
-## Implemented in the audit-foundation branch
+## Implemented on `master`
 
 - Account-scoped blocks, mutes, user reports, content reports, moderation cases, and moderation actions.
 - Participant-scoped friendship mutations and separate friendship/mute state.
