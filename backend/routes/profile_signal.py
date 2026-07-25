@@ -198,9 +198,10 @@ async def _serialize(
 
     fields = {}
     for row in rows:
-        can_return = owner or row.visibility == "public" or (row.visibility == "after_match" and matched)
-        if not can_return or row.visibility in {"filter_only", "do_not_use"}:
-            continue
+        if not owner:
+            can_return = row.visibility == "public" or (row.visibility == "after_match" and matched)
+            if not can_return or row.visibility in {"filter_only", "do_not_use"}:
+                continue
         fields[row.field_key] = {
             "value": row.value,
             "visibility": row.visibility,
