@@ -4,49 +4,62 @@ from pydantic import ValidationError
 from routes.telemetry import TelemetryBatch, TelemetryEvent
 
 
-def test_known_event_is_accepted():
-    event = TelemetryEvent(event="join_succeeded", properties={"latencyMs": 420, "initialDriftBucket": "0-100ms"})
-    assert event.schemaVersion == 1
+def event(name: str, properties: dict | None = None) -> TelemetryEvent:
+    return TelemetryEvent(
+        eventId=f"event-{name}-0001",
+        event=name,
+        journeyId="journey-0001",
+        properties=properties or {},
+    )
+
+
+def test_known_client_intent_is_accepted():
+    payload = event("join_started", {"surface": "listen", "provider": "spotify"})
+    assert payload.schemaVersion == 1
+    assert payload.event == "join_started"
 
 
 @pytest.mark.parametrize(
-    "property_name",
+    "server_outcome",
     [
-        "messageBody",
-        "searchQuery",
-        "latitude",
-        "phoneNumber",
-        "accessToken",
-        "orientation",
-        "identity",
-        "reviewTitle",
-        "artistName",
-        "privateNote",
-        "promptAnswer",
-        "height",
-        "relationshipStructure",
+        "join_succeeded",
+        "audio_started",
+        "meaningful_session_reached",
+        "dating_match_created",
+        "anchor_created",
     ],
 )
-def test_sensitive_properties_are_rejected(property_name):
+def test_server_outcomes_cannot_be_submitted_by_clients(server_outcome):
     with pytest.raises(ValidationError):
-        TelemetryEvent(event="error_shown", properties={property_name: "secret"})
+        event(server_outcome)
+
+
+def test_properties_are_allowlisted_per_event():
+    with pytest.raises(ValidationError):
+        event("error_shown", {"messageBody": "secret"})
+    with pytest.raises(ValidationError):
+        event("dating_mode_opened", {"orientation": "private"})
+    with pytest.raises(ValidationError):
+        event("exchange_post_opened", {"reviewTitle": "content"})
 
 
 def test_dating_events_record_behavior_not_identity():
-    event = TelemetryEvent(event="dating_mode_opened", properties={"surface": "wavelength"})
-    assert event.event == "dating_mode_opened"
+    payload = event("dating_mode_opened", {"surface": "wavelength"})
+    assert payload.properties == {"surface": "wavelength"}
 
 
 def test_exchange_events_record_structure_not_content():
-    event = TelemetryEvent(event="review_created", properties={"subjectType": "album", "scoreBucket": "4.5-5", "visibility": "public"})
-    assert event.event == "review_created"
+    payload = event("exchange_post_impression", {"feed": "following", "rankBucket": "1-5"})
+    assert payload.event == "exchange_post_impression"
 
 
 def test_unknown_event_is_rejected():
     with pytest.raises(ValidationError):
-        TelemetryEvent(event="user_everything_recorded", properties={})
+        event("user_everything_recorded")
 
 
-def test_batch_is_bounded():
+def test_event_id_and_batch_are_required_and_bounded():
+    with pytest.raises(ValidationError):
+        TelemetryEvent(event="app_opened", properties={})
     with pytest.raises(ValidationError):
         TelemetryBatch(events=[])
