@@ -46,11 +46,23 @@ def test_websocket_messages_verify_authority_and_membership():
     assert 'Knock.status == "pending"' in source
 
 
-def test_memory_contract_is_five_minutes_and_not_fabricated():
+def test_memory_contract_is_five_minutes_together_and_not_fabricated():
     terminator = _source("ws/terminator.py")
+    sessions = _source("routes/sessions.py")
     anchors = _source("routes/anchors.py")
     assert "MEANINGFUL_SECONDS = 5 * 60" in terminator
+    assert "ended_at - listener.joined_at" in terminator
     assert "relational action" in terminator
     assert "safety report" in terminator
+    assert "handle_disconnect(user_id, session_id)" in sessions
+    assert "listener.joined_at = datetime.now(timezone.utc)" in sessions
     assert "* 100" not in anchors
     assert "distanceBridged" not in anchors
+
+
+def test_dating_uses_exact_calendar_age_and_legacy_vibe_matching_is_unmounted():
+    profile = _source("routes/profile_signal.py")
+    main = _source("main.py")
+    assert "_age(self.dateOfBirth) < 18" in profile
+    assert "18 * 365" not in profile
+    assert "vibe.router" not in main
