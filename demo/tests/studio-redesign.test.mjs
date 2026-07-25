@@ -10,7 +10,7 @@ const pulse = source("v14.js");
 const architecture = readFileSync(new URL("../../docs/EXPERIENCE_ARCHITECTURE.md", import.meta.url), "utf8");
 
 test("the redesign is the final canonical presentation layer", () => {
-  assert.match(index, /studio\.css\?v=1/);
+  assert.match(index, /studio\.css\?v=2/);
   assert.match(index, /onboarding\.js\?v=2[\s\S]*studio\.js\?v=1/);
   assert.match(studio, /tether-studio-v1/);
   assert.match(styles, /Tether Studio/);
@@ -49,9 +49,11 @@ test("the visual system has strong hierarchy without carding every section", () 
   assert.match(styles, /\.bottom-nav,[\s\S]*?grid-template-columns:\s*1fr 1fr 92px 1fr 1fr/);
   assert.match(styles, /\.wavelength-mode-switch > button\.active/);
   assert.match(styles, /\.studio-you-groups/);
+  assert.match(styles, /#home-view > #wavelength-suggestion-list\s*\{[\s\S]*?display:\s*none/);
 });
 
 test("Dating reaches a candidate before repeating profile administration", () => {
+  assert.match(styles, /\.studio-dating-active \.dating-world-hero\s*\{[\s\S]*?display:\s*none/);
   assert.match(styles, /\.dating-world-identity,[\s\S]*?display:\s*none/);
   assert.match(styles, /\.dating-world-principles[\s\S]*?display:\s*none/);
   assert.match(styles, /\.dating-feature-photo\s*\{[\s\S]*?aspect-ratio:\s*\.88/);
@@ -75,4 +77,3 @@ test("Pulse is a full-stage relational ritual rather than a generic flash", () =
     "studio-art-answer",
   ]) assert.match(styles, new RegExp(animation));
 });
-
