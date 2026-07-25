@@ -27,11 +27,7 @@ function boot() {
     if (/showModal is not a function|close is not a function/.test(error.message)) return;
     errors.push(error.message);
   });
-  virtualConsole.on("error", (...args) => {
-    const message = args.join(" ");
-    if (message === "Tether primary navigation must remain Listen, People, You.") return;
-    errors.push(message);
-  });
+  virtualConsole.on("error", (...args) => errors.push(args.join(" ")));
 
   const dom = new JSDOM(html, {
     url: "http://localhost:4173/",
