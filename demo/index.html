@@ -9,13 +9,15 @@
   <meta property="og:description" content="Hear the same second together. Meet through music. Keep the moments that matter.">
   <meta property="og:type" content="website">
   <meta property="og:url" content="https://dmdtague.github.io/tether/">
-  <meta property="og:image" content="https://dmdtague.github.io/tether/brand/tether-mark.svg">
-  <meta name="twitter:card" content="summary">
+  <meta property="og:image" content="https://dmdtague.github.io/tether/media/tether-social-card.png">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta name="twitter:card" content="summary_large_image">
   <link rel="icon" href="brand/tether-mark.svg" type="image/svg+xml">
   <link rel="preload" href="fonts/outfit-latin-400-normal.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="preload" href="fonts/space-grotesk-latin-700-normal.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="preload" href="media/alex-editorial.webp" as="image" type="image/webp">
-  <link rel="stylesheet" href="tether.css?v=2">
+  <link rel="stylesheet" href="tether.css?v=3">
   <title>Tether — Be there in the song</title>
 </head>
 <body>
@@ -33,10 +35,10 @@
         </button>
         <button class="icon-button inbox-button" type="button" data-action="inbox" aria-label="Open messages">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6.5h16v11H4z"/><path d="m5 8 7 5 7-5"/></svg>
-          <span class="notification-dot" data-unread-count>3</span>
+          <span class="notification-dot" data-unread-count>0</span>
         </button>
         <button class="avatar-button" type="button" data-action="self" aria-label="Open your profile">
-          <img data-self-avatar src="media/alex-editorial.webp" alt="">
+          <img data-self-avatar src="media/alex-editorial.webp" width="40" height="40" alt="">
         </button>
       </div>
     </header>
@@ -65,7 +67,7 @@
       <button id="people-tab" class="nav-item" type="button" role="tab" aria-selected="false" aria-controls="people-view" data-nav="people">
         <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="9" r="3"/><circle cx="17" cy="11" r="2.5"/><path d="M3.5 19c.6-3.3 2.5-5 5.5-5s4.9 1.7 5.5 5M14 16c2.8-.8 5.2.3 6 3"/></svg>
         <span>People</span>
-        <i class="nav-badge">3</i>
+        <i class="nav-badge" data-people-count>0</i>
       </button>
       <button id="you-tab" class="nav-item" type="button" role="tab" aria-selected="false" aria-controls="you-view" data-nav="you">
         <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="3.5"/><path d="M5 20c.8-4 3.2-6 7-6s6.2 2 7 6"/></svg>
@@ -77,6 +79,6 @@
     <div id="toast" class="toast" role="status" aria-live="polite"></div>
   </main>
 
-  <script src="v15.js?v=4" defer></script>
+  <script src="v15.js?v=5" defer></script>
 </body>
 </html>
