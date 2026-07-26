@@ -1,7 +1,7 @@
 (() => {
   "use strict";
 
-  const STORE_KEY = "tether.v1";
+  const STORE_KEY = "tether.v2";
 
   const ICONS = {
     close: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18"/></svg>',

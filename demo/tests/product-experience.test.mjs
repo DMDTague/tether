@@ -121,7 +121,7 @@ test("Dating is one candidate-first world with deck, grid, signals, and no autom
   click(window, '[data-mode="dating"]');
   assert.ok(window.document.querySelector(".dating-card"));
   assert.equal(window.document.querySelectorAll(".dating-card").length, 1);
-  assert.equal(JSON.parse(window.localStorage.getItem("tether.v1")).dating.enabled, false);
+  assert.equal(JSON.parse(window.localStorage.getItem("tether.v2")).dating.enabled, false);
   click(window, '[data-dating-tab="grid"]');
   assert.ok(window.document.querySelectorAll(".dating-grid-card").length >= 4);
   click(window, '[data-dating-tab="signals"]');
@@ -146,7 +146,7 @@ test("claiming a profile updates the shared identity instead of parallel stores"
   click(window, "[data-setup-next]");
   assert.equal(window.document.querySelector(".you-hero h1")?.textContent, "Maya Chen");
   assert.match(window.document.querySelector(".avatar-button img")?.src || "", /x_joseph_x\.svg/);
-  const stored = JSON.parse(window.localStorage.getItem("tether.v1"));
+  const stored = JSON.parse(window.localStorage.getItem("tether.v2"));
   assert.equal(stored.account.displayName, "Maya Chen");
   assert.equal(stored.dating.enabled, true);
   assert.equal(window.localStorage.length, 1);
