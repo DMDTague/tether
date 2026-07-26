@@ -83,7 +83,7 @@
       age: 24,
       pronouns: "she/her",
       handle: "@zuri.wav",
-      avatar: "avatars/x_zuri_x.svg",
+      avatar: "media/zuri-editorial.webp",
       city: "Philadelphia",
       band: "Nearby",
       status: "live",
@@ -202,7 +202,7 @@
       handle: "alex.hears",
       city: "Philadelphia",
       birthDate: "",
-      photo: "avatars/realjohn.svg",
+      photo: "media/alex-editorial.webp",
       bio: "Finding people through the songs that say it first.",
     },
     profile: {
@@ -497,7 +497,8 @@
   }
 
   function renderDating() {
-    const candidates = PEOPLE.filter(person => ["zuri", "aaliyah", "hiroshi", "raj"].includes(person.id));
+    const candidateOrder = ["zuri", "aaliyah", "hiroshi", "raj"];
+    const candidates = candidateOrder.map(personById);
     const candidate = candidates[state.dating.index % candidates.length];
     const tab = state.dating.tab;
     return `<div class="dating-shell">
