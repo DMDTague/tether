@@ -954,7 +954,7 @@
   }
 
   function handleClick(event) {
-    const button = event.target.closest("button");
+    const button = event.target.closest("button, [data-dating-profile]");
     if (!button) return;
 
     if (button.dataset.nav) return navigate(button.dataset.nav);

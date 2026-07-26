@@ -122,6 +122,11 @@ test("Dating is one candidate-first world with deck, grid, signals, and no autom
   assert.ok(window.document.querySelector(".dating-card"));
   assert.equal(window.document.querySelectorAll(".dating-card").length, 1);
   assert.equal(JSON.parse(window.localStorage.getItem("tether.v2")).dating.enabled, false);
+  click(window, ".dating-card");
+  assert.ok(window.document.querySelector(".profile-overlay .public-hero"));
+  assert.ok(window.document.querySelector(".profile-overlay .stat-sheet"));
+  assert.equal(window.document.querySelectorAll(".profile-overlay .sticky-actions").length, 1);
+  click(window, '.profile-overlay [data-action="close"]');
   click(window, '[data-dating-tab="grid"]');
   assert.ok(window.document.querySelectorAll(".dating-grid-card").length >= 4);
   click(window, '[data-dating-tab="signals"]');
