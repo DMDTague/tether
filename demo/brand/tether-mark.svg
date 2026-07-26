@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-labelledby="title desc">
+  <title id="title">Tether</title>
+  <desc id="desc">Two violet nodes connected by a luminous tether.</desc>
+  <defs>
+    <linearGradient id="tether-violet" x1="8" y1="10" x2="56" y2="54" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#B9AEFF"/>
+      <stop offset=".46" stop-color="#8B7CFF"/>
+      <stop offset="1" stop-color="#5646D6"/>
+    </linearGradient>
+    <filter id="tether-glow" x="-60%" y="-60%" width="220%" height="220%">
+      <feGaussianBlur stdDeviation="3.2" result="blur"/>
+      <feFlood flood-color="#8B7CFF" flood-opacity=".58"/>
+      <feComposite in2="blur" operator="in"/>
+      <feMerge><feMergeNode/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+  <path d="M18 32C24 22 40 22 46 32C40 42 24 42 18 32Z" fill="none" stroke="url(#tether-violet)" stroke-width="5" stroke-linecap="round" filter="url(#tether-glow)"/>
+  <circle cx="15" cy="32" r="8" fill="#0A0912" stroke="url(#tether-violet)" stroke-width="5"/>
+  <circle cx="49" cy="32" r="8" fill="#0A0912" stroke="url(#tether-violet)" stroke-width="5"/>
+  <circle cx="15" cy="32" r="2.7" fill="#F2F1FA"/>
+  <circle cx="49" cy="32" r="2.7" fill="#F2F1FA"/>
+</svg>
