@@ -755,6 +755,7 @@ p{color:var(--text-2)}
   width:100%;
   height:100%;
   object-fit:cover;
+  object-position:center 26%;
   opacity:.72;
   filter:saturate(.9) contrast(1.05);
 }
