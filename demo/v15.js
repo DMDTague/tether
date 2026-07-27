@@ -54,6 +54,7 @@
       evidence: "You both finish albums in order and keep Radiohead in late-night rotation.",
       anthem: TRACKS.weirdFishes,
       review: "An album can be loud without ever asking you to stop listening closely.",
+      featuredDating: true,
     },
     {
       id: "mary",
@@ -96,6 +97,7 @@
       evidence: "You share late-night listening, two communities, and the same appetite for dramatic pop.",
       anthem: TRACKS.eusexua,
       review: "A song that understands the dance floor as somewhere spiritual.",
+      featuredDating: true,
     },
     {
       id: "aaliyah",
@@ -117,6 +119,7 @@
       evidence: "You both use Japanese Breakfast as a bridge between joy and grief.",
       anthem: TRACKS.jubilee,
       review: "Brightness becomes a serious emotional language when it has survived grief.",
+      featuredDating: true,
     },
     {
       id: "hiroshi",
@@ -138,6 +141,7 @@
       evidence: "You both reward ambitious records and save songs with strange internal worlds.",
       anthem: TRACKS.imaginalDisk,
       review: "Maximal without becoming shapeless. Every synth opens another doorway.",
+      featuredDating: true,
     },
     {
       id: "kevin",
@@ -223,6 +227,9 @@
         meet: "Women and nonbinary people",
         intent: "Long-term · slow burn",
         structure: "Monogamous",
+        ageMin: 21,
+        ageMax: 32,
+        bands: ["Nearby", "Around Philly", "Greater region"],
         anthem: "Grace — Jeff Buckley",
         prompt: "The song I wish I could hear again for the first time",
         answer: "Weird Fishes / Arpeggi, on a night walk with nowhere to be.",
@@ -238,9 +245,9 @@
     culture: { feed: "for-you", saved: [], ratings: {}, posts: [], replies: {} },
     session: { privacy: "open", active: false, personId: null, pulses: 0 },
     memories: [
-      { id: "memory-zuri", personId: "zuri", track: "Eusexua", artist: "FKA twigs", seconds: 2700, pulses: 2, date: "JUL 18 · 1:14 AM", feeling: "The bridge made the whole room feel weightless." },
-      { id: "memory-raj", personId: "raj", track: "Borrowed Time", artist: "Aminé", seconds: 1680, pulses: 0, date: "JUL 11 · 11:42 PM", feeling: "For the walk home when the city finally got quiet." },
-      { id: "memory-kevin", personId: "kevin", track: "Grace", artist: "Jeff Buckley", seconds: 2520, pulses: 1, date: "JUN 29 · 9:08 PM", feeling: "Our first full-album Tether." },
+      { id: "memory-zuri", personId: "zuri", track: "Eusexua", artist: "FKA twigs", seconds: 2700, pulses: 2, date: "JUL 18 · 1:14 AM", feeling: "The bridge made the whole room feel weightless.", seeded: true },
+      { id: "memory-raj", personId: "raj", track: "Borrowed Time", artist: "Aminé", seconds: 1680, pulses: 0, date: "JUL 11 · 11:42 PM", feeling: "For the walk home when the city finally got quiet.", seeded: true },
+      { id: "memory-kevin", personId: "kevin", track: "Grace", artist: "Jeff Buckley", seconds: 2520, pulses: 1, date: "JUN 29 · 9:08 PM", feeling: "Our first full-album Tether.", seeded: true },
     ],
     knocks: [
       { id: "knock-zuri", personId: "zuri", kind: "knock", status: "pending" },
@@ -314,6 +321,8 @@
   let sessionTimer = 0;
   let sessionSeconds = 0;
   let pulseTimer = 0;
+  let pulseFrame = 0;
+  let pulseStartedAt = 0;
   let pulseReady = false;
   let setupStep = 0;
   let setupDraft = {};
@@ -321,6 +330,8 @@
   let datingDraft = {};
   let lastFocused = null;
   let lastDragAt = 0;
+  let presenceTimer = 0;
+  let presenceCursor = 0;
 
   function save() {
     localStorage.setItem(STORE_KEY, JSON.stringify(state));
@@ -368,20 +379,46 @@
     return ageFromBirthDate(state.account.birthDate) >= 18;
   }
 
+  function isKnownMinor(birthDate = state.account.birthDate) {
+    return Boolean(birthDate) && ageFromBirthDate(birthDate) < 18;
+  }
+
   function canUseDating() {
     return state.dating.enabled && isAdult();
   }
 
   function eligibleForDating(person) {
-    return Number(person.age) >= 18 && !String(person.intent).toLowerCase().startsWith("friends");
+    const ageMin = Math.max(18, Number(state.dating.profile.ageMin) || 18);
+    const ageMax = Math.max(ageMin, Number(state.dating.profile.ageMax) || 99);
+    const bands = Array.isArray(state.dating.profile.bands) && state.dating.profile.bands.length
+      ? state.dating.profile.bands
+      : ["Nearby", "Around Philly", "Greater region"];
+    return Number(person.age) >= ageMin
+      && Number(person.age) <= ageMax
+      && bands.includes(person.band)
+      && !String(person.intent).toLowerCase().startsWith("friends");
   }
 
   function datingCandidates() {
     const decided = new Set([...state.dating.passed, ...state.dating.liked]);
     return PEOPLE
-      .filter(person => person.id !== "self" && eligibleForDating(person))
+      .filter(person => person.id !== "self" && person.featuredDating && eligibleForDating(person))
       .filter(person => !decided.has(person.id))
-      .slice(0, 18);
+      .slice(0, 8);
+  }
+
+  function seededNumber(value, salt = "") {
+    const input = `${salt}:${value}`;
+    let hash = 2166136261;
+    for (let index = 0; index < input.length; index += 1) {
+      hash ^= input.charCodeAt(index);
+      hash = Math.imul(hash, 16777619);
+    }
+    return hash >>> 0;
+  }
+
+  function seededChoice(values, value, salt) {
+    return values[seededNumber(value, salt) % values.length];
   }
 
   async function loadCityPopulation() {
@@ -396,26 +433,37 @@
         .filter(profile => !featuredHandles.has(profile.username))
         .map((profile, index) => {
           const track = tracks[index % tracks.length];
-          const age = Number(profile.bio?.match(/\b(1[89]|[2-9]\d)\b/)?.[1] || 23 + (index % 6));
+          const seed = profile.id || profile.username || String(index);
+          const age = Number(profile.bio?.match(/\b(1[89]|[2-9]\d)\b/)?.[1] || 21 + (seededNumber(seed, "age") % 18));
           const status = profile.currentTrack ? "open" : profile.privacyMode === "knock-first" ? "knock" : index % 4 === 0 ? "live" : "offline";
+          const topArtist = (profile.topArtists || [track.artist])[0];
           return {
             id: profile.id,
             name: profile.name || profile.displayName || profile.username,
             first: (profile.name || profile.displayName || profile.username).replace(/^@/, "").split(" ")[0],
             age,
-            pronouns: index % 3 === 0 ? "she/her" : index % 3 === 1 ? "he/him" : "they/them",
+            pronouns: seededChoice(["she/her", "he/him", "they/them"], seed, "pronouns"),
             handle: `@${profile.username}`,
             avatar: profile.avatarUrl,
             city: profile.location?.neighborhood || "Philadelphia",
-            band: index % 3 === 0 ? "Nearby" : index % 3 === 1 ? "Around Philly" : "Greater region",
+            band: seededChoice(["Nearby", "Around Philly", "Greater region"], seed, "band"),
             status,
             track,
             bio: profile.bio?.replace(/^\d+\s*\|\s*[^|]+\|\s*/i, "") || "Finding the city through records and the people inside them.",
             artists: (profile.topArtists || []).slice(0, 3),
-            intent: index % 3 === 0 ? "Long-term" : index % 3 === 1 ? "Dating and friends" : "Friends first",
-            structure: index % 2 === 0 ? "Monogamous" : "Open to exploring",
-            community: (profile.topArtists || ["Philadelphia listeners"])[0],
-            evidence: `You both return to ${(profile.topArtists || [track.artist])[0]} and listen beyond the single.`,
+            intent: seededChoice(["Long-term", "Dating and friends", "Friends first", "Still figuring it out"], seed, "intent"),
+            structure: seededChoice(["Monogamous", "Non-monogamous", "Open to exploring", ""], seed, "structure"),
+            community: seededChoice([
+              "Album clubs",
+              "Indie show regulars",
+              "Late-night listeners",
+              "Record-store Sundays",
+              "Songwriter circles",
+              "Philly dance floors",
+              "Headphone walkers",
+              "Deep-cut collectors",
+            ], seed, "community"),
+            evidence: `You both return to ${topArtist} and listen beyond the single.`,
             anthem: track,
             review: `The detail that stays with me is how the record keeps changing after the obvious moment passes.`,
           };
@@ -425,6 +473,20 @@
     } catch {
       // The featured population remains a complete offline-safe fallback.
     }
+  }
+
+  function startPresenceHeartbeat() {
+    clearInterval(presenceTimer);
+    presenceTimer = setInterval(() => {
+      const population = PEOPLE.filter(person => person.id !== state.session.personId);
+      if (!population.length) return;
+      const person = population[presenceCursor % population.length];
+      presenceCursor += 1;
+      person.status = person.status === "offline" ? "open" : "offline";
+      if (overlay === "stage") return;
+      renderListen();
+      if (state.ui.view === "people") renderPeople();
+    }, 20000);
   }
 
   function coverHTML(track, className = "") {
@@ -498,6 +560,9 @@
       peopleNode.textContent = unread + pending;
       peopleNode.hidden = unread + pending === 0;
     }
+    const fab = $(".tether-fab");
+    fab?.classList.toggle("session-live", state.session.active);
+    fab?.setAttribute("aria-label", state.session.active ? "Return to your live Tether" : "Open your listening");
   }
 
   function renderListen() {
@@ -620,8 +685,8 @@
               ${coverHTML(review.object)}
               <div class="object-copy"><p>${review.object.artist}</p><h3>${review.object.album}</h3>${ratingHTML(review.rating)}</div>
             </div>
-            <p class="review-body">${review.text}</p>
-            ${review.quote ? `<blockquote class="review-pullquote">“${review.quote}”</blockquote>` : ""}
+            <p class="review-body">${escapeHTML(review.text)}</p>
+            ${review.quote ? `<blockquote class="review-pullquote">“${escapeHTML(review.quote)}”</blockquote>` : ""}
             <div class="post-actions">
               <button data-rate="${review.id}">${ICONS.star}<span>${ownRating ? `Your rating ${ownRating}` : "Rate"}</span></button>
               <button data-thread="${review.id}">${ICONS.reply}<span>${replyCount} ${replyCount === 1 ? "reply" : "replies"}</span></button>
@@ -634,6 +699,10 @@
   }
 
   function renderPeople() {
+    if (isKnownMinor() && state.ui.peopleMode === "dating") {
+      state.ui.peopleMode = "people";
+      save();
+    }
     const dating = state.ui.peopleMode === "dating";
     $("#people-view").innerHTML = `
       <header class="view-header">
@@ -645,7 +714,7 @@
       </header>
       <div class="people-mode" role="tablist" aria-label="People and Dating">
         <button class="${dating ? "" : "active"}" data-mode="people" role="tab" aria-selected="${!dating}">People</button>
-        <button class="${dating ? "active" : ""}" data-mode="dating" role="tab" aria-selected="${dating}">Dating <span class="mode-count">${state.dating.signals.length}</span></button>
+        ${isKnownMinor() ? "" : `<button class="${dating ? "active" : ""}" data-mode="dating" role="tab" aria-selected="${dating}">Dating <span class="mode-count">${state.dating.signals.length}</span></button>`}
       </div>
       ${dating ? renderDating() : renderSocialPeople()}`;
     if (dating && state.dating.tab === "deck") requestAnimationFrame(installDatingDrag);
@@ -682,7 +751,7 @@
           </button>`;
         }).join("")}
       </div>
-      <article class="dating-entry">
+      ${isKnownMinor() ? "" : `<article class="dating-entry">
         <div class="dating-entry-copy">
           <p class="eyebrow">Music-first Dating</p>
           <h3>Attraction with evidence.</h3>
@@ -690,7 +759,7 @@
           <button class="button rose" data-mode="dating">Enter Dating</button>
         </div>
         <div class="dating-entry-portraits">${avatar(PEOPLE[2])}${avatar(PEOPLE[3])}</div>
-      </article>`;
+      </article>`}`;
   }
 
   function renderDating() {
@@ -744,7 +813,7 @@
       <div class="dating-card-copy">
         <h2>${person.first}, ${person.age}</h2>
         <p>${person.pronouns} · ${person.intent}</p>
-        <div class="dating-card-meta"><span class="chip">${person.structure}</span><span class="chip">${person.community}</span></div>
+        <div class="dating-card-meta">${person.structure ? `<span class="chip">${person.structure}</span>` : ""}<span class="chip">${person.community}</span></div>
         <p>${person.bio}</p>
         <button class="anthem-row" data-signal="${person.id}">
           <span class="anthem-icon">${ICONS.signal}</span>
@@ -868,6 +937,11 @@
       pointerId = null;
       if (Math.abs(deltaX) >= 92) {
         lastDragAt = Date.now();
+        if (!canUseDating()) {
+          reset();
+          setTimeout(requireDatingConsent, 80);
+          return;
+        }
         const action = deltaX < 0 ? "pass" : "like";
         card.classList.add(`exit-${action}`);
         card.style.transform = `translateX(${deltaX < 0 ? -125 : 125}%) rotate(${deltaX < 0 ? -14 : 14}deg)`;
@@ -905,13 +979,14 @@
   }
 
   function renderYou() {
-    const artists = [
-      ["Jeff Buckley", "#477b9c", "#c5a178"],
-      ["Radiohead", "#a85b72", "#354d7c"],
-      ["Japanese Breakfast", "#e3b73c", "#d1654d"],
-      ["Frank Ocean", "#78a06e", "#ead9bb"],
-      ["Bon Iver", "#909a83", "#c9bca1"],
+    const palettes = [
+      ["#477b9c", "#c5a178"],
+      ["#a85b72", "#354d7c"],
+      ["#e3b73c", "#d1654d"],
+      ["#78a06e", "#ead9bb"],
+      ["#909a83", "#c9bca1"],
     ];
+    const artists = state.profile.topArtists.slice(0, 5).map((name, index) => [name, ...palettes[index % palettes.length]]);
     const records = [TRACKS.grace, TRACKS.weirdFishes, TRACKS.jubilee, TRACKS.blonde, TRACKS.bonIver];
     $("#you-view").innerHTML = `
       <section class="you-hero">
@@ -964,7 +1039,8 @@
           ${state.memories.slice(0, 5).map(memory => {
             const person = personById(memory.personId);
             const minutes = Math.max(1, Math.round(memory.seconds / 60));
-            return `<article class="memory-item"><span class="memory-mark"><img src="brand/tether-mark.svg" alt=""></span><div class="memory-copy"><time>${escapeHTML(memory.date)}</time><h3>You + ${person.first} · ${escapeHTML(memory.track)}</h3><p>${memory.feeling ? `“${escapeHTML(memory.feeling)}”` : `${minutes} min together · ${memory.pulses} Pulse${memory.pulses === 1 ? "" : "s"}.`}</p></div></article>`;
+            const seeded = memory.seeded === true || ["memory-zuri", "memory-raj", "memory-kevin"].includes(memory.id);
+            return `<article class="memory-item"><span class="memory-mark"><img src="brand/tether-mark.svg" alt=""></span><div class="memory-copy"><div class="memory-meta"><time>${escapeHTML(memory.date)}</time><span class="${seeded ? "seeded" : "earned"}">${seeded ? "Demo history" : "Yours"}</span></div><h3>You + ${person.first} · ${escapeHTML(memory.track)}</h3><p>${memory.feeling ? `“${escapeHTML(memory.feeling)}”` : `${minutes} min together · ${memory.pulses} Pulse${memory.pulses === 1 ? "" : "s"}.`}</p></div></article>`;
           }).join("")}
         </div>
       </section>`;
@@ -1041,6 +1117,36 @@
       </div>`), "create");
   }
 
+  function openNewChat() {
+    const existing = new Set(Object.keys(state.conversations));
+    const people = [...PEOPLE].sort((a, b) => Number(existing.has(a.id)) - Number(existing.has(b.id))).slice(0, 10);
+    setOverlay(sheetHTML("New conversation", "Who do you want to hear from?", `
+      <p class="field-note">Choose a person. A conversation opens with music context, and Listen together stays one tap away.</p>
+      <div class="people-picker">${people.map(person => `<button data-chat="${person.id}">${avatar(person)}<span><strong>${person.name}</strong><small>${person.status === "offline" ? person.community : `${person.status === "knock" ? "Knock First" : "Listening now"} · ${person.track.title}`}</small></span>${ICONS.chevron}</button>`).join("")}</div>`), "new-chat");
+  }
+
+  function openTasteEditor() {
+    const artists = [...state.profile.topArtists, "", "", "", "", ""].slice(0, 5);
+    setOverlay(sheetHTML("Your musical interior", "Edit the artists that feel like home.", `
+      <p>These five names power the shelf on your profile and the taste context people meet first.</p>
+      <div class="taste-editor">${artists.map((artist, index) => `<label class="field"><span>Artist ${index + 1}</span><input name="tasteArtist" value="${escapeHTML(artist)}" maxlength="60" placeholder="Artist name"></label>`).join("")}</div>
+      <div class="sheet-actions"><button class="button ghost" data-action="close">Cancel</button><button class="button primary" data-save-taste>Save my shelf</button></div>`), "taste-editor");
+  }
+
+  function saveTasteEditor() {
+    const artists = $$('[name="tasteArtist"]').map(input => input.value.trim()).filter(Boolean).slice(0, 5);
+    if (artists.length < 3) {
+      showToast("Keep at least three artists so your profile has shape.");
+      return;
+    }
+    state.profile.topArtists = artists;
+    save();
+    closeOverlay();
+    renderYou();
+    navigate("you");
+    showToast("Your artist shelf is updated.");
+  }
+
   function openReviewComposer() {
     const ratings = [];
     for (let value = .5; value <= 5; value += .5) ratings.push(value.toFixed(1));
@@ -1084,7 +1190,7 @@
     const replies = state.culture.replies[id] || [];
     setOverlay(`<div class="sheet-backdrop"><section class="sheet chat-sheet" role="dialog" aria-modal="true" aria-labelledby="thread-title">
       <header class="sheet-head"><div><p class="eyebrow">Exchange discussion</p><h2 id="thread-title">${review.object.album}</h2></div><button data-action="close" aria-label="Close">${ICONS.close}</button></header>
-      <article class="thread-origin"><div>${avatar(author)}<span><strong>${author.name}</strong><small>${review.time}</small></span></div><p>${review.text}</p></article>
+      <article class="thread-origin"><div>${avatar(author)}<span><strong>${author.name}</strong><small>${review.time}</small></span></div><p>${escapeHTML(review.text)}</p></article>
       <div class="thread" data-thread-messages>
         ${replies.map(reply => `<div class="discussion-reply ${reply.mine ? "mine" : ""}"><strong>${reply.mine ? "You" : escapeHTML(reply.author)}</strong><p>${escapeHTML(reply.text)}</p></div>`).join("") || '<div class="thread-empty"><strong>Open the conversation.</strong><p>Reply to the idea, not the person.</p></div>'}
       </div>
@@ -1127,7 +1233,7 @@
         </section>
         ${dating ? `<section class="profile-section"><div class="section-heading"><div><p class="eyebrow">At a glance</p><h2>The useful details</h2></div></div><dl class="stat-sheet">
           <div class="stat-row"><dt>Looking for</dt><dd>${person.intent}</dd></div>
-          <div class="stat-row"><dt>Structure</dt><dd>${person.structure}</dd></div>
+          ${person.structure ? `<div class="stat-row"><dt>Structure</dt><dd>${person.structure}</dd></div>` : ""}
           <div class="stat-row"><dt>Area</dt><dd>${person.band}</dd></div>
           <div class="stat-row"><dt>Community</dt><dd>${person.community}</dd></div>
         </dl></section>` : ""}
@@ -1173,14 +1279,79 @@
       <div class="sheet-actions"><button class="button ghost" data-action="close">Cancel</button><button class="button rose" data-send-signal="${person.id}">Send Signal</button></div>`), "signal");
   }
 
-  function openDatingSettings(setup = false) {
-    datingSetupStep = setup || !state.dating.enabled ? 0 : 2;
+  function normalizedAgeRange(profile) {
+    const ageMin = Math.min(80, Math.max(18, Number(profile.ageMin) || 21));
+    const ageMax = Math.min(80, Math.max(ageMin, Number(profile.ageMax) || 32));
+    return { ageMin, ageMax };
+  }
+
+  function agePreferenceFields(profile) {
+    const { ageMin, ageMax } = normalizedAgeRange(profile);
+    profile.ageMin = ageMin;
+    profile.ageMax = ageMax;
+    return `<fieldset class="age-range-control">
+      <legend>Age range</legend>
+      <div class="range-readout" aria-live="polite"><span>People ${ageMin} through ${ageMax}</span><strong data-age-readout>${ageMin}–${ageMax}</strong></div>
+      <div class="age-range-row">
+        <label><span>Youngest</span><input class="range" type="range" name="datingAgeMin" min="18" max="80" value="${ageMin}" aria-label="Youngest age"></label>
+        <label><span>Oldest</span><input class="range" type="range" name="datingAgeMax" min="18" max="80" value="${ageMax}" aria-label="Oldest age"></label>
+      </div>
+    </fieldset>`;
+  }
+
+  function datingFitFields(profile) {
+    const selectedBands = new Set(profile.bands || ["Nearby", "Around Philly"]);
+    return `<label class="field"><span>I want to meet</span><select name="datingMeet">
+        ${["Women and nonbinary people", "Men and nonbinary people", "Everyone"].map(value => `<option ${profile.meet === value ? "selected" : ""}>${value}</option>`).join("")}
+      </select></label>
+      <label class="field"><span>Relationship intention</span><select name="datingIntent">
+        ${["Long-term · slow burn", "Long-term", "Dating and friends", "Still figuring it out"].map(value => `<option ${profile.intent === value ? "selected" : ""}>${value}</option>`).join("")}
+      </select></label>
+      <label class="field"><span>Relationship structure</span><select name="datingStructure">
+        ${["Monogamous", "Non-monogamous", "Open to exploring"].map(value => `<option ${profile.structure === value ? "selected" : ""}>${value}</option>`).join("")}
+      </select></label>
+      ${agePreferenceFields(profile)}
+      <fieldset class="band-picker">
+        <legend>Broad location bands</legend>
+        ${["Nearby", "Around Philly", "Greater region"].map(value => `<label><input type="checkbox" name="datingBand" value="${value}" ${selectedBands.has(value) ? "checked" : ""}><span><strong>${value}</strong><small>${value === "Nearby" ? "Your closest broad band" : value === "Around Philly" ? "The city and immediate area" : "The wider metro region"}</small></span></label>`).join("")}
+      </fieldset>
+      <p class="field-note">Discovery applies these choices to both the deck and grid. Place stays broad, shuffled, and never ordered by exact distance.</p>`;
+  }
+
+  function visibilityFields(profile) {
+    return `<div class="visibility-matrix">
+      ${Object.entries({ age: "Age", intent: "Intent", structure: "Relationship structure", city: "City band" }).map(([field, label]) => `<label><span><strong>${label}</strong><small>${field === "city" ? "Used for broad discovery" : "Shown on your Dating profile"}</small></span><select name="visibility-${field}">
+        ${["Public", "After match", "Filter only", "Do not use"].map(value => `<option ${profile.visibility[field].toLowerCase() === value.toLowerCase() ? "selected" : ""}>${value}</option>`).join("")}
+      </select></label>`).join("")}
+    </div>`;
+  }
+
+  function openDatingSettings() {
+    datingSetupStep = 0;
     datingDraft = {
       birthDate: state.account.birthDate,
       discoverable: state.dating.discoverable,
       profile: clone(state.dating.profile),
     };
     renderDatingSetup();
+  }
+
+  function openDatingPreferences() {
+    datingDraft = {
+      birthDate: state.account.birthDate,
+      discoverable: state.dating.discoverable,
+      profile: clone(state.dating.profile),
+    };
+    const profile = datingDraft.profile;
+    setOverlay(`<div class="sheet-backdrop"><section class="sheet dating-preferences" role="dialog" aria-modal="true" aria-labelledby="dating-preferences-title">
+      <header class="sheet-head"><div><p class="eyebrow">One place, one save</p><h2 id="dating-preferences-title">Dating preferences</h2></div><button data-action="close" aria-label="Close">${ICONS.close}</button></header>
+      <p class="preferences-intro">Tune who appears, how far your broad bands reach, and what another person may see. Your photos and prompt stay untouched.</p>
+      <section class="preferences-section"><h3>Discovery</h3>${datingFitFields(profile)}</section>
+      <section class="preferences-section"><h3>Field visibility</h3>${visibilityFields(profile)}</section>
+      <label class="publish-control"><input type="checkbox" data-dating-publish ${datingDraft.discoverable ? "checked" : ""}><span><strong>${datingDraft.discoverable ? "Profile is visible" : "Profile is paused"}</strong><small>Pause without deleting your profile, matches, or saved people.</small></span></label>
+      <article class="safety-note"><strong>Your safety controls stay attached.</strong><p>Block, report, pause visibility, and remove a match from every profile and conversation surface.</p></article>
+      <div class="sheet-actions"><button class="button ghost" data-action="close">Cancel</button><button class="button rose" data-save-dating-preferences>Save preferences</button></div>
+    </section></div>`, "dating-preferences");
   }
 
   function renderDatingSetup() {
@@ -1205,18 +1376,7 @@
       {
         kicker: "Mutual fit first",
         title: "Who and what are you looking for?",
-        body: `<label class="field"><span>I want to meet</span><select name="datingMeet">
-            ${["Women and nonbinary people", "Men and nonbinary people", "Everyone"].map(value => `<option ${profile.meet === value ? "selected" : ""}>${value}</option>`).join("")}
-          </select></label>
-          <label class="field"><span>Relationship intention</span><select name="datingIntent">
-            ${["Long-term · slow burn", "Long-term", "Dating and friends", "Still figuring it out"].map(value => `<option ${profile.intent === value ? "selected" : ""}>${value}</option>`).join("")}
-          </select></label>
-          <label class="field"><span>Relationship structure</span><select name="datingStructure">
-            ${["Monogamous", "Non-monogamous", "Open to exploring"].map(value => `<option ${profile.structure === value ? "selected" : ""}>${value}</option>`).join("")}
-          </select></label>
-          <div class="range-readout"><span>Age range</span><strong>21–32</strong></div>
-          <input class="range" type="range" min="18" max="50" value="32" aria-label="Maximum age">
-          <p class="field-note">Discovery uses reciprocal preferences and broad place bands—never exact distance.</p>`,
+        body: datingFitFields(profile),
       },
       {
         kicker: "Start with a song",
@@ -1232,11 +1392,7 @@
       {
         kicker: "Visibility, field by field",
         title: "You decide what travels.",
-        body: `<div class="visibility-matrix">
-          ${Object.entries({ age: "Age", intent: "Intent", structure: "Relationship structure", city: "City band" }).map(([field, label]) => `<label><span><strong>${label}</strong><small>${field === "city" ? "Used for broad discovery" : "Shown on your Dating profile"}</small></span><select name="visibility-${field}">
-            ${["Public", "After match", "Filter only", "Do not use"].map(value => `<option ${profile.visibility[field].toLowerCase() === value.toLowerCase() ? "selected" : ""}>${value}</option>`).join("")}
-          </select></label>`).join("")}
-        </div>
+        body: `${visibilityFields(profile)}
         <label class="publish-control"><input type="checkbox" data-dating-publish ${datingDraft.discoverable ? "checked" : ""}><span><strong>Publish my Dating profile</strong><small>Turn this off any time without deleting your profile.</small></span></label>
         <article class="safety-note"><strong>Your safety controls stay attached.</strong><p>Block, report, pause visibility, and remove a match from every profile and conversation surface.</p></article>`,
       },
@@ -1260,16 +1416,33 @@
       anthem: $('[name="datingAnthem"]')?.value,
       prompt: $('[name="datingPrompt"]')?.value,
       answer: $('[name="datingAnswer"]')?.value.trim(),
+      ageMin: Number($('[name="datingAgeMin"]')?.value),
+      ageMax: Number($('[name="datingAgeMax"]')?.value),
     };
     Object.entries(values).forEach(([key, value]) => {
-      if (value !== undefined) datingDraft.profile[key] = value;
+      if (value !== undefined && !Number.isNaN(value)) datingDraft.profile[key] = value;
     });
+    const bands = $$('[name="datingBand"]:checked').map(input => input.value);
+    if ($('[name="datingBand"]')) datingDraft.profile.bands = bands.length ? bands : ["Nearby"];
     Object.keys(datingDraft.profile.visibility).forEach(field => {
       const value = $(`[name="visibility-${field}"]`)?.value;
       if (value) datingDraft.profile.visibility[field] = value;
     });
     const publish = $("[data-dating-publish]");
     if (publish) datingDraft.discoverable = publish.checked;
+    const ages = normalizedAgeRange(datingDraft.profile);
+    datingDraft.profile.ageMin = ages.ageMin;
+    datingDraft.profile.ageMax = ages.ageMax;
+  }
+
+  function saveDatingPreferences() {
+    collectDatingSetup();
+    state.dating.profile = clone(datingDraft.profile);
+    state.dating.discoverable = datingDraft.discoverable;
+    save();
+    closeOverlay();
+    renderPeople();
+    showToast(`Preferences saved · ages ${state.dating.profile.ageMin}–${state.dating.profile.ageMax}.`);
   }
 
   function advanceDatingSetup() {
@@ -1328,18 +1501,27 @@
       <div class="stage-ui">
         <header class="stage-top"><button data-action="close-stage" aria-label="Leave session">${ICONS.back}</button><div class="stage-live"><strong>${person ? `You + ${person.first}` : "Your Stage is live"}</strong><span data-stage-time>0:00</span></div></header>
         <div class="listener-orbit">${person ? avatar(person) : ""}<img src="${state.account.photo}" alt=""></div>
+        <div class="stage-context">
+          <span>${state.session.privacy === "open" ? "Open Door" : state.session.privacy === "knock" ? "Knock First" : "Ghost"}</span>
+          <span data-pulse-count>${state.session.pulses} Pulse${state.session.pulses === 1 ? "" : "s"} this session</span>
+        </div>
         ${coverHTML(track, "stage-art")}
         <div class="stage-track"><h1>${track.title}</h1><p>${track.artist} · ${track.album}</p></div>
         <div class="stage-progress"><div class="stage-progress-bar"><i></i></div><div class="stage-time"><span>1:18</span><span>-2:48</span></div><p class="sync-line">synced within 73 ms</p></div>
         <div class="stage-controls"><button data-action="pause">Pause</button><button data-action="next">Next track</button><button data-action="manage-stage">Manage</button></div>
+        <span class="pulse-traveler" aria-hidden="true"></span>
         <div class="pulse-zone">
-          <button class="pulse-button" data-pulse ${person ? "" : "disabled"} aria-label="Send a Pulse; hold for 1.5 seconds"><span class="pulse-charge"></span><img src="brand/tether-mark.svg" alt=""></button>
+          <button class="pulse-button" data-pulse ${person ? "" : "disabled"} aria-label="Send a Pulse; hold for 1.5 seconds">
+            <span class="pulse-progress" aria-hidden="true"></span>
+            <span class="pulse-core" aria-hidden="true"><img src="brand/tether-fab-glyph.svg" alt=""></span>
+          </button>
           <p class="pulse-label" data-pulse-label>${person ? "Hold to send a Pulse" : "Pulse unlocks when someone joins"}</p>
           <p class="pulse-note" data-pulse-note>${person ? "" : "Friends with an Open Door can join this moment."}</p>
         </div>
       </div>
     </section>`, "stage");
     clearInterval(sessionTimer);
+    syncShell();
     sessionTimer = setInterval(() => {
       sessionSeconds += 1;
       const node = $("[data-stage-time]");
@@ -1362,9 +1544,14 @@
   function stopSession() {
     clearInterval(sessionTimer);
     clearTimeout(pulseTimer);
+    cancelAnimationFrame(pulseFrame);
     sessionTimer = 0;
+    pulseTimer = 0;
+    pulseFrame = 0;
+    pulseStartedAt = 0;
     state.session.active = false;
     save();
+    syncShell();
   }
 
   function finalizeSession() {
@@ -1381,6 +1568,7 @@
       pulses: state.session.pulses,
       date: new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }).format(new Date()).toUpperCase(),
       feeling: "",
+      seeded: false,
     } : null;
     if (memory) state.memories.unshift(memory);
     stopSession();
@@ -1404,21 +1592,41 @@
   function startPulse(button) {
     if (!button || button.disabled || pulseTimer) return;
     pulseReady = false;
+    pulseStartedAt = Date.now();
+    button.classList.remove("unwinding");
+    button.style.setProperty("--pulse-progress", "0deg");
+    button.style.setProperty("--pulse-fill", "0");
+    button.style.setProperty("--pulse-scale", "1");
     button.classList.add("charging");
     const label = $("[data-pulse-label]");
     if (label) label.textContent = "Keep holding — let it build";
+    const paintProgress = () => {
+      if (!pulseTimer) return;
+      const progress = Math.min(1, (Date.now() - pulseStartedAt) / 1500);
+      button.style.setProperty("--pulse-progress", `${progress * 360}deg`);
+      button.style.setProperty("--pulse-fill", String(progress));
+      button.style.setProperty("--pulse-scale", String(1 + progress * .06));
+      if (progress < 1) pulseFrame = requestAnimationFrame(paintProgress);
+    };
+    pulseFrame = requestAnimationFrame(paintProgress);
     pulseTimer = setTimeout(() => {
       pulseReady = true;
       button.classList.add("ready");
+      button.style.setProperty("--pulse-progress", "360deg");
+      button.style.setProperty("--pulse-fill", "1");
+      button.style.setProperty("--pulse-scale", "1.06");
       if (label) label.textContent = "Release — send it";
     }, 1500);
   }
 
   function releasePulse(button) {
     if (!button || !pulseTimer) return;
+    const progress = Math.min(1, (Date.now() - pulseStartedAt) / 1500);
     clearTimeout(pulseTimer);
+    cancelAnimationFrame(pulseFrame);
     pulseTimer = 0;
-    button.classList.remove("charging", "ready");
+    pulseFrame = 0;
+    button.classList.remove("charging");
     if (pulseReady) {
       const stage = $(".stage");
       stage?.classList.remove("pulse-fired");
@@ -1431,14 +1639,36 @@
       if (note) note.textContent = `${person.first} felt your Pulse`;
       state.session.pulses += 1;
       save();
+      const count = $("[data-pulse-count]");
+      if (count) count.textContent = `${state.session.pulses} Pulse${state.session.pulses === 1 ? "" : "s"} this session`;
+      button.classList.remove("ready");
+      button.style.setProperty("--pulse-progress", "0deg");
+      button.style.setProperty("--pulse-fill", "0");
+      button.style.setProperty("--pulse-scale", "1");
       setTimeout(() => {
         stage?.classList.remove("pulse-fired");
         if (label) label.textContent = "Hold to send a Pulse";
       }, 1500);
     } else {
       const label = $("[data-pulse-label]");
+      const note = $("[data-pulse-note]");
+      button.classList.add("unwinding");
+      button.style.setProperty("--pulse-progress", `${progress * 360}deg`);
+      button.style.setProperty("--pulse-fill", String(progress));
+      button.style.setProperty("--pulse-scale", String(1 + progress * .06));
+      requestAnimationFrame(() => {
+        button.style.setProperty("--pulse-progress", "0deg");
+        button.style.setProperty("--pulse-fill", "0");
+        button.style.setProperty("--pulse-scale", "1");
+      });
       if (label) label.textContent = "Hold to send a Pulse";
+      if (note) note.textContent = progress > .7 ? "So close — hold a beat longer." : "Keep holding until the ring closes.";
+      setTimeout(() => {
+        button.classList.remove("unwinding");
+        if (note) note.textContent = "";
+      }, 1200);
     }
+    pulseStartedAt = 0;
     pulseReady = false;
   }
 
@@ -1473,9 +1703,9 @@
         title: "What brings you to Tether?",
         body: `<div class="choice-grid">
           <button class="choice-card ${setupDraft.intent === "friends" ? "active" : ""}" data-setup-intent="friends"><i>${ICONS.message}</i><span><strong>Friends</strong><small>People, communities, and shared listening</small></span></button>
-          <button class="choice-card ${setupDraft.intent === "dating" ? "active" : ""}" data-setup-intent="dating"><i>${ICONS.heart}</i><span><strong>Dating</strong><small>Music-first discovery with explicit opt-in</small></span></button>
-          <button class="choice-card ${setupDraft.intent === "both" ? "active" : ""}" data-setup-intent="both"><i>${ICONS.signal}</i><span><strong>Both</strong><small>Keep the worlds separate; move between them</small></span></button>
-        </div>`,
+          ${isKnownMinor(setupDraft.birthDate) ? "" : `<button class="choice-card ${setupDraft.intent === "dating" ? "active" : ""}" data-setup-intent="dating"><i>${ICONS.heart}</i><span><strong>Dating</strong><small>Music-first discovery with explicit opt-in</small></span></button>
+          <button class="choice-card ${setupDraft.intent === "both" ? "active" : ""}" data-setup-intent="both"><i>${ICONS.signal}</i><span><strong>Both</strong><small>Keep the worlds separate; move between them</small></span></button>`}
+        </div>${isKnownMinor(setupDraft.birthDate) ? '<article class="minor-boundary"><strong>Dating stays out of your Tether.</strong><p>Your birth date places this account under 18, so adult discovery is removed—not merely locked. Friends, listening, Exchange, and Memories remain yours.</p></article>' : ""}`,
       },
       {
         kicker: "Connect your music",
@@ -1487,12 +1717,44 @@
       },
     ];
     const step = steps[setupStep];
-    setOverlay(`<div class="sheet-backdrop"><section class="sheet" role="dialog" aria-modal="true" aria-label="${step.title}">
+    setOverlay(`<div class="sheet-backdrop"><section class="sheet onboarding-step" role="dialog" aria-modal="true" aria-label="${step.title}">
       <div class="progress-bar"><i style="width:${((setupStep + 1) / steps.length) * 100}%"></i></div>
       <header class="sheet-head"><div><p class="eyebrow">${step.kicker}</p><h2>${step.title}</h2></div><button data-action="close" aria-label="Close">${ICONS.close}</button></header>
       ${step.body}
-      <div class="sheet-actions">${setupStep ? '<button class="button ghost" data-setup-back>Back</button>' : ""}<button class="button primary" data-setup-next>${setupStep === steps.length - 1 ? "Claim my Tether" : "Continue"}</button></div>
+      <div class="sheet-actions">${setupStep ? '<button class="button ghost" data-setup-back>Back</button>' : ""}<button class="button primary" data-setup-next>${setupStep === steps.length - 1 ? "Build my music identity" : "Continue"}</button></div>
     </section></div>`, "onboarding");
+  }
+
+  function openIdentityReveal() {
+    setOverlay(`<div class="identity-reveal-backdrop"><section class="identity-reveal" role="dialog" aria-modal="true" aria-labelledby="identity-reveal-title">
+      <div class="identity-reveal-mark"><img src="brand/tether-mark.svg" alt=""></div>
+      <p class="eyebrow">Your Tether has a signal</p>
+      <h2 id="identity-reveal-title">${escapeHTML(state.account.displayName)}, this is how your listening enters the room.</h2>
+      <div class="identity-counts">
+        <span style="--delay:.08s"><strong>173</strong><small>tracks shaped the preview</small></span>
+        <span style="--delay:.18s"><strong>5</strong><small>artists feel like home</small></span>
+        <span style="--delay:.28s"><strong>3</strong><small>taste signals emerged</small></span>
+      </div>
+      <div class="taste-chips identity-earned">${state.profile.chips.map((chip, index) => `<span class="chip" style="--delay:${.38 + index * .08}s">${escapeHTML(chip)}</span>`).join("")}</div>
+      <p class="identity-honesty">A designed provider preview for this demo—performed as a payoff, never presented as a real Spotify import.</p>
+      <button class="button primary full-button" data-finish-onboarding>Enter my Tether</button>
+    </section></div>`, "identity-reveal");
+  }
+
+  function finishOnboarding() {
+    closeOverlay();
+    render();
+    if (!isKnownMinor(state.account.birthDate) && (setupDraft.intent === "dating" || setupDraft.intent === "both")) {
+      state.ui.view = "people";
+      state.ui.peopleMode = "dating";
+      save();
+      render();
+      openDatingSettings();
+      showToast("Your main profile is ready. Dating still needs its own opt-in.");
+    } else {
+      navigate("you");
+      showToast("Your Tether is ready.");
+    }
   }
 
   function advanceOnboarding() {
@@ -1502,6 +1764,10 @@
     if (name) setupDraft.displayName = name;
     if (city) setupDraft.city = city;
     if (birthDate !== undefined) setupDraft.birthDate = birthDate;
+    if (setupStep === 0 && isKnownMinor(setupDraft.birthDate)) {
+      setupDraft.intent = "friends";
+      showToast("Dating will stay hidden. The rest of Tether is open to you.");
+    }
     if (setupStep < 4) {
       setupStep += 1;
       renderOnboarding();
@@ -1509,19 +1775,7 @@
     }
     state.account = { ...state.account, ...setupDraft, claimed: true };
     save();
-    closeOverlay();
-    render();
-    if (setupDraft.intent === "dating" || setupDraft.intent === "both") {
-      state.ui.view = "people";
-      state.ui.peopleMode = "dating";
-      save();
-      render();
-      openDatingSettings(true);
-      showToast("Your main profile is ready. Dating still needs its own opt-in.");
-    } else {
-      navigate("you");
-      showToast("Your Tether is ready.");
-    }
+    openIdentityReveal();
   }
 
   function handleClick(event) {
@@ -1531,6 +1785,10 @@
     if (button.dataset.nav) return navigate(button.dataset.nav);
     if (button.dataset.navJump) return navigate(button.dataset.navJump);
     if (button.dataset.mode) {
+      if (button.dataset.mode === "dating" && isKnownMinor()) {
+        showToast("Dating is not part of accounts under 18.");
+        return;
+      }
       state.ui.peopleMode = button.dataset.mode;
       if (button.dataset.mode === "dating") state.ui.view = "people";
       save();
@@ -1641,7 +1899,7 @@
         time: "Now",
         object: trackFromReviewChoice(choice),
         rating,
-        text: escapeHTML(text),
+        text,
         quote: "",
         replies: 0,
       });
@@ -1659,6 +1917,7 @@
       return;
     }
     if (button.dataset.setupIntent) {
+      if ((button.dataset.setupIntent === "dating" || button.dataset.setupIntent === "both") && isKnownMinor(setupDraft.birthDate)) return;
       setupDraft.intent = button.dataset.setupIntent;
       renderOnboarding();
       return;
@@ -1669,12 +1928,15 @@
       return;
     }
     if (button.dataset.setupNext !== undefined) return advanceOnboarding();
+    if (button.dataset.finishOnboarding !== undefined) return finishOnboarding();
     if (button.dataset.setupBack !== undefined) {
       setupStep = Math.max(0, setupStep - 1);
       renderOnboarding();
       return;
     }
     if (button.dataset.datingSetupNext !== undefined) return advanceDatingSetup();
+    if (button.dataset.saveDatingPreferences !== undefined) return saveDatingPreferences();
+    if (button.dataset.saveTaste !== undefined) return saveTasteEditor();
     if (button.dataset.datingSetupBack !== undefined) {
       collectDatingSetup();
       datingSetupStep = Math.max(0, datingSetupStep - 1);
@@ -1729,13 +1991,13 @@
         if (event.target === button) closeOverlay();
         break;
       case "knocks": openKnocks(); break;
-      case "new-chat": showToast("Choose a person to start a conversation."); break;
-      case "dating-setup": openDatingSettings(true); break;
-      case "dating-settings": openDatingSettings(false); break;
-      case "dating-filters": openFilters(); break;
-      case "edit-profile":
-      case "edit-taste":
-      case "profile-menu": openOnboarding(); break;
+      case "new-chat": openNewChat(); break;
+      case "dating-setup": openDatingSettings(); break;
+      case "dating-settings":
+      case "dating-filters": openDatingPreferences(); break;
+      case "edit-profile": openOnboarding(); break;
+      case "edit-taste": openTasteEditor(); break;
+      case "profile-menu": openAbout(); break;
       case "all-memories": showToast("All memories are kept in chronological order."); break;
       case "pause": showToast("Playback paused for everyone."); break;
       case "next": showToast("The next track will begin together."); break;
@@ -1770,6 +2032,31 @@
           showToast("Profile portrait updated.");
         })
         .catch(error => showToast(error.message));
+    }
+  }
+
+  function handleInput(event) {
+    if (event.target.matches('[name="datingAgeMin"], [name="datingAgeMax"]')) {
+      const minInput = $('[name="datingAgeMin"]');
+      const maxInput = $('[name="datingAgeMax"]');
+      if (!minInput || !maxInput) return;
+      let ageMin = Number(minInput.value);
+      let ageMax = Number(maxInput.value);
+      if (event.target === minInput && ageMin > ageMax) {
+        ageMax = ageMin;
+        maxInput.value = String(ageMax);
+      } else if (event.target === maxInput && ageMax < ageMin) {
+        ageMin = ageMax;
+        minInput.value = String(ageMin);
+      }
+      datingDraft.profile.ageMin = ageMin;
+      datingDraft.profile.ageMax = ageMax;
+      const readout = $("[data-age-readout]");
+      const sentence = readout?.previousElementSibling;
+      if (readout) readout.textContent = `${ageMin}–${ageMax}`;
+      if (sentence) sentence.textContent = `People ${ageMin} through ${ageMax}`;
+      minInput.setAttribute("aria-valuetext", `Youngest age ${ageMin}`);
+      maxInput.setAttribute("aria-valuetext", `Oldest age ${ageMax}`);
     }
   }
 
@@ -1819,6 +2106,7 @@
   function install() {
     render();
     loadCityPopulation();
+    startPresenceHeartbeat();
     document.addEventListener("error", event => {
       if (!(event.target instanceof HTMLImageElement) || event.target.dataset.fallbackApplied) return;
       event.target.dataset.fallbackApplied = "true";
@@ -1829,6 +2117,7 @@
     }, true);
     document.addEventListener("click", handleClick);
     document.addEventListener("change", handleChange);
+    document.addEventListener("input", handleInput);
     document.addEventListener("submit", handleSubmit);
     document.addEventListener("pointerdown", event => {
       const button = event.target.closest("[data-pulse]");
