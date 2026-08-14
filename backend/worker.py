@@ -73,6 +73,8 @@ async def check_capsules_job():
                         unlock = True
                         lock_msg = "The skies have opened up. Your Time Capsule is ready."
                 else:
+                    if not capsule.track_id:
+                        continue
                     features = await get_audio_features(capsule.track_id)
                     valence = features.get("valence", 0.5)
                     acousticness = features.get("acousticness", 0.5)
