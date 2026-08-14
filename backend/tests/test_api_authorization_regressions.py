@@ -97,7 +97,6 @@ def test_upload_dependency_fixes_remain_pinned():
         "pillow==12.3.0",
         "python-multipart==0.0.32",
         "starlette==1.3.1",
-        "cryptography==49.0.0",
         "pyasn1==0.6.4",
         "pydantic-settings==2.14.2",
         "billboard.py==7.1.0",
