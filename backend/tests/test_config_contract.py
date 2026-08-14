@@ -62,6 +62,20 @@ def test_runtime_rejects_invalid_positive_bounds(field, value, message):
         settings.validate_runtime()
 
 
+def test_weather_key_supports_both_historical_environment_names():
+    backend_name = Settings(SECRET_KEY="x" * 40, WEATHER_API_KEY="backend-key")
+    root_name = Settings(SECRET_KEY="x" * 40, OPENWEATHER_API_KEY="root-key")
+    both = Settings(
+        SECRET_KEY="x" * 40,
+        WEATHER_API_KEY="preferred-key",
+        OPENWEATHER_API_KEY="fallback-key",
+    )
+
+    assert backend_name.weather_api_key == "backend-key"
+    assert root_name.weather_api_key == "root-key"
+    assert both.weather_api_key == "preferred-key"
+
+
 def test_production_accepts_explicit_safe_settings():
     settings = Settings(
         ENVIRONMENT="production",
