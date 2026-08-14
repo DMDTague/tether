@@ -42,7 +42,7 @@ from ws.manager import manager
 
 logger = logging.getLogger(__name__)
 settings = get_settings()
-BUILD_VERSION = "0.6.1-dating-integrity"
+BUILD_VERSION = "0.6.2-runtime-hardening"
 
 
 @asynccontextmanager
@@ -50,8 +50,13 @@ async def lifespan(app: FastAPI):
     settings.validate_runtime()
     await init_db()
     await presence_store.connect_redis(settings.REDIS_URL)
-    setup_scheduler()
-    yield
+    scheduler = setup_scheduler()
+    try:
+        yield
+    finally:
+        if scheduler.running:
+            scheduler.shutdown(wait=False)
+        await engine.dispose()
 
 
 app = FastAPI(
