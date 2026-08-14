@@ -11,7 +11,6 @@ cffi==2.0.0
 charset-normalizer==3.4.7
 click==8.4.0
 colorthief==0.2.1
-cryptography==49.0.0
 ecdsa==0.19.2
 exponent_server_sdk==2.2.0
 fastapi==0.136.1
