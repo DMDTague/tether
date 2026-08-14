@@ -9,6 +9,7 @@ from config import get_settings
 logger = logging.getLogger(__name__)
 settings = get_settings()
 _OPENWEATHER_URL = "https://api.openweathermap.org/data/2.5/weather"
+_RAIN_CONDITIONS = {"Rain", "Drizzle", "Thunderstorm"}
 
 
 async def _fetch_weather(params: dict[str, object]) -> dict | None:
@@ -35,23 +36,29 @@ async def _fetch_weather(params: dict[str, object]) -> dict | None:
     return None
 
 
-async def check_if_raining(city: str) -> bool:
-    """Return whether OpenWeather reports rain, drizzle, or a thunderstorm."""
-    normalized_city = city.strip()
-    if not normalized_city:
-        return False
-
-    data = await _fetch_weather({"q": normalized_city})
+def _is_raining(data: dict | None) -> bool:
     if not data:
         return False
-
     conditions = data.get("weather")
     if not isinstance(conditions, list) or not conditions:
         return False
     first = conditions[0]
-    if not isinstance(first, dict):
+    return isinstance(first, dict) and first.get("main") in _RAIN_CONDITIONS
+
+
+async def check_if_raining(city: str) -> bool:
+    """Return whether OpenWeather reports rain for a city."""
+    normalized_city = city.strip()
+    if not normalized_city:
         return False
-    return first.get("main") in {"Rain", "Drizzle", "Thunderstorm"}
+    return _is_raining(await _fetch_weather({"q": normalized_city}))
+
+
+async def check_if_raining_at(lat: float, lon: float) -> bool:
+    """Return rain state for validated coordinates, including coarse cell centers."""
+    if not (-90 <= lat <= 90 and -180 <= lon <= 180):
+        return False
+    return _is_raining(await _fetch_weather({"lat": lat, "lon": lon}))
 
 
 async def get_temperature(lat: float, lon: float) -> float | None:
