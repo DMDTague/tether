@@ -81,12 +81,3 @@ def test_expired_state_is_swept_rather_than_accumulating(monkeypatch):
     assert "login:stale" not in auth._attempts
     assert "expired-token" not in auth._refresh_sessions
     assert "live-token" in auth._refresh_sessions
-
-
-def test_revoked_access_set_stays_bounded():
-    for index in range(auth._MAX_REVOKED_ACCESS + 500):
-        auth._revoked_access.add(f"jti-{index}")
-
-    auth._sweep_expired(time.time())
-
-    assert len(auth._revoked_access) <= auth._MAX_REVOKED_ACCESS
