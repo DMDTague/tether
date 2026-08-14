@@ -19,7 +19,6 @@ class Settings(BaseSettings):
     WEATHER_API_KEY: str = ""
     SPOTIFY_CLIENT_ID: str = ""
     SPOTIFY_CLIENT_SECRET: str = ""
-    OPENWEATHER_API_KEY: str = ""
     CORS_ORIGINS: str = "http://localhost:3000,http://localhost:19006,http://127.0.0.1:3000,http://127.0.0.1:19006"
     ALLOW_ANONYMOUS_WS: bool = False
     # Only honour X-Forwarded-For when the API actually sits behind a proxy you control.
@@ -54,12 +53,31 @@ class Settings(BaseSettings):
             "local-development-only-change-me",
             "tether-dev-secret-key-change-in-production",
         }
-        if self.SECRET_KEY in unsafe or len(self.SECRET_KEY) < 32:
-            raise RuntimeError("Tether requires a unique SECRET_KEY of at least 32 characters.")
+        if self.SECRET_KEY in unsafe or len(self.SECRET_KEY.encode("utf-8")) < 32:
+            raise RuntimeError("Tether requires a unique SECRET_KEY of at least 32 bytes.")
+        # python-jose currently brings an unfixed ECDSA advisory into the dependency
+        # tree. Tether deliberately uses HMAC only; make that an enforced invariant
+        # instead of a convention that an environment variable can silently break.
+        if self.ALGORITHM != "HS256":
+            raise RuntimeError("Tether currently requires ALGORITHM=HS256.")
         if not self.cors_origins or "*" in self.cors_origins:
             raise RuntimeError("Tether requires an explicit CORS_ORIGINS allowlist.")
         if self.ALLOW_ANONYMOUS_WS:
             raise RuntimeError("Anonymous WebSocket connections are disabled.")
+        if self.ACCESS_TOKEN_EXPIRE_MINUTES <= 0:
+            raise RuntimeError("ACCESS_TOKEN_EXPIRE_MINUTES must be positive.")
+        if self.REFRESH_TOKEN_EXPIRE_DAYS <= 0:
+            raise RuntimeError("REFRESH_TOKEN_EXPIRE_DAYS must be positive.")
+        if self.WS_TICKET_EXPIRE_SECONDS <= 0:
+            raise RuntimeError("WS_TICKET_EXPIRE_SECONDS must be positive.")
+        if self.AUTH_RATE_LIMIT_ATTEMPTS <= 0 or self.AUTH_RATE_LIMIT_WINDOW_SECONDS <= 0:
+            raise RuntimeError("Authentication rate-limit settings must be positive.")
+        if not (0 < self.LOCATION_CELL_DEGREES <= 1):
+            raise RuntimeError("LOCATION_CELL_DEGREES must be greater than 0 and at most 1.")
+        if self.LOCATION_TTL_SECONDS <= 0 or self.PULSE_COOLDOWN_SECONDS <= 0:
+            raise RuntimeError("Location and pulse TTL settings must be positive.")
+        if self.MAX_WS_MESSAGE_BYTES <= 0:
+            raise RuntimeError("MAX_WS_MESSAGE_BYTES must be positive.")
 
 
 @lru_cache()
