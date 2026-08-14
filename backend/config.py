@@ -16,7 +16,10 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60
     REFRESH_TOKEN_EXPIRE_DAYS: int = 30
     WS_TICKET_EXPIRE_SECONDS: int = 60
+    # WEATHER_API_KEY is used by Render/backend examples; OPENWEATHER_API_KEY is
+    # retained because the repo-level example historically documented that name.
     WEATHER_API_KEY: str = ""
+    OPENWEATHER_API_KEY: str = ""
     SPOTIFY_CLIENT_ID: str = ""
     SPOTIFY_CLIENT_SECRET: str = ""
     CORS_ORIGINS: str = "http://localhost:3000,http://localhost:19006,http://127.0.0.1:3000,http://127.0.0.1:19006"
@@ -45,6 +48,11 @@ class Settings(BaseSettings):
     @property
     def telemetry_admin_user_ids(self) -> set[str]:
         return {value.strip() for value in self.TELEMETRY_ADMIN_USER_IDS.split(",") if value.strip()}
+
+    @property
+    def weather_api_key(self) -> str:
+        """Resolve the two historically documented OpenWeather variable names."""
+        return self.WEATHER_API_KEY or self.OPENWEATHER_API_KEY
 
     def validate_runtime(self) -> None:
         unsafe = {
