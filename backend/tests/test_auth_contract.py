@@ -1,7 +1,18 @@
+import time
+
+import pytest
+from fastapi import HTTPException
 from jose import jwt
 
 from config import get_settings
-from routes.auth import create_token_pair, create_ws_ticket, decode_access_token, decode_ws_ticket
+from routes import auth
+from routes.auth import (
+    LogoutRequest,
+    create_token_pair,
+    create_ws_ticket,
+    decode_access_token,
+    decode_ws_ticket,
+)
 
 
 def test_access_and_refresh_tokens_have_distinct_types():
@@ -22,3 +33,27 @@ def test_websocket_ticket_is_short_lived_and_scoped():
     assert payload["typ"] == "websocket"
     assert expires_in == settings.WS_TICKET_EXPIRE_SECONDS
     assert decode_ws_ticket(ticket) == "user-2"
+
+
+def test_dummy_password_hash_uses_registration_cost():
+    cost = int(auth._DUMMY_PASSWORD_HASH.split(b"$")[2])
+    assert cost == auth._BCRYPT_ROUNDS == 12
+
+
+@pytest.mark.asyncio
+async def test_logout_revokes_access_token_until_its_expiry():
+    settings = get_settings()
+    access, _, _ = create_token_pair("user-logout")
+    payload = jwt.decode(access, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
+    token_id = str(payload["jti"])
+
+    await auth.logout(LogoutRequest(), token=access)
+
+    with pytest.raises(HTTPException) as exc_info:
+        decode_access_token(access)
+    assert exc_info.value.status_code == 401
+    assert auth._revoked_access[token_id] == float(payload["exp"])
+
+    auth._revoked_access[token_id] = time.time() - 1
+    auth._sweep_expired(time.time())
+    assert token_id not in auth._revoked_access
